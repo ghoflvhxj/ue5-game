@@ -9,8 +9,9 @@
 
 
 UCLASS()
-class CLIENT_API AMGameModeInGame : public AGameMode
+class TESTGAME_API AMGameModeInGame : public AGameMode
 {
 	GENERATED_BODY()
 
+	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
 };
