@@ -108,6 +108,10 @@ private:
 		{
 			Logic(Component);
 		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Component Logic Failed"));
+		}
 	}
 
 // 기능 테스트
@@ -121,7 +125,7 @@ public:
 
 // 상태 델레게이트
 public:
-	void AddVitalityChangedDelegate(UObject* Object, const TFunctionRef<void(uint8 OldValue, uint8 NewValue)>& Function);
+	void AddVitalityChangedDelegate(UObject* Object, const TFunction<void(uint8 OldValue, uint8 NewValue)> Function);
 // 상태
 public:
 	template <typename T>

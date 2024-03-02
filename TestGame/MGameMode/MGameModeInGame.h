@@ -13,5 +13,7 @@ class TESTGAME_API AMGameModeInGame : public AGameMode
 {
 	GENERATED_BODY()
 
+public:
+	virtual void BeginPlay() override;
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
 };

@@ -99,10 +99,10 @@ private:
 	int GetStateIndex(UEnum* EnumClass);
 
 public:
-	void AddOnStateChangeDelegate(TSubclassOf<UStateClass> StateClass, UObject* Object, const TFunctionRef<void(uint8, uint8)> Func);
+	void AddOnStateChangeDelegate(TSubclassOf<UStateClass> StateClass, UObject* Object, const TFunction<void(uint8, uint8)> Func);
 	TMap<UEnum*, FOnStateChangedDelegate> StateChangedDelegatesMap;
 private:
-	void AddOnStateChangeDelegateInternal(UEnum* StateEnumClass, UObject* Object, const TFunctionRef<void(uint8, uint8)> Func);
+	void AddOnStateChangeDelegateInternal(UEnum* StateEnumClass, UObject* Object, const TFunction<void(uint8, uint8)> Func);
 protected:
 	UPROPERTY(BlueprintAssignable, BlueprintReadWrite)
 	FOnStateChangedDynamicDelegate OnStatChanged;

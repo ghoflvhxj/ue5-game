@@ -192,7 +192,7 @@ void AMCharacter::TestFunction3()
 
 }
 
-void AMCharacter::AddVitalityChangedDelegate(UObject* Object, const TFunctionRef<void(uint8, uint8)>& Function)
+void AMCharacter::AddVitalityChangedDelegate(UObject* Object, const TFunction<void(uint8, uint8)> Function)
 {
 	CompoentLogic<UStateComponent>([Object, Function](UStateComponent* StateMachineComponent){
 		StateMachineComponent->AddOnStateChangeDelegate(UCharacterVitalityState::StaticClass(), Object, Function);

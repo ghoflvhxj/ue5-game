@@ -85,12 +85,12 @@ int UStateComponent::GetStateIndex(UEnum* EnumClass)
 	return StateEnumClassToIndexMap.FindRef(EnumClass) - 1;
 }
 
-void UStateComponent::AddOnStateChangeDelegate(TSubclassOf<UStateClass> StateClass, UObject* Object, const TFunctionRef<void(uint8, uint8)> Func)
+void UStateComponent::AddOnStateChangeDelegate(TSubclassOf<UStateClass> StateClass, UObject* Object, const TFunction<void(uint8, uint8)> Func)
 {
 	AddOnStateChangeDelegateInternal(StateClass->GetDefaultObject<UStateClass>()->EnumClass, Object, Func);
 }
 
-void UStateComponent::AddOnStateChangeDelegateInternal(UEnum* StateEnumClass, UObject* Object, const TFunctionRef<void(uint8, uint8)> Func)
+void UStateComponent::AddOnStateChangeDelegateInternal(UEnum* StateEnumClass, UObject* Object, const TFunction<void(uint8, uint8)> Func)
 {
 	//FOnStateChangedDelegate Delegate = FOnStateChangedDelegate::AddUObject(Object, Func);
 	StateChangedDelegatesMap.FindOrAdd(StateEnumClass).AddWeakLambda(Object, Func);
