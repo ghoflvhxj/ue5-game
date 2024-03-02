@@ -18,8 +18,6 @@ void AMGameStateInGame::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 void AMGameStateInGame::Multicast_GameOver_Implementation()
 {
 	GameOverDynamicDelegate.Broadcast();
-
-	UE_LOG(LogTemp, Warning, TEXT("GAME OVER!!!"));
 }
 
 void AMGameStateInGame::TryNextRound()
