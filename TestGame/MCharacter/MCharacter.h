@@ -21,6 +21,7 @@
 class UMBattleComponent;
 class UMAttributeSet;
 class UMAbilityDataAsset;
+class UStateComponent;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnAttackedDelegate);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDieDelegate);
@@ -86,10 +87,6 @@ public:
 
 // 컴포넌트
 protected:
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	UCameraComponent* CameraComponent;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	USpringArmComponent* SpringArmComponent;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	USphereComponent* SearchComponent;
 protected:
@@ -97,6 +94,8 @@ protected:
 	UAbilitySystemComponent* AbilitySystemComponent;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	UMBattleComponent* BattleComponent;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UStateComponent* StateComponent;
 public:
 	UPrimitiveComponent* GetComponentForAttackSearch();
 private:
@@ -157,10 +156,6 @@ public:
 	UFUNCTION(BlueprintCallable)
 	bool IsWeaponEquipped() const;
 
-// 카메라
-public:
-	UFUNCTION(BlueprintCallable)
-	void Test(float MeshDeltaYaw);
 
 // 이동
 public:
