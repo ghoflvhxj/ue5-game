@@ -31,7 +31,7 @@ public:
 };
 
 UCLASS()
-class UMAbilityDataAsset : public UDataAsset
+class TESTGAME_API UMAbilityDataAsset : public UDataAsset
 {
 	GENERATED_BODY()
 
@@ -58,7 +58,7 @@ public:
 class AMCharacter;
 
 USTRUCT(BlueprintType)
-struct FTableRow_MCharacterToAbilitySet : public FTableRowBase
+struct TESTGAME_API FTableRow_MCharacterToAbilitySet : public FTableRowBase
 {
 	GENERATED_BODY()
 
@@ -69,4 +69,10 @@ struct FTableRow_MCharacterToAbilitySet : public FTableRowBase
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TMap<TSubclassOf<AMCharacter>, UMAbilityDataAsset*> MCharacterClassToAbilityDataAsset;
+};
+
+UCLASS()
+class TESTGAME_API UAttackAbility : public UGameplayAbility
+{
+	GENERATED_BODY()
 };
