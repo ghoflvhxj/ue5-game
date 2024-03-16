@@ -26,7 +26,10 @@ void AMGameModeInGame::SetPlayerDefaults(APawn* PlayerPawn)
 		ensure(IsValid(GameStateInGame));
 
 		APlayerState* PlayerState = PlayerCharacter->GetPlayerState();
-		ensure(IsValid(PlayerState));
+		if (IsValid(PlayerState) == false)
+		{
+			return;
+		}
 
 		switch (NewValue)
 		{
