@@ -41,15 +41,16 @@ void AMCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
-	AttributeSet = const_cast<UMAttributeSet*>(AbilitySystemComponent->GetSet<UMAttributeSet>());
-
 	if (IsValid(AbilitySystemComponent))
 	{
+		// AbilitySet
 		if (IsValid(AbilitySetData))
 		{
 			AbilitySetData->GiveAbilities(AbilitySystemComponent, AblitiyHandles);
 		}
 
+		// AttributeSet
+		AttributeSet = const_cast<UMAttributeSet*>(AbilitySystemComponent->GetSet<UMAttributeSet>());
 		if (IsValid(AttributeSet))
 		{
 			AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(AttributeSet->GetHealthAttribute()).AddUObject(this, &AMCharacter::OnHealthChanged);
@@ -151,7 +152,7 @@ void AMCharacter::OnHealthChanged(const FOnAttributeChangeData& AttributeChangeD
 		return;
 	}
 
-	if (FMath::IsNearlyEqual(AttributeChangeData.NewValue, 0.f))
+	if (FMath::IsNearlyEqual(FMath::Max(AttributeChangeData.NewValue, 0.f), 0.f))
 	{
 		if (UStateComponent* StateMachineComponent = GetComponentByClass<UStateComponent>())
 		{
@@ -162,8 +163,8 @@ void AMCharacter::OnHealthChanged(const FOnAttributeChangeData& AttributeChangeD
 	}
 
 	float MaxHealth = AbilitySystemComponent->GetNumericAttributeBase(AttributeSet->GetMaxHealthAttribute());
-	CreateFloaterWidget(AttributeChangeData.OldValue, AttributeChangeData.NewValue);
-	UpdateHealthbarWidget();
+	//CreateFloaterWidget(AttributeChangeData.OldValue, AttributeChangeData.NewValue); // 체력이 
+	//UpdateHealthbarWidget(); // HUD를 가져와서 작업되도록 변경하기
 
 	OnHealthChangedDelegate.Broadcast(AttributeChangeData.OldValue, AttributeChangeData.NewValue, MaxHealth);
 }

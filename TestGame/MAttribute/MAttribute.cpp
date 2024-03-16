@@ -6,28 +6,14 @@
 
 void UMAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
 {
-	if (APawn* Character = Cast<APawn>(GetOwningActor()))
-	{
-		if (const UAbilitySystemComponent* AbilitySystemComponent = Character->FindComponentByClass<UAbilitySystemComponent>())
-		{
-			if (AbilitySystemComponent->DefaultStartingData.IsEmpty())
-			{
+	Super::PreAttributeBaseChange(Attribute, NewValue);
+}
 
-			}
+void UMAttributeSet::PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue)
+{
+	Super::PostAttributeChange(Attribute, OldValue, NewValue);
 
-			// 첫번쨰 꺼만 찾는 거는 약간 이상한듯
-			if (AbilitySystemComponent->DefaultStartingData[0].DefaultStartingTable != nullptr && AbilitySystemComponent->DefaultStartingData[0].Attributes != nullptr)
-			{
-				FString RowName = AbilitySystemComponent->DefaultStartingData[0].Attributes->GetName() + TEXT(".") + Attribute.GetName();
-				FAttributeMetaData* AttributeMetaData = AbilitySystemComponent->DefaultStartingData[0].DefaultStartingTable->FindRow<FAttributeMetaData>(FName(RowName), TEXT(""));
-
-				if (AttributeMetaData != nullptr)
-				{
-					NewValue = FMath::Clamp(NewValue, AttributeMetaData->MinValue, AttributeMetaData->MaxValue);
-				}
-			}
-		}
-	}
+	UE_LOG(LogTemp, Warning, TEXT("%s %f->%f"), *Attribute.GetName(), OldValue, NewValue);
 }
 
 //void UMAttributeSet::AddAttributeChangedDelegate(UObject* Object, FOnAttributeChangedDelegate Functor)

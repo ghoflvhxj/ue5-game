@@ -7,6 +7,8 @@
 
 #include "MGameStateInGame.generated.h"
 
+class APlayerState;
+
 UENUM()
 enum class ERoundStartCondition : uint8
 {
@@ -43,8 +45,21 @@ public:
 	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const override;
 
+	// 부활
+public:
+	bool IsRevivalable();
+	bool RevivePlayer(APlayerState* PlayerState);
+protected:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	int32 PlayerLife;
+
 	// 게임 오버
 public:
+	void AddDeadPlayer(APlayerState* DeadPlayerState);
+	void RemoveDeadPlayer(APlayerState* DeadPlayerState);
+	bool IsAllPlayerDead();
+	
+	TArray<APlayerState*> DeadPlayerArray;
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_GameOver();
 public:

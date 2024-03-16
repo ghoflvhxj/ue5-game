@@ -1,5 +1,6 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 #include "MGameStateInGame.h"
+#include "GameFramework/PlayerState.h"
 
 void AMGameStateInGame::BeginPlay()
 {
@@ -13,6 +14,38 @@ void AMGameStateInGame::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AMGameStateInGame, RoundInfo);
+}
+
+void AMGameStateInGame::AddDeadPlayer(APlayerState* DeadPlayerState)
+{
+	DeadPlayerArray.AddUnique(DeadPlayerState);
+}
+
+void AMGameStateInGame::RemoveDeadPlayer(APlayerState* DeadPlayerState)
+{
+	DeadPlayerArray.Remove(DeadPlayerState);
+}
+
+bool AMGameStateInGame::IsAllPlayerDead()
+{
+	return PlayerArray.Num() == DeadPlayerArray.Num();
+}
+
+bool AMGameStateInGame::IsRevivalable()
+{
+	return PlayerLife > 0;
+}
+
+bool AMGameStateInGame::RevivePlayer(APlayerState* PlayerState)
+{
+	if (IsRevivalable() == false)
+	{
+		return false;
+	}
+
+	--PlayerLife;
+	RemoveDeadPlayer(PlayerState);
+	return true;
 }
 
 void AMGameStateInGame::Multicast_GameOver_Implementation()

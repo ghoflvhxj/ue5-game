@@ -7,6 +7,7 @@
 
 #include "MGameModeInGame.generated.h"
 
+class APlayerState;
 
 UCLASS()
 class TESTGAME_API AMGameModeInGame : public AGameMode
@@ -16,4 +17,6 @@ class TESTGAME_API AMGameModeInGame : public AGameMode
 public:
 	virtual void BeginPlay() override;
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
+	virtual void RestartPlayer(AController* NewPlayer) override;
+	virtual bool PlayerCanRestart_Implementation(APlayerController* Player) override;
 };
