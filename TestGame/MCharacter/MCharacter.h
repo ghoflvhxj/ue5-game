@@ -156,12 +156,10 @@ public:
 	UFUNCTION(BlueprintCallable)
 	bool IsWeaponEquipped() const;
 
-
 // 이동
 public:
-	void MoveToMouseLocation();
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	FVector Direction;
+	UFUNCTION(BlueprintCallable)
+	void MoveToLocation();
 
 // 상호작용
 public:

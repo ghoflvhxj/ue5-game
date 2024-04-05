@@ -13,11 +13,11 @@
 #include "TestGame/Mcharacter/MCharacterEnum.h"
 
 #include "NavigationSystem.h"
-
+#include "Blueprint/AIBlueprintHelperLibrary.h"
+#include "AbilitySystemBlueprintLibrary.h"
 #include "OnlineSubsystem.h"
 //#include "OnlineSubsystemUtils.h"
 
-#include "Blueprint/AIBlueprintHelperLibrary.h"
 
 // Sets default values
 AMCharacter::AMCharacter()
@@ -227,31 +227,24 @@ bool AMCharacter::IsWeaponEquipped() const
 	return true;
 }
 
-void AMCharacter::MoveToMouseLocation()
+void AMCharacter::MoveToLocation()
 {
-	if (IsDead())
+	if (IsValid(AbilitySystemComponent) == false)
 	{
 		return;
 	}
 
-	if (APlayerController* PlayerController = GetController<APlayerController>())
-	{
-		if (UNavigationSystemV1* NavigationSystem = UNavigationSystemV1::GetNavigationSystem(this))
-		{
-			FHitResult HitResult;
-			PlayerController->GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
+	FGameplayEventData GameplayEventData;
+	GameplayEventData.EventTag = FGameplayTag::RequestGameplayTag(FName("Event.Move"));
+	GameplayEventData.Instigator = this;
+	GameplayEventData.Target = this;
 
-			if (HitResult.bBlockingHit)
-			{
-				UAIBlueprintHelperLibrary::SimpleMoveToLocation(GetController(), HitResult.Location );
 
-				Direction = GetVelocity();
-				Direction.Normalize();
+	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, FGameplayTag::RequestGameplayTag(FName("Event.Move")), GameplayEventData);
+	//FGameplayAbilitySpecHandle AbilityHandle;
+	//
 
-				DrawDebugSphere(GetWorld(), HitResult.Location, 16.f, 16, FColor::Red, false, 5.f);
-			}
-		}
-	}
+	//AbilitySystemComponent->TriggerAbilityFromGameplayEvent()
 }
 
 bool AMCharacter::IsInteractableActor(AActor* OtherActor)

@@ -72,7 +72,9 @@ struct TESTGAME_API FTableRow_MCharacterToAbilitySet : public FTableRowBase
 };
 
 UCLASS()
-class TESTGAME_API UAttackAbility : public UGameplayAbility
+class TESTGAME_API UGameplayAbility_MoveToMouse : public UGameplayAbility
 {
 	GENERATED_BODY()
+
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 };
