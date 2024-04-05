@@ -5,6 +5,8 @@
 
 #include "MHud.generated.h"
 
+class UUserWidget;
+
 UCLASS()
 class TESTGAME_API AMHud : public AHUD
 {
@@ -12,6 +14,35 @@ class TESTGAME_API AMHud : public AHUD
 
 public:
 	virtual void BeginPlay() override;
+
+protected:
+	void CreateHUDWidget();
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TSubclassOf<UUserWidget> HUDWidgetClass;
+	UPROPERTY(BlueprintReadOnly)
+	UUserWidget* HUDWidget;
+
+protected:
+	void ShowWidget();
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float ShowTimer;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	bool ShowHudWidgetAfterCreation = true;
+};
+
+UCLASS()
+class TESTGAME_API AMHudInGame : public AMHud
+{
+	GENERATED_BODY()
+
+public:
+	AMHudInGame();
+
+public:
+	virtual void BeginPlay() override;
+protected:
+	UFUNCTION(BlueprintImplementableEvent)
+	void BeginPlayWithCharacter(APawn* OldPawn, APawn* NewPawn);
 
 public:
 	UFUNCTION(BlueprintNativeEvent)
