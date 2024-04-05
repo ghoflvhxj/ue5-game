@@ -3,14 +3,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/GameMode.h"
+#include "MGameMode.h"
 
 #include "MGameModeInGame.generated.h"
 
 class APlayerState;
 
 UCLASS()
-class TESTGAME_API AMGameModeInGame : public AGameMode
+class TESTGAME_API AMGameModeInGame : public AMGameMode
 {
 	GENERATED_BODY()
 

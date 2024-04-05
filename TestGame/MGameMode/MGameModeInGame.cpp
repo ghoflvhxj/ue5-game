@@ -35,12 +35,12 @@ void AMGameModeInGame::SetPlayerDefaults(APawn* PlayerPawn)
 		{
 		case (uint8)ECharacterVitalityState::Die:
 		{
-			PlayerState->GetPlayerController()->UnPossess();
-
+			APlayerController* PlayerController = PlayerState->GetPlayerController();
 			GameStateInGame->AddDeadPlayer(PlayerState);
-			if (PlayerCanRestart(PlayerState->GetPlayerController()))
+			if (PlayerCanRestart(PlayerController))
 			{
-				RestartPlayer(PlayerState->GetPlayerController());
+				PlayerController->UnPossess();
+				RestartPlayer(PlayerController);
 			}
 			else
 			{
