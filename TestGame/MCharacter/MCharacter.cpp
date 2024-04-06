@@ -54,6 +54,7 @@ void AMCharacter::BeginPlay()
 		if (IsValid(AttributeSet))
 		{
 			AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(AttributeSet->GetHealthAttribute()).AddUObject(this, &AMCharacter::OnHealthChanged);
+			GetCharacterMovement()->MaxWalkSpeed = AbilitySystemComponent->GetNumericAttributeBase(AttributeSet->GetMoveSpeedAttribute());
 		}
 	}
 }

@@ -35,6 +35,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FGameplayAttributeData MoveSpeed;
 
-	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, MaxHealth)
-	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, Health)
+	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, MaxHealth);
+	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, Health);
+	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, MoveSpeed);
 };
