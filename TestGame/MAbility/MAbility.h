@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
+#include "TestGame/TestGame.h"
 #include "GameplayTags/Classes/GameplayTagContainer.h"
 #include "Engine/Classes/Engine/DataAsset.h"
 #include "GameplayAbilities/Public/AbilitySystemComponent.h"
@@ -28,6 +28,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TSubclassOf<UGameplayAbility> GameplayAbilityClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bActivate;
 };
 
 UCLASS()
@@ -41,11 +44,24 @@ public:
 
 	void GiveAbilities(UAbilitySystemComponent* AbilitySystemComponent, TArray<FGameplayAbilitySpecHandle>& Handles) const
 	{
-		checkf(IsValid(AbilitySystemComponent), TEXT("ASC is null"));
+		checkf(IsValid(AbilitySystemComponent), TEXT("ASC Invalid."));
+		AActor* Actor = AbilitySystemComponent->GetOwner<AActor>();
+		checkf(IsValid(Actor), TEXT("ASC Invalid."));
 
 		for (const FMAbilityBindInfo& BindInfo : Abilities)
 		{
-			if (BindInfo.GameplayAbilityClass)
+			if (IsValid(BindInfo.GameplayAbilityClass) == false)
+			{
+				UE_LOG(LogGAS, Warning, TEXT("Trying give Invalid AbilityClass to %s"), *(Actor->GetActorNameOrLabel()));
+				continue;
+			}
+
+			if (BindInfo.bActivate)
+			{
+				FGameplayAbilitySpec AbilitySpec = FGameplayAbilitySpec(BindInfo.GameplayAbilityClass);
+				Handles.Add(AbilitySystemComponent->GiveAbilityAndActivateOnce(AbilitySpec));
+			}
+			else
 			{
 				Handles.Add(AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(BindInfo.GameplayAbilityClass)));
 			}
