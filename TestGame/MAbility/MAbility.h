@@ -76,5 +76,10 @@ class TESTGAME_API UGameplayAbility_MoveToMouse : public UGameplayAbility
 {
 	GENERATED_BODY()
 
+protected:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+
+public:
+	UFUNCTION()
+	void MoveToMouse(FGameplayEventData Payload);
 };

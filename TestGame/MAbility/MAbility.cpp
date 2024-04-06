@@ -4,6 +4,7 @@
 
 #include "MAbility.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
+#include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MPlayerController/MPlayerController.h"
 
@@ -11,7 +12,17 @@ void UGameplayAbility_MoveToMouse::ActivateAbility(const FGameplayAbilitySpecHan
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
-	AMCharacter* MCharacter = Cast<AMCharacter>(ActorInfo->OwnerActor);
+	UAbilityTask_WaitGameplayEvent* WaitTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, FGameplayTag::RequestGameplayTag(FName("Event.Move")));
+
+	WaitTask->EventReceived.AddDynamic(this, &UGameplayAbility_MoveToMouse::MoveToMouse);
+	WaitTask->Activate();
+
+	UE_LOG(LogTemp, Warning, TEXT("ghoflvhxj UGameplayAbility_MoveToMouse::ActivateAbility"));
+}
+
+void UGameplayAbility_MoveToMouse::MoveToMouse(FGameplayEventData Payload)
+{
+	AMCharacter* MCharacter = Cast<AMCharacter>(Payload.Target);
 	if (IsValid(MCharacter) == false)
 	{
 		return;
@@ -22,7 +33,4 @@ void UGameplayAbility_MoveToMouse::ActivateAbility(const FGameplayAbilitySpecHan
 	{
 		UAIBlueprintHelperLibrary::SimpleMoveToLocation(PlayerController, PlayerController->GetMouseWorldPosition());
 	}
-
-
-	UE_LOG(LogTemp, Warning, TEXT("ghoflvhxj UGameplayAbility_MoveToMouse::ActivateAbility"));
 }
