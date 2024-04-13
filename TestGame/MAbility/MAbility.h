@@ -59,7 +59,9 @@ public:
 			if (BindInfo.bActivate)
 			{
 				FGameplayAbilitySpec AbilitySpec = FGameplayAbilitySpec(BindInfo.GameplayAbilityClass);
-				Handles.Add(AbilitySystemComponent->GiveAbilityAndActivateOnce(AbilitySpec));
+				FGameplayEventData EventData;
+				EventData.EventTag = BindInfo.GameplayTag;
+				Handles.Add(AbilitySystemComponent->GiveAbilityAndActivateOnce(AbilitySpec, &EventData));
 			}
 			else
 			{
@@ -98,4 +100,22 @@ protected:
 public:
 	UFUNCTION()
 	void MoveToMouse(FGameplayEventData Payload);
+};
+
+UCLASS()
+class TESTGAME_API UGameplayAbility_BasicAttack : public UGameplayAbility
+{
+	GENERATED_BODY()
+
+protected:
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+
+public:
+	UFUNCTION()
+	void BasicAttack(FGameplayEventData Payload);
+	UFUNCTION()
+	void Test();
+
+private:
+	class UAbilityTask_PlayMontageAndWait* PlayMontageTask;
 };
