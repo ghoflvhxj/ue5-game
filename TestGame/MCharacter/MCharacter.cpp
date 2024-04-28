@@ -29,6 +29,7 @@ AMCharacter::AMCharacter()
 	SearchComponent->SetupAttachment(GetRootComponent());
 
 	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
+	AbilitySystemComponent->SetIsReplicated(true);
 
 	BattleComponent = CreateDefaultSubobject<UMBattleComponent>(TEXT("BattleComponent"));
 
@@ -41,8 +42,10 @@ void AMCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (IsValid(AbilitySystemComponent))
+	if (IsValid(AbilitySystemComponent) && GetWorld()->IsNetMode(NM_Client) == false)
 	{
+		AbilitySystemComponent->SetAvatarActor(this);
+
 		// AbilitySet
 		if (IsValid(AbilitySetData))
 		{
@@ -112,6 +115,11 @@ float AMCharacter::TakeDamage(float Damage, struct FDamageEvent const& DamageEve
 	//UE_LOG(LogTemp, Warning, TEXT("Take Damaged!!! HP:%f"), NewHealth);
 
 	return Damage;
+}
+
+UAbilitySystemComponent* AMCharacter::GetAbilitySystemComponent() const
+{
+	return AbilitySystemComponent;
 }
 
 FGameplayAbilitySpecHandle AMCharacter::GetAbiltiyTypeHandle(EAbilityType AbilityType)

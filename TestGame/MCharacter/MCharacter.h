@@ -15,6 +15,7 @@
 //#include "GameplayAbilities/Public/GameplayEffectTypes.h"
 
 #include "TestGame/Interface/InteractInterface.h"
+#include "AbilitySystemInterface.h"
 
 #include "MCharacter.generated.h"
 
@@ -28,7 +29,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDieDelegate);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnHealthChangedDelegate, float, OldValue, float, NewValue, float, MaxValue);
 
 UCLASS()
-class TESTGAME_API AMCharacter : public ACharacter
+class TESTGAME_API AMCharacter : public ACharacter, public IAbilitySystemInterface
 {
 	/*--------------------------------------------------------------
 	캐릭터는 상태를 관리합니다.
@@ -54,6 +55,8 @@ public:
 	virtual void NotifyActorBeginOverlap(AActor* OtherActor) override;
 	virtual void NotifyActorEndOverlap(AActor* OtherActor) override;
 	virtual float TakeDamage(float Damage, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
+
+	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
 // GAS Ability
 public:

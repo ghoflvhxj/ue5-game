@@ -69,8 +69,6 @@ public:
 			}
 		}
 	}
-
-	//TSubclassOf<UGameplayAbility> GetAbilityClassBy
 };
 
 class AMCharacter;
