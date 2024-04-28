@@ -50,9 +50,12 @@ void UGameplayAbility_BasicAttack::ActivateAbility(const FGameplayAbilitySpecHan
 
 	//PlayMontageTask->OnCancelled.AddDynamic(this, &UGameplayAbility_BasicAttack::Test);
 
-	UAbilityTask_WaitGameplayEvent* WaitTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, FGameplayTag::RequestGameplayTag(FName("Character.Action.BasicAttack")));
-	WaitTask->EventReceived.AddDynamic(this, &UGameplayAbility_BasicAttack::BasicAttack);
-	WaitTask->Activate();
+	if (IsValid(WaitTask) == false)
+	{
+		WaitTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, TriggerEventData->EventTag);
+		WaitTask->EventReceived.AddDynamic(this, &UGameplayAbility_CharacterAction::Action);
+		WaitTask->ReadyForActivation();
+	}
 }
 
 void UGameplayAbility_BasicAttack::BasicAttack(FGameplayEventData Payload)

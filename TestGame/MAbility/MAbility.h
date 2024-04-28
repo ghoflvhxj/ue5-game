@@ -116,6 +116,7 @@ public:
 	UFUNCTION()
 	void Test();
 
-private:
+protected:
+	class UAbilityTask_WaitGameplayEvent* WaitTask;
 	class UAbilityTask_PlayMontageAndWait* PlayMontageTask;
 };
