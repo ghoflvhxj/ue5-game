@@ -103,20 +103,35 @@ public:
 };
 
 UCLASS()
-class TESTGAME_API UGameplayAbility_BasicAttack : public UGameplayAbility
+class TESTGAME_API UGameplayAbility_CharacterAction : public UGameplayAbility
 {
 	GENERATED_BODY()
+
+public:
+	UGameplayAbility_CharacterAction();
 
 protected:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 
 public:
 	UFUNCTION()
-	void BasicAttack(FGameplayEventData Payload);
-	UFUNCTION()
-	void Test();
+	virtual void Action(FGameplayEventData Payload);
 
 protected:
 	class UAbilityTask_WaitGameplayEvent* WaitTask;
 	class UAbilityTask_PlayMontageAndWait* PlayMontageTask;
+};
+
+UCLASS()
+class TESTGAME_API UGameplayAbility_BasicAttack : public UGameplayAbility_CharacterAction
+{
+	GENERATED_BODY()
+
+public:
+	virtual void Action(FGameplayEventData Payload) override;
+
+private:
+	void StartBasicAttack(const FGameplayEventData& Payload);
+	void CancelBasicAttack();
+	void EndBasicAttack();
 };

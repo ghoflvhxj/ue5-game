@@ -10,6 +10,7 @@
 #include "GameFramework/Pawn.h"
 #include "NavigationSystem.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
+#include "TestGame/MAttribute/MAttribute.h"
 
 void UGameplayAbility_MoveToMouse::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
@@ -44,11 +45,21 @@ void UGameplayAbility_MoveToMouse::MoveToMouse(FGameplayEventData Payload)
 	}
 }
 
-void UGameplayAbility_BasicAttack::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+UGameplayAbility_CharacterAction::UGameplayAbility_CharacterAction()
+{
+	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
+	//InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
+}
+
+void UGameplayAbility_CharacterAction::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
-	//PlayMontageTask->OnCancelled.AddDynamic(this, &UGameplayAbility_BasicAttack::Test);
+	if (TriggerEventData == nullptr)
+	{
+		return;
+	}
 
 	if (IsValid(WaitTask) == false)
 	{
@@ -58,21 +69,50 @@ void UGameplayAbility_BasicAttack::ActivateAbility(const FGameplayAbilitySpecHan
 	}
 }
 
-void UGameplayAbility_BasicAttack::BasicAttack(FGameplayEventData Payload)
+void UGameplayAbility_CharacterAction::Action(FGameplayEventData Payload)
 {
-	UE_LOG(LogTemp, Warning, TEXT("ghoflvhxj %s"), *FString(__FUNCTION__));
+	UE_LOG(LogTemp, Warning, TEXT("%s"), *FString(__FUNCTION__));
+}
 
-	if (IsValid(Payload.Instigator))
+void UGameplayAbility_BasicAttack::Action(FGameplayEventData Payload)
+{
+	Super::Action(Payload);
+	StartBasicAttack(Payload);
+}
+
+void UGameplayAbility_BasicAttack::StartBasicAttack(const FGameplayEventData& Payload)
+{
+	if (IsValid(Payload.Instigator) == false)
 	{
-		if (UMActionComponent* ActionComponent = Payload.Instigator->GetComponentByClass<UMActionComponent>())
-		{
-			PlayMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, FName(TEXT("Attack")), ActionComponent->GetActionMontage(Payload.EventTag));
-			PlayMontageTask->Activate();
-		}
+		return;
+	}
+
+	if (IsValid(PlayMontageTask) && PlayMontageTask->IsFinished() == false)
+	{
+		return;
+	}
+
+	float BasicAttackSpeed = 1.f;
+
+	if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
+	{
+		bool bAttributeFound = false;
+		BasicAttackSpeed = AbilitySystemComponent->GetGameplayAttributeValue(UMAttributeSet::GetBasicAttackSpeedAttribute(), bAttributeFound);
+	}
+
+	if (UMActionComponent* ActionComponent = Payload.Instigator->GetComponentByClass<UMActionComponent>())
+	{
+		PlayMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, FName(TEXT("Attack")), ActionComponent->GetActionMontage(Payload.EventTag), BasicAttackSpeed);
+		PlayMontageTask->ReadyForActivation();
 	}
 }
 
-void UGameplayAbility_BasicAttack::Test()
+void UGameplayAbility_BasicAttack::CancelBasicAttack()
 {
-	UE_LOG(LogTemp, Warning, TEXT("ghoflvhxj Cancel"));
+	CancelAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true);
+}
+
+void UGameplayAbility_BasicAttack::EndBasicAttack()
+{
+	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 }
