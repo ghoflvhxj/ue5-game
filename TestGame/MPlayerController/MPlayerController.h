@@ -35,6 +35,10 @@ public:
 	UFUNCTION(BlueprintCallable)
 	FVector GetMouseWorldPosition();
 
+public:
+	UFUNCTION(Server, Reliable)
+	void Server_PawnMoveToLocation(const FVector& Location);
+
 protected:
 	UFUNCTION(BlueprintNativeEvent)
 	void AddInputMappingContext();

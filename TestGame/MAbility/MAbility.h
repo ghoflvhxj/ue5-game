@@ -42,7 +42,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FMAbilityBindInfo> Abilities;
 
-	void GiveAbilities(UAbilitySystemComponent* AbilitySystemComponent, TArray<FGameplayAbilitySpecHandle>& Handles) const
+	void GiveAbilities(UAbilitySystemComponent* AbilitySystemComponent, TMap<FGameplayTag, FGameplayAbilitySpecHandle>& Handles) const
 	{
 		checkf(IsValid(AbilitySystemComponent), TEXT("ASC Invalid."));
 		AActor* Actor = AbilitySystemComponent->GetOwner<AActor>();
@@ -56,16 +56,12 @@ public:
 				continue;
 			}
 
-			if (BindInfo.bActivate)
+			FGameplayTag GameplayTag = BindInfo.GameplayTag;
+
+			Handles.Emplace(GameplayTag, AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(BindInfo.GameplayAbilityClass)));
+			if (BindInfo.bActivate && Handles.Contains(GameplayTag))
 			{
-				FGameplayAbilitySpec AbilitySpec = FGameplayAbilitySpec(BindInfo.GameplayAbilityClass);
-				FGameplayEventData EventData;
-				EventData.EventTag = BindInfo.GameplayTag;
-				Handles.Add(AbilitySystemComponent->GiveAbilityAndActivateOnce(AbilitySpec, &EventData));
-			}
-			else
-			{
-				Handles.Add(AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(BindInfo.GameplayAbilityClass)));
+				AbilitySystemComponent->TryActivateAbility(Handles[GameplayTag], true);
 			}
 		}
 	}
@@ -91,6 +87,9 @@ UCLASS()
 class TESTGAME_API UGameplayAbility_MoveToMouse : public UGameplayAbility
 {
 	GENERATED_BODY()
+
+public:
+	UGameplayAbility_MoveToMouse();
 
 protected:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;

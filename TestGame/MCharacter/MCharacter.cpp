@@ -164,6 +164,12 @@ void AMCharacter::EffectTest()
 	AbilitySystemComponent->ApplyGameplayEffectToSelf(NewEffect, 0, EffectContextHandle);
 }
 
+void AMCharacter::OnMoveSpeedChanged(const FOnAttributeChangeData& AttributeChangeData)
+{
+	UE_LOG(LogTemp, Warning, TEXT("%s"), *FString(__FUNCTION__));
+	GetCharacterMovement()->MaxWalkSpeed = AttributeChangeData.NewValue;
+}
+
 void AMCharacter::OnHealthChanged(const FOnAttributeChangeData& AttributeChangeData)
 {
 	if (IsValid(AbilitySystemComponent) == false)
@@ -254,16 +260,12 @@ void AMCharacter::MoveToLocation()
 	}
 
 	FGameplayEventData GameplayEventData;
-	GameplayEventData.EventTag = FGameplayTag::RequestGameplayTag(FName("Event.Move"));
+	GameplayEventData.EventTag = FGameplayTag::RequestGameplayTag(FName("Character.Action.Move"));
 	GameplayEventData.Instigator = this;
 	GameplayEventData.Target = this;
 
-
-	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, FGameplayTag::RequestGameplayTag(FName("Event.Move")), GameplayEventData);
-	//FGameplayAbilitySpecHandle AbilityHandle;
-	//
-
-	//AbilitySystemComponent->TriggerAbilityFromGameplayEvent()
+	UE_LOG(LogTemp, Warning, TEXT("ghoflvhxj Send Move Event"));
+	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, FGameplayTag::RequestGameplayTag(FName("Character.Action.Move")), GameplayEventData);
 }
 
 bool AMCharacter::IsInteractableActor(AActor* OtherActor)

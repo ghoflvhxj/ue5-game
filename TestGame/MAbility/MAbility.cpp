@@ -12,14 +12,30 @@
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "TestGame/MAttribute/MAttribute.h"
 
+// 임시
+#include "TestGame/MPlayerController/MPlayerController.h"
+
+UGameplayAbility_MoveToMouse::UGameplayAbility_MoveToMouse()
+{
+	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalOnly;
+
+	FAbilityTriggerData TriggerData;
+	TriggerData.TriggerTag = FGameplayTag::RequestGameplayTag(FName("Character.Action.Move"));
+	AbilityTriggers.Add(TriggerData);
+}
+
 void UGameplayAbility_MoveToMouse::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
-	UAbilityTask_WaitGameplayEvent* WaitTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, FGameplayTag::RequestGameplayTag(FName("Event.Move")));
+	UAbilityTask_WaitGameplayEvent* WaitTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, FGameplayTag::RequestGameplayTag(FName("Character.Action.Move")));
 
-	WaitTask->EventReceived.AddDynamic(this, &UGameplayAbility_MoveToMouse::MoveToMouse);
-	WaitTask->Activate();
+	if (IsValid(WaitTask))
+	{
+		WaitTask->EventReceived.AddDynamic(this, &UGameplayAbility_MoveToMouse::MoveToMouse);
+		WaitTask->ReadyForActivation();
+	}
 }
 
 void UGameplayAbility_MoveToMouse::MoveToMouse(FGameplayEventData Payload)
@@ -29,19 +45,26 @@ void UGameplayAbility_MoveToMouse::MoveToMouse(FGameplayEventData Payload)
 	{
 		return;
 	}
-
-	if (APlayerController* Controller = Cast<APlayerController>(Pawn->GetController()))
+	
+	if (AMPlayerControllerInGame* Controller = Cast<AMPlayerControllerInGame>(Pawn->GetController()))
 	{
-		FVector TargetLocation = FVector::ZeroVector;
 		if (UNavigationSystemV1* NavigationSystem = UNavigationSystemV1::GetNavigationSystem(this))
 		{
 			FHitResult HitResult;
 			Controller->GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
 
+			FVector TargetLocation = Pawn->GetActorLocation();
 			TargetLocation = HitResult.bBlockingHit ? HitResult.Location : FVector::ZeroVector;
-		}
 
-		UAIBlueprintHelperLibrary::SimpleMoveToLocation(Controller, TargetLocation);
+			if (NavigationSystem->NeedsLoadForClient())
+			{
+				UAIBlueprintHelperLibrary::SimpleMoveToLocation(Controller, TargetLocation);
+			}
+			else
+			{
+				Controller->Server_PawnMoveToLocation(TargetLocation);
+			}
+		}
 	}
 }
 

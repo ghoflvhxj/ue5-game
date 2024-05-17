@@ -30,6 +30,12 @@ FVector AMPlayerControllerInGame::GetMouseWorldPosition()
 	return HitResult.bBlockingHit ? HitResult.Location : FVector::ZeroVector;
 }
 
+
+void AMPlayerControllerInGame::Server_PawnMoveToLocation_Implementation(const FVector& Location)
+{
+	UAIBlueprintHelperLibrary::SimpleMoveToLocation(this, Location);
+}
+
 void AMPlayerControllerInGame::AddInputMappingContext_Implementation()
 {
 	UE_LOG(LogTemp, Warning, TEXT("%s"), *FString(__FUNCTION__));

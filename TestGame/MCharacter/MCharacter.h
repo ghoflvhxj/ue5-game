@@ -55,6 +55,7 @@ public:
 	virtual void NotifyActorBeginOverlap(AActor* OtherActor) override;
 	virtual void NotifyActorEndOverlap(AActor* OtherActor) override;
 	virtual float TakeDamage(float Damage, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
+	virtual void PostInitializeComponents() override;
 
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
@@ -64,29 +65,28 @@ public:
 	UMAbilityDataAsset* AbilitySetData;
 
 	UPROPERTY(BlueprintReadOnly)
-	TArray<FGameplayAbilitySpecHandle> AblitiyHandles;
+	TMap<FGameplayTag, FGameplayAbilitySpecHandle> AblitiyHandles;
 
-	UFUNCTION(BlueprintPure)
-	FGameplayAbilitySpecHandle GetAbiltiyTypeHandle(EAbilityType AbilityType);
+	//UFUNCTION(BlueprintPure)
+	//FGameplayAbilitySpecHandle GetAbiltiyTypeHandle(EAbilityType AbilityType);
 
 // GAS Attribute
 public:
-	UPROPERTY(BlueprintReadOnly)
-	UMAttributeSet* AttributeSet;
-
 	UFUNCTION(BlueprintCallable)
 	void EffectTest();
-
-	virtual void OnHealthChanged(const FOnAttributeChangeData& AttributeChangeData);
-
 	UFUNCTION(BlueprintImplementableEvent)
 	void CreateFloaterWidget(float OldValue, float NewValue);
-
 	UFUNCTION(BlueprintImplementableEvent)
 	void UpdateHealthbarWidget();
-
+public:
+	virtual void OnMoveSpeedChanged(const FOnAttributeChangeData& AttributeChangeData);
+	virtual void OnHealthChanged(const FOnAttributeChangeData& AttributeChangeData);
+protected:
 	UPROPERTY(BlueprintAssignable, BlueprintReadOnly)
 	FOnHealthChangedDelegate OnHealthChangedDelegate;
+protected:
+	UPROPERTY(BlueprintReadOnly)
+	UMAttributeSet* AttributeSet;
 
 // 컴포넌트
 protected:
