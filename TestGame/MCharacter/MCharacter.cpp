@@ -41,25 +41,6 @@ AMCharacter::AMCharacter()
 void AMCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-
-	if (IsValid(AbilitySystemComponent) && GetWorld()->IsNetMode(NM_Client) == false)
-	{
-		AbilitySystemComponent->SetAvatarActor(this);
-
-		// AbilitySet
-		if (IsValid(AbilitySetData))
-		{
-			AbilitySetData->GiveAbilities(AbilitySystemComponent, AblitiyHandles);
-		}
-
-		// AttributeSet
-		AttributeSet = const_cast<UMAttributeSet*>(AbilitySystemComponent->GetSet<UMAttributeSet>());
-		if (IsValid(AttributeSet))
-		{
-			AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(AttributeSet->GetHealthAttribute()).AddUObject(this, &AMCharacter::OnHealthChanged);
-			GetCharacterMovement()->MaxWalkSpeed = AbilitySystemComponent->GetNumericAttributeBase(AttributeSet->GetMoveSpeedAttribute());
-		}
-	}
 }
 
 // Called every frame
@@ -117,22 +98,42 @@ float AMCharacter::TakeDamage(float Damage, struct FDamageEvent const& DamageEve
 	return Damage;
 }
 
-UAbilitySystemComponent* AMCharacter::GetAbilitySystemComponent() const
+void AMCharacter::PostInitializeComponents()
 {
-	return AbilitySystemComponent;
-}
+	Super::PostInitializeComponents();
 
-FGameplayAbilitySpecHandle AMCharacter::GetAbiltiyTypeHandle(EAbilityType AbilityType)
-{
-	if (AblitiyHandles.IsValidIndex((int)AbilityType))
+	if (IsValid(AbilitySystemComponent))
 	{
-		return AblitiyHandles[(int)AbilityType];
+		bool bHasAuthority = HasAuthority();
+		if (bHasAuthority)
+		{
+			AbilitySystemComponent->SetAvatarActor(this);
+		}
+
+		// AbilitySet
+		if (IsValid(AbilitySetData))
+		{
+			AbilitySetData->GiveAbilities(AbilitySystemComponent, AblitiyHandles);
+		}
+
+		// AttributeSet
+		//if (bHasAuthority)
+		{
+			AttributeSet = const_cast<UMAttributeSet*>(AbilitySystemComponent->GetSet<UMAttributeSet>());
+			AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(AttributeSet->GetHealthAttribute()).AddUObject(this, &AMCharacter::OnHealthChanged);
+			UE_LOG(LogTemp, Warning, TEXT("MoveSpeed: %f"), AbilitySystemComponent->GetNumericAttributeBase(AttributeSet->GetMoveSpeedAttribute()));
+
+			GetCharacterMovement()->MaxWalkSpeed = AbilitySystemComponent->GetNumericAttributeBase(AttributeSet->GetMoveSpeedAttribute());
+			AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(AttributeSet->GetMoveSpeedAttribute()).AddWeakLambda(this, [this](const FOnAttributeChangeData & AttributeChangeData) {
+				GetCharacterMovement()->MaxWalkSpeed = AbilitySystemComponent->GetNumericAttributeBase(AttributeSet->GetMoveSpeedAttribute());
+			});
+		}
 	}
-	
-	UE_LOG(LogGAS, Warning, TEXT("유효하지 않은 어빌리티 인덱스:%d"), (int)AbilityType);
+}
 
 	return FGameplayAbilitySpecHandle();
 }
+
 
 void AMCharacter::EffectTest()
 {
