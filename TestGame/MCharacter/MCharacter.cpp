@@ -41,17 +41,6 @@ AMCharacter::AMCharacter()
 void AMCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-
-	if (IsValid(AbilitySystemComponent))
-	{
-		AttributeSet = const_cast<UMAttributeSet*>(AbilitySystemComponent->GetSet<UMAttributeSet>());
-		UE_LOG(LogTemp, Warning, TEXT("%s MoveSpeed: %f"), *FString(__FUNCTION__), AbilitySystemComponent->GetNumericAttributeBase(AttributeSet->GetMoveSpeedAttribute()));
-
-		for (UAttributeSet* ASet : AbilitySystemComponent->GetSpawnedAttributes())
-		{
-			UE_LOG(LogTemp, Warning, TEXT("%s AttributeSet: %s"), *FString(__FUNCTION__), *ASet->GetName());
-		}
-	}
 }
 
 // Called every frame
@@ -115,39 +104,43 @@ void AMCharacter::PostInitializeComponents()
 
 	if (IsValid(AbilitySystemComponent))
 	{
-		bool bHasAuthority = HasAuthority();
-		if (bHasAuthority)
+		if (HasAuthority())
 		{
 			AbilitySystemComponent->SetAvatarActor(this);
-		}
 
-		// AbilitySet
-		if (IsValid(AbilitySetData))
-		{
-			AbilitySetData->GiveAbilities(AbilitySystemComponent, AblitiyHandles);
-		}
-
-		// AttributeSet
-		//if (bHasAuthority)
-		{
-			AttributeSet = const_cast<UMAttributeSet*>(AbilitySystemComponent->GetSet<UMAttributeSet>());
-			AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(AttributeSet->GetHealthAttribute()).AddUObject(this, &AMCharacter::OnHealthChanged);
-			UE_LOG(LogTemp, Warning, TEXT("%s MoveSpeed: %f"), *FString(__FUNCTION__), AbilitySystemComponent->GetNumericAttributeBase(AttributeSet->GetMoveSpeedAttribute()));
-
-			for (UAttributeSet* ASet : AbilitySystemComponent->GetSpawnedAttributes())
+			if (IsValid(AbilitySetData))
 			{
-				UE_LOG(LogTemp, Warning, TEXT("%s AttributeSet: %s"), *FString(__FUNCTION__), *ASet->GetName());
+				AbilitySetData->GiveAbilities(AbilitySystemComponent, AblitiyHandles);
 			}
+		}
+		else
+		{
 
-			GetCharacterMovement()->MaxWalkSpeed = AbilitySystemComponent->GetNumericAttributeBase(AttributeSet->GetMoveSpeedAttribute());
-			AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(AttributeSet->GetMoveSpeedAttribute()).AddWeakLambda(this, [this](const FOnAttributeChangeData & AttributeChangeData) {
-				GetCharacterMovement()->MaxWalkSpeed = AbilitySystemComponent->GetNumericAttributeBase(AttributeSet->GetMoveSpeedAttribute());
-			});
+		}
+
+		AttributeSet = const_cast<UMAttributeSet*>(AbilitySystemComponent->GetSet<UMAttributeSet>());
+		if (ensure(AttributeSet))
+		{
+			AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(AttributeSet->GetMoveSpeedAttribute()).AddUObject(this, &AMCharacter::OnMoveSpeedChanged);
+
+			TArray<FGameplayAttribute> Attributes;
+			AbilitySystemComponent->GetAllAttributes(Attributes);
+
+			for (FGameplayAttribute& Attribute : Attributes)
+			{
+				float AttributeValue = Attribute.GetNumericValue(AttributeSet);
+
+				FOnAttributeChangeData AttributeChangeData;
+				AttributeChangeData.Attribute = Attribute;
+				AttributeChangeData.OldValue = AttributeValue;
+				AttributeChangeData.NewValue = AttributeValue;
+
+				AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(Attribute).Broadcast(AttributeChangeData);
+			}
 		}
 	}
 }
 
-	return FGameplayAbilitySpecHandle();
 }
 
 
