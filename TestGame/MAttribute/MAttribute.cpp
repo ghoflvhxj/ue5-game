@@ -3,6 +3,7 @@
 #pragma once
 
 #include "MAttribute.h"
+#include "Net/UnrealNetwork.h"
 
 void UMAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
 {
@@ -14,6 +15,18 @@ void UMAttributeSet::PostAttributeChange(const FGameplayAttribute& Attribute, fl
 	Super::PostAttributeChange(Attribute, OldValue, NewValue);
 
 	UE_LOG(LogTemp, Warning, TEXT("%s %f->%f"), *Attribute.GetName(), OldValue, NewValue);
+}
+
+void UMAttributeSet::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty> & OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(UMAttributeSet, MaxHealth);
+	DOREPLIFETIME(UMAttributeSet, Health);
+	DOREPLIFETIME(UMAttributeSet, AttackPower);
+	DOREPLIFETIME(UMAttributeSet, SkillPower);
+	DOREPLIFETIME(UMAttributeSet, MoveSpeed);
+	DOREPLIFETIME(UMAttributeSet, BasicAttackSpeed);
 }
 
 //void UMAttributeSet::AddAttributeChangedDelegate(UObject* Object, FOnAttributeChangedDelegate Functor)
