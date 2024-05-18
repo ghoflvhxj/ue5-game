@@ -31,6 +31,8 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bActivate;
+
+	// server, client, all
 };
 
 UCLASS()

@@ -73,6 +73,10 @@ UGameplayAbility_CharacterAction::UGameplayAbility_CharacterAction()
 	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
 	//InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
+
+	FAbilityTriggerData TriggerData;
+	TriggerData.TriggerTag = FGameplayTag::RequestGameplayTag(FName("Character.Action.BasicAttack"));
+	AbilityTriggers.Add(TriggerData);
 }
 
 void UGameplayAbility_CharacterAction::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
