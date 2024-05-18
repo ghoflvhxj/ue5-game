@@ -83,12 +83,7 @@ void UGameplayAbility_CharacterAction::ActivateAbility(const FGameplayAbilitySpe
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
-	if (TriggerEventData == nullptr)
-	{
-		return;
-	}
-
-	if (IsValid(WaitTask) == false)
+	if (IsValid(WaitTask) == false && TriggerEventData != nullptr)
 	{
 		WaitTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, TriggerEventData->EventTag);
 		WaitTask->EventReceived.AddDynamic(this, &UGameplayAbility_CharacterAction::Action);
