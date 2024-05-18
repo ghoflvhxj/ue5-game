@@ -252,6 +252,22 @@ bool AMCharacter::IsWeaponEquipped() const
 	return true;
 }
 
+void AMCharacter::BasicAttack()
+{
+	if (IsValid(AbilitySystemComponent) == false)
+	{
+		return;
+	}
+
+	FGameplayEventData GameplayEventData;
+	GameplayEventData.EventTag = FGameplayTag::RequestGameplayTag(FName("Character.Action.BasicAttack"));
+	GameplayEventData.Instigator = this;
+	GameplayEventData.Target = this;
+
+	UE_LOG(LogTemp, Warning, TEXT("ghoflvhxj BasicAttack Event"));
+	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, FGameplayTag::RequestGameplayTag(FName("Character.Action.BasicAttack")), GameplayEventData);
+}
+
 void AMCharacter::MoveToLocation()
 {
 	if (IsValid(AbilitySystemComponent) == false)

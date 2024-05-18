@@ -159,6 +159,10 @@ public:
 	UFUNCTION(BlueprintCallable)
 	bool IsWeaponEquipped() const;
 
+// 공격
+	UFUNCTION(BlueprintCallable)
+	void BasicAttack();
+
 // 이동
 public:
 	UFUNCTION(BlueprintCallable)
