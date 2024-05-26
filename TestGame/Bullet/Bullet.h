@@ -9,7 +9,6 @@
 
 class UAbilitySystemComponent;
 class UProjectileMovementComponent;
-class UMBattleComponent;
 class UGameplayEffect;
 
 UCLASS()
@@ -53,8 +52,6 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void StartProjectile(const FVector& NewDirection, float NewDamage);
 protected:
-	//bool bFired = false;
-	bool bProjectileable = false;
 	FVector Direction;
 
 protected:

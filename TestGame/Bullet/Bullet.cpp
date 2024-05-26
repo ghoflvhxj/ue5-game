@@ -43,7 +43,7 @@ void ABullet::NotifyActorBeginOverlap(AActor* OtherActor)
 		return;
 	}
 
-	if (APawn* OwnerPawn = Cast<APawn>(GetOwner()))
+	if (APawn* OwnerPawn = Cast<APawn>(GetOwner()))	
 	{
 		UGameplayStatics::ApplyDamage(OtherActor, Damage, OwnerPawn->GetController(), OwnerPawn, UDamageType::StaticClass());
 	}
@@ -68,6 +68,10 @@ void ABullet::GiveEffects(UAbilitySystemComponent* AbilitySystemComponent)
 	GameplayEffects.Reset();
 
 	OwnerASC = AbilitySystemComponent;
+	if (OwnerASC.IsValid())
+	{
+		Damage = OwnerASC->GetNumericAttribute(UMAttributeSet::GetAttackPowerAttribute());
+	}
 
 	// 임시 작업
 	// 이후에 최대 체력 감소, 마나 감소, 시전 시간 증가 등 다양한 이펙트를 추가할 수 있는 구조로 변경
@@ -77,7 +81,7 @@ void ABullet::GiveEffects(UAbilitySystemComponent* AbilitySystemComponent)
 		NewHealthAddEffect->DurationPolicy = EGameplayEffectDurationType::Instant;
 
 		FGameplayModifierInfo ModifierInfo;
-		ModifierInfo.Attribute = FGameplayAttribute(UMAttributeSet::StaticClass()->FindPropertyByName("Health"));
+		ModifierInfo.Attribute = UMAttributeSet::GetHealthAttribute();
 		ModifierInfo.ModifierOp = EGameplayModOp::Additive;
 		ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(-Damage);
 		NewHealthAddEffect->Modifiers.Add(ModifierInfo);
@@ -99,7 +103,7 @@ void ABullet::Tick(float DeltaSeconds)
 void ABullet::StartProjectile(const FVector& NewDirection, float NewDamage)
 {
 	Direction = NewDirection;
-	Damage = NewDamage;
+	//Damage = NewDamage;
 
 	ProjectileComponent->Activate();
 	ProjectileComponent->Velocity = Direction * ProjectileComponent->InitialSpeed;
