@@ -76,7 +76,7 @@ private:
 
 // 상태 얻기
 public:
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintPure)
 	bool GetState(TSubclassOf<UStateClass> StateClass, uint8& OutStateValue);
 public:
 	template <typename T>

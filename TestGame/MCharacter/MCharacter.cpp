@@ -122,6 +122,7 @@ void AMCharacter::PostInitializeComponents()
 		if (ensure(AttributeSet))
 		{
 			AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(AttributeSet->GetMoveSpeedAttribute()).AddUObject(this, &AMCharacter::OnMoveSpeedChanged);
+			AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(AttributeSet->GetHealthAttribute()).AddUObject(this, &AMCharacter::OnHealthChanged);
 
 			TArray<FGameplayAttribute> Attributes;
 			AbilitySystemComponent->GetAllAttributes(Attributes);

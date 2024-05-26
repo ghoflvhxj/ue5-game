@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
-
 #pragma once
+
+DEFINE_LOG_CATEGORY(LogAttribute);
 
 #include "MAttribute.h"
 #include "Net/UnrealNetwork.h"
@@ -14,7 +15,7 @@ void UMAttributeSet::PostAttributeChange(const FGameplayAttribute& Attribute, fl
 {
 	Super::PostAttributeChange(Attribute, OldValue, NewValue);
 
-	UE_LOG(LogTemp, Warning, TEXT("%s %f->%f"), *Attribute.GetName(), OldValue, NewValue);
+	UE_LOG(LogAttribute, Warning, TEXT("%s, AttributeChanged:%s %f->%f"), GetOwningActor() ? *GetOwningActor()->GetName() : *FString(TEXT("None")), *Attribute.GetName(), OldValue, NewValue);
 }
 
 void UMAttributeSet::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty> & OutLifetimeProps) const

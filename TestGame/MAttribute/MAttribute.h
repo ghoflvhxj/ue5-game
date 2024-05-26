@@ -8,6 +8,8 @@
 #include "GameplayAbilities/Public/AbilitySystemComponent.h"
 #include "MAttribute.generated.h"
 
+DECLARE_LOG_CATEGORY_EXTERN(LogAttribute, Log, All);
+
 class UGameplayAbility;
 struct FGameplayTag;
 
@@ -42,6 +44,8 @@ public:
 
 	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, MaxHealth);
 	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, Health);
+	GAMEPLAYATTRIBUTE_VALUE_SETTER(Health);
+	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, AttackPower);
 	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, MoveSpeed);
 	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, BasicAttackSpeed);
 };
