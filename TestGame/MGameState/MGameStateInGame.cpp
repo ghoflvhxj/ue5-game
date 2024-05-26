@@ -5,8 +5,6 @@
 void AMGameStateInGame::BeginPlay()
 {
 	Super::BeginPlay();
-
-	TryNextRound();
 }
 
 void AMGameStateInGame::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -14,6 +12,23 @@ void AMGameStateInGame::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AMGameStateInGame, RoundInfo);
+}
+
+void AMGameStateInGame::HandleMatchHasStarted()
+{
+	Super::HandleMatchHasStarted();
+
+	if (HasAuthority())
+	{
+		TryNextRound();
+	}
+}
+
+void AMGameStateInGame::OnRep_MatchState()
+{
+	Super::OnRep_MatchState();
+
+	OnMatchStateChanegdEvent.Broadcast(GetMatchState());
 }
 
 void AMGameStateInGame::AddDeadPlayer(APlayerState* DeadPlayerState)
@@ -73,7 +88,10 @@ void AMGameStateInGame::TryNextRound()
 
 void AMGameStateInGame::NextRount()
 {
-	check(RoundTable);
+	if (IsValid(RoundTable) == false)
+	{
+		return;
+	}
 
 	TArray<FName> RoundRowNames = RoundTable->GetRowNames();
 

@@ -44,7 +44,10 @@ class TESTGAME_API AMGameStateInGame : public AGameState
 public:
 	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const override;
-
+	virtual void HandleMatchHasStarted() override;
+	virtual void OnRep_MatchState() override;
+	DECLARE_EVENT_OneParam(AMGameStateInGame, FOnMatchStateChangedEvent, FName);
+	FOnMatchStateChangedEvent OnMatchStateChanegdEvent;
 	// 부활
 public:
 	bool IsRevivalable();
