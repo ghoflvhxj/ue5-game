@@ -10,7 +10,7 @@
 class APlayerState;
 
 UENUM()
-enum class ERoundStartCondition : uint8
+enum class EClearType : uint8
 {
 	None,
 	AllMonsterDead,
@@ -22,24 +22,22 @@ struct FRoundInfo : public FTableRowBase
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	ERoundStartCondition StartCondition;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	float Timer;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TArray<TSubclassOf<AMCharacter>> MonsterClassArray;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	int32 SpawnNum;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 Round;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	EClearType ClearType;
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnRoundStartedDynamicDelegate);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnGameOverDynamicDelegate);
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnRoundStartedDelegate, FRoundInfo);
 
 UCLASS()
 class TESTGAME_API AMGameStateInGame : public AGameState
 {
 	GENERATED_BODY()
+
+public:
+	AMGameStateInGame();
 
 public:
 	virtual void BeginPlay() override;
@@ -48,6 +46,11 @@ public:
 	virtual void OnRep_MatchState() override;
 	DECLARE_EVENT_OneParam(AMGameStateInGame, FOnMatchStateChangedEvent, FName);
 	FOnMatchStateChangedEvent OnMatchStateChanegdEvent;
+
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	URoundComponent* RoundComponent = nullptr;
+
 	// 부활
 public:
 	bool IsRevivalable();
@@ -67,31 +70,33 @@ public:
 	void Multicast_GameOver();
 public:
 	FOnGameOverDynamicDelegate GameOverDynamicDelegate;
+};
+
+UCLASS(Blueprintable)
+class TESTGAME_API URoundComponent : public UActorComponent
+{
+	GENERATED_BODY()
+
+public:
+	virtual void BeginPlay() override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	// 라운드
 public:
-	void TryNextRound();
-private:
-	void NextRount();
-	UFUNCTION()
-	void OnRep_RoundInfoChanged();
-public:
-	UPROPERTY(BlueprintAssignable, BlueprintReadWrite)
-	FOnRoundStartedDynamicDelegate RoundStartedDynamicDelegate;
-	FOnRoundStartedDelegate RoundStartedDelegate;
-public:
-	int32 GetRound() { return Round; }
+	bool IsRoundStarted();
 	const FRoundInfo& GetRoundInfo() { return RoundInfo; }
+public:
+	void TryNextRound();
+	void NextRount();
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_RoundInfo(const FRoundInfo& InRoundInfo);
+public:
+	DECLARE_EVENT_OneParam(URoundComponent, FOnRoundChangedEvent, const FRoundInfo&);
+	FOnRoundChangedEvent RoundChangedEvent;
 protected:
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	UDataTable* RoundTable;
-	FName CurrentRoundName = NAME_None;
-private:
-	int32 Round;
-	UPROPERTY(ReplicatedUsing = OnRep_RoundInfoChanged)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UDataTable* RoundTable;
+	UPROPERTY(Replicated)
 	FRoundInfo RoundInfo;
-
-private:
-	bool IsAllMonsterDead();
-
+	FName CurrentRoundName = NAME_None;
 };

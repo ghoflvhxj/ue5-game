@@ -1,6 +1,14 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 #include "MGameStateInGame.h"
 #include "GameFramework/PlayerState.h"
+#include "Engine/DataTable.h"
+
+DECLARE_LOG_CATEGORY_CLASS(LogRound, Log, Log);
+
+AMGameStateInGame::AMGameStateInGame()
+{
+	RoundComponent = CreateDefaultSubobject<URoundComponent>(TEXT("RoundComponent"));
+}
 
 void AMGameStateInGame::BeginPlay()
 {
@@ -10,17 +18,15 @@ void AMGameStateInGame::BeginPlay()
 void AMGameStateInGame::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME(AMGameStateInGame, RoundInfo);
 }
 
 void AMGameStateInGame::HandleMatchHasStarted()
 {
 	Super::HandleMatchHasStarted();
 
-	if (HasAuthority())
+	if (HasAuthority() && IsValid(RoundComponent))
 	{
-		TryNextRound();
+		RoundComponent->TryNextRound();
 	}
 }
 
@@ -68,7 +74,29 @@ void AMGameStateInGame::Multicast_GameOver_Implementation()
 	GameOverDynamicDelegate.Broadcast();
 }
 
-void AMGameStateInGame::TryNextRound()
+void URoundComponent::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (AGameStateBase* GameState = Cast<AGameStateBase>(GetOwner()))
+	{
+		//FGame
+	}
+}
+
+void URoundComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME_CONDITION(URoundComponent, RoundInfo, COND_InitialOnly);
+}
+
+bool URoundComponent::IsRoundStarted()
+{
+	return CurrentRoundName != NAME_None;
+}
+
+void URoundComponent::TryNextRound()
 {
 	//switch (RountInfo.StartCondition)
 	//{
@@ -86,7 +114,7 @@ void AMGameStateInGame::TryNextRound()
 	NextRount();
 }
 
-void AMGameStateInGame::NextRount()
+void URoundComponent::NextRount()
 {
 	if (IsValid(RoundTable) == false)
 	{
@@ -116,28 +144,17 @@ void AMGameStateInGame::NextRount()
 
 	if (FRoundInfo* NextRoundInfo = RoundTable->FindRow<FRoundInfo>(NextRoundName, nullptr))
 	{
-		RoundInfo = *NextRoundInfo;
+		Multicast_RoundInfo(*NextRoundInfo);
 		CurrentRoundName = NextRoundName;
-		++Round;
-		OnRep_RoundInfoChanged();
-	}
-}
-
-void AMGameStateInGame::OnRep_RoundInfoChanged()
-{
-	RoundStartedDelegate.Broadcast(RoundInfo);
-	RoundStartedDynamicDelegate.Broadcast();
-
-	if (RoundInfo.StartCondition == ERoundStartCondition::Timer)
-	{
-		FTimerHandle Dummy;
-		GetWorld()->GetTimerManager().SetTimer(Dummy, [this]() { TryNextRound(); }, RoundInfo.Timer, false);
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("Round %d"), Round);
+	UE_LOG(LogRound, Log, TEXT("%s CurrentRound:%s"), *FString(__FUNCTION__), *CurrentRoundName.ToString());
 }
 
-bool AMGameStateInGame::IsAllMonsterDead()
+void URoundComponent::Multicast_RoundInfo_Implementation(const FRoundInfo& InRoundInfo)
 {
-	return false;
+	RoundInfo = InRoundInfo;
+	RoundChangedEvent.Broadcast(RoundInfo);
+
+	UE_LOG(LogRound, Log, TEXT("RoundInfo Updated Round:%d"), RoundInfo.Round);
 }
