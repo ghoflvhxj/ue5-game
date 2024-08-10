@@ -100,14 +100,17 @@ private:
 
 public:
 	void AddOnStateChangeDelegate(TSubclassOf<UStateClass> StateClass, UObject* Object, const TFunction<void(uint8, uint8)> Func);
-	TMap<UEnum*, FOnStateChangedDelegate> StateChangedDelegatesMap;
+	TMap<uint8, FOnStateChangedDelegate> StateChangedDelegatesMap;
 private:
 	void AddOnStateChangeDelegateInternal(UEnum* StateEnumClass, UObject* Object, const TFunction<void(uint8, uint8)> Func);
 protected:
 	UPROPERTY(BlueprintAssignable, BlueprintReadWrite)
 	FOnStateChangedDynamicDelegate OnStatChanged;
 
+public:
+	UFUNCTION()
+	void OnStateUpdated(TArray<uint8>& OldStates);
 protected:
-	UPROPERTY(Replicated, EditAnywhere, BlueprintReadOnly)
+	UPROPERTY(ReplicatedUsing = OnStateUpdated, EditAnywhere, BlueprintReadOnly)
 	TArray<uint8> States;
 };

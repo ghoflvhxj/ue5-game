@@ -25,8 +25,12 @@ bool UStateComponent::AddStateClassInternal(UEnum* EnumClass)
 		return false;
 	}
 
-	States.Add(0);
-	StateEnumClassToIndexMap.Add(EnumClass, States.Num());
+	if (IsNetSimulating() == false)
+	{
+		States.Add(0);
+	}
+
+	StateEnumClassToIndexMap.Add(EnumClass, StateEnumClassToIndexMap.Num());
 
 	return true;
 }
@@ -44,29 +48,26 @@ bool UStateComponent::GetState(TSubclassOf<UStateClass> StateClass, uint8& OutSt
 bool UStateComponent::ChangeStateInternal(UEnum* StateEnumClass, uint8 NewStateValue)
 {
 	int StateIndex = GetStateIndex(StateEnumClass);
-	if (StateIndex == INDEX_NONE)
-	{
-		return false;
-	}
-
-	if (States[StateIndex] != NewStateValue)
+	if (StateIndex != INDEX_NONE && States[StateIndex] != NewStateValue)
 	{
 		uint8 OldStateValue = States[StateIndex];
-		States[StateIndex] = NewStateValue;
-
-		if (StateChangedDelegatesMap.Contains(StateEnumClass))
+		if (IsNetSimulating() == false)
 		{
-			StateChangedDelegatesMap[StateEnumClass].Broadcast(OldStateValue, NewStateValue);
+			TArray<uint8> OldStates = States;
+			States[StateIndex] = NewStateValue;
+			OnStateUpdated(OldStates);
+
+			return true;
 		}
 	}
 
-	return true;
+	return false;
 }
 
 bool UStateComponent::GetStateInternal(UEnum* EnumClass, uint8& OutStateValue)
 {
 	int StateIndex = GetStateIndex(EnumClass);
-	if (StateIndex == INDEX_NONE)
+	if (States.IsValidIndex(StateIndex) == false)
 	{
 		return false;
 	}
@@ -82,7 +83,7 @@ int UStateComponent::GetStateIndex(UEnum* EnumClass)
 		return INDEX_NONE;
 	}
 
-	return StateEnumClassToIndexMap.FindRef(EnumClass) - 1;
+	return StateEnumClassToIndexMap.FindRef(EnumClass);
 }
 
 void UStateComponent::AddOnStateChangeDelegate(TSubclassOf<UStateClass> StateClass, UObject* Object, const TFunction<void(uint8, uint8)> Func)
@@ -93,5 +94,24 @@ void UStateComponent::AddOnStateChangeDelegate(TSubclassOf<UStateClass> StateCla
 void UStateComponent::AddOnStateChangeDelegateInternal(UEnum* StateEnumClass, UObject* Object, const TFunction<void(uint8, uint8)> Func)
 {
 	//FOnStateChangedDelegate Delegate = FOnStateChangedDelegate::AddUObject(Object, Func);
-	StateChangedDelegatesMap.FindOrAdd(StateEnumClass).AddWeakLambda(Object, Func);
+	StateChangedDelegatesMap.FindOrAdd(GetStateIndex(StateEnumClass)).AddWeakLambda(Object, Func);
+}
+
+void UStateComponent::OnStateUpdated(TArray<uint8>& OldStates)
+{
+	TArray<int32> StateClassIndexArray;
+	StateEnumClassToIndexMap.GenerateValueArray(StateClassIndexArray);
+
+	for(int StateIndex = 0; StateIndex < States.Num(); ++StateIndex)
+	{
+		if (StateChangedDelegatesMap.Contains(StateIndex) == false)
+		{
+			continue;
+		}
+
+		if (OldStates.IsValidIndex(StateIndex) == false || OldStates[StateIndex] != States[StateIndex])
+		{
+			StateChangedDelegatesMap[StateIndex].Broadcast(OldStates[StateIndex], States[StateIndex]);
+		}
+	}
 }
