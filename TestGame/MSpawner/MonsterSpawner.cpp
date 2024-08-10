@@ -4,120 +4,127 @@
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MCharacter/MCharacterEnum.h"
 #include "TestGame/MGameState/MGameStateInGame.h"
+#include "Kismet/KismetMathLibrary.h"
 
-AActor* ASpawner::Spawn()
+DECLARE_LOG_CATEGORY_CLASS(Log_Spawner, Log, Log);
+
+void ASpawner::Spawn(const FSpawnInfo& InSpawnInfo)
 {
 	UWorld* World = GetWorld();
-	check(IsValid(World));
-
-	FSpawnInfo SpawnInfo;
-	if (MakeSpawnInfo(SpawnInfo) == false)
+	if (IsValid(World) == false)
 	{
-		return nullptr;
+		return;
 	}
 
-	if (IsValid(SpawnInfo.SpawnClass))
+	if (bActivated == false)
 	{
-		FTransform SpawnTransform;
-		if (MakeSpawnTransform(SpawnTransform))
-		{
-			return World->SpawnActor<AActor>(SpawnInfo.SpawnClass, SpawnTransform);
-		}
+		return;
 	}
 
-	return nullptr;
-}
+	if (InSpawnInfo.IsValid() == false)
+	{
+		UE_LOG(Log_Spawner, Error, TEXT("스폰 정보가 유효하지 않음"));
+		return;
+	}
+	
+	FActorSpawnParameters SpawnParam;
+	SpawnParam.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
-bool ASpawner::MakeSpawnInfo(FSpawnInfo& SpawnInfo)
-{
-	return false;
-}
-
-bool ASpawner::MakeSpawnTransform(FTransform& Transfrom)
-{
-	return false;
-}
-
-void AMonsterSpawner::BeginPlay()
-{
-	AMGameStateInGame* GameState = Cast<AMGameStateInGame>(UGameplayStatics::GetGameState(this));
-	check(GameState);
-
-	GameState->RoundStartedDelegate.AddWeakLambda(this, [this, GameState](FRoundInfo RoundInfo) {
-		for (int i = 0; i < RoundInfo.SpawnNum; ++i)
+	switch (InSpawnInfo.SpawnType)
+	{
+		case ESpawnType::Fixed:
 		{
-			AMCharacter* SpawnedMonster = Cast<AMCharacter>(Spawn());
-			if (IsValid(SpawnedMonster) == false)
+			for (auto ActorClassToSpawnNum : InSpawnInfo.SpawneeClassMap)
 			{
-				continue;
-			}
-
-			SpawnedMonster->AddVitalityChangedDelegate(this, [this, SpawnedMonster, RoundInfo, GameState](uint8 OldValue, uint8 NewValue) {
-				if (NewValue == static_cast<uint8>(ECharacterVitalityState::Die))
+				int32 SpawnNum = static_cast<int32>(ActorClassToSpawnNum.Value);
+				for (int32 SpawnCounter = 0; SpawnCounter < SpawnNum; ++SpawnCounter)
 				{
-					SpawnedMonsters.Remove(SpawnedMonster);
-				}
-
-				if (RoundInfo.StartCondition == ERoundStartCondition::AllMonsterDead)
-				{
-					if (SpawnedMonsters.Num() == 0)
+					if (AActor* SpawnedActor = World->SpawnActor<AActor>(ActorClassToSpawnNum.Key, GetSpawnTransform(), SpawnParam))
 					{
-						GameState->TryNextRound();
+						SpawnedActros.Add(SpawnedActor);
 					}
 				}
-			});
+			}
 		}
-
-		if (RoundInfo.StartCondition == ERoundStartCondition::AllMonsterDead)
+		break;
+		case ESpawnType::Probable:
+		{
+			for (int32 SpawnCounter = 0; SpawnCounter < 10; ++SpawnCounter)
+			{
+				float Test = FMath::FRand() * 100.f;
+				for (auto ActorClassToSpawnNum : InSpawnInfo.SpawneeClassMap)
+				{
+					Test -= ActorClassToSpawnNum.Value;
+					if (Test < 0.f)
+					{
+						if (AActor* SpawnedActor = World->SpawnActor<AActor>(ActorClassToSpawnNum.Key, GetSpawnTransform(), SpawnParam))
+						{
+							SpawnedActros.Add(SpawnedActor);
+						}
+						break;
+					}
+				}
+			}
+		}
+		break;
+		default:
 		{
 
 		}
-	});
+		break;
+	}
 }
 
-//AActor* AMonsterSpawner::Spawn()
-//{
-//	AMCharacter* SpawnedMonster = Cast<AMCharacter>(Super::Spawn());
-//
-//
-//	return SpawnedMonster;
-//}
-
-bool AMonsterSpawner::MakeSpawnInfo(FSpawnInfo& SpawnInfo)
+FTransform ASpawner::GetSpawnTransform()
 {
+	FTransform Transform = GetActorTransform();
+	Transform.SetScale3D(FVector::OneVector);
+	return Transform;
+}
+
+void ARoundSpanwer::BeginPlay()
+{
+	Super::BeginPlay();
+
 	AMGameStateInGame* GameState = Cast<AMGameStateInGame>(UGameplayStatics::GetGameState(this));
 	check(GameState);
 
-	//FName RowName = FName(FString::Printf(TEXT("%d"), GameState->GetRound()));
-	//if (FSpawnInfo* TableRow = SpawnTable->FindRow<FSpawnInfo>(RowName, nullptr))
-	//{
-	//	SpawnInfo = *TableRow;
-	//	return true;
-	//}
-
-	FRoundInfo RoundInfo = GameState->GetRoundInfo();
-	if (RoundInfo.MonsterClassArray[0] != nullptr)
+	if (URoundComponent* RoundComponent = GameState->GetComponentByClass<URoundComponent>())
 	{
-		SpawnInfo.SpawnClass = RoundInfo.MonsterClassArray[0];
-		return true;
+		RoundComponent->RoundChangedEvent.AddUObject(this, &ARoundSpanwer::SpawnUsingRoundInfo);
 	}
-
-	return false;
 }
 
-bool AMonsterSpawner::MakeSpawnTransform(FTransform& Transform)
+void AMonsterSpawner::SpawnUsingRoundInfo(const FRoundInfo& InRoundInfo)
 {
-	if (APawn* Pawn = UGameplayStatics::GetPlayerCharacter(this, 0))
+	if (IsValid(MonsterSpawnTable) == false)
 	{
-		Transform = Pawn->GetTransform();
-	}
-	else
-	{
-		float rnd = (2.f * FMath::FRand()) - 1.f;
-		float rnd2 = (2.f * FMath::FRand()) - 1.f;
-		Transform.SetLocation(FVector(1000.f * rnd, 1000.f * rnd2, 0.f));
+		UE_LOG(Log_Spawner, Error, TEXT("%s 몬스터 스폰 테이블이 유효하지 않음"), *FString(__FUNCTION__));
+		return;
 	}
 
+	FName CurrentRoundName = FName(FString::FromInt(InRoundInfo.Round));
+	if (FSpawnInfo* SpawInfo = MonsterSpawnTable->FindRow<FSpawnInfo>(CurrentRoundName, TEXT("MonsterSpawnTable")))
+	{
+		Spawn(*SpawInfo);
+		UE_LOG(Log_Spawner, Error, TEXT("%s 몬스터 스폰 A"), *FString(__FUNCTION__));
+	}
 
-	return true;
+	UE_LOG(Log_Spawner, Error, TEXT("%s 몬스터 스폰 B"), *FString(__FUNCTION__));
+}
+
+FTransform AMonsterSpawner::GetSpawnTransform()
+{
+	FTransform Transform;
+	
+	// 위치
+	Transform.SetTranslation(GetActorLocation());
+
+	// 회전
+	if (AActor* PlayerCharacter = UGameplayStatics::GetPlayerCharacter(this, 0))
+	{
+		Transform.SetRotation(UKismetMathLibrary::FindLookAtRotation(Transform.GetLocation(), PlayerCharacter->GetActorLocation()).Quaternion());
+	}
+
+	return Transform;
 }
