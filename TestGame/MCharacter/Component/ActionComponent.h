@@ -43,6 +43,11 @@ public:
 
 public:
 	UAnimMontage* GetActionMontage(FGameplayTag ActionGameplayTag);
+	void UpdateAction(UMActionComponent* InActionComponent);
+private:
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_UpdateAction(const TArray<FMActionInfo>& InActionInfos);
+	void AddActions(const TArray<FMActionInfo>& InActionInfos);
 
 protected:
 	UPROPERTY(EditDefaultsOnly)
