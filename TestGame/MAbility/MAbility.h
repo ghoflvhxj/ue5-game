@@ -44,29 +44,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FMAbilityBindInfo> Abilities;
 
-	void GiveAbilities(UAbilitySystemComponent* AbilitySystemComponent, TMap<FGameplayTag, FGameplayAbilitySpecHandle>& Handles) const
-	{
-		checkf(IsValid(AbilitySystemComponent), TEXT("ASC Invalid."));
-		AActor* Actor = AbilitySystemComponent->GetOwner<AActor>();
-		checkf(IsValid(Actor), TEXT("ASC Invalid."));
-
-		for (const FMAbilityBindInfo& BindInfo : Abilities)
-		{
-			if (IsValid(BindInfo.GameplayAbilityClass) == false)
-			{
-				UE_LOG(LogGAS, Warning, TEXT("Trying give Invalid AbilityClass to %s"), *(Actor->GetActorNameOrLabel()));
-				continue;
-			}
-
-			FGameplayTag GameplayTag = BindInfo.GameplayTag;
-
-			Handles.Emplace(GameplayTag, AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(BindInfo.GameplayAbilityClass)));
-			if (BindInfo.bActivate && Handles.Contains(GameplayTag))
-			{
-				AbilitySystemComponent->TryActivateAbility(Handles[GameplayTag], true);
-			}
-		}
-	}
+	void GiveAbilities(UAbilitySystemComponent* AbilitySystemComponent, TMap<FGameplayTag, FGameplayAbilitySpecHandle>& Handles) const;
 };
 
 class AMCharacter;
@@ -95,42 +73,37 @@ public:
 
 protected:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
-
+	virtual void CancelAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateCancelAbility) override;
+	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
 public:
 	UFUNCTION()
 	void MoveToMouse(FGameplayEventData Payload);
 };
 
 UCLASS()
-class TESTGAME_API UGameplayAbility_CharacterAction : public UGameplayAbility
+class TESTGAME_API UGameplayAbility_BasicAttack : public UGameplayAbility
 {
 	GENERATED_BODY()
 
 public:
-	UGameplayAbility_CharacterAction();
+	UGameplayAbility_BasicAttack();
 
 protected:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
-
-public:
-	UFUNCTION()
-	virtual void Action(FGameplayEventData Payload);
+	virtual void CancelAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateCancelAbility) override;
+	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
+	virtual bool CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags = nullptr) override;
 
 protected:
 	class UAbilityTask_WaitGameplayEvent* WaitTask;
+	//TWeakObjectPtr<class UAbilityTask_PlayMontageAndWait> PlayMontageTask;
 	class UAbilityTask_PlayMontageAndWait* PlayMontageTask;
+
+	float WeaponAttackSpeed = 1.f;
 };
 
-UCLASS()
-class TESTGAME_API UGameplayAbility_BasicAttack : public UGameplayAbility_CharacterAction
-{
-	GENERATED_BODY()
-
-public:
-	virtual void Action(FGameplayEventData Payload) override;
-
-private:
-	void StartBasicAttack(const FGameplayEventData& Payload);
-	void CancelBasicAttack();
-	void EndBasicAttack();
-};
+//UCLASS()
+//class TESTGAME_API UGameplayAbility_BasicAttack : public UGameplayAbility_CharacterAction
+//{
+//	GENERATED_BODY()
+//};
