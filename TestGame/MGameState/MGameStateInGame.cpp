@@ -26,7 +26,7 @@ void AMGameStateInGame::HandleMatchHasStarted()
 
 	if (HasAuthority() && IsValid(RoundComponent))
 	{
-		RoundComponent->TryNextRound();
+		RoundComponent->NextRound();
 	}
 }
 
@@ -96,25 +96,25 @@ bool URoundComponent::IsRoundStarted()
 	return CurrentRoundName != NAME_None;
 }
 
-void URoundComponent::TryNextRound()
+void URoundComponent::TryNextRound(AActor* Rounder)
 {
-	//switch (RountInfo.StartCondition)
-	//{
-	//	case ERoundStartCondition::None:
-	//	{
+	if (IsValid(Rounder) == false)
+	{
+		return;
+	}
 
-	//	}
-	//	break;
-	//	case ERoundStartCondition::AllMonsterDead:
-	//	{
-	//	}
-	//	break;
-	//}
+	if (Rounder->GetClass()->ImplementsInterface(URoundInterface::StaticClass()))
+	{
+		if (IRoundInterface::Execute_IsClear(Rounder))
+		{
+			false;
+		}
+	}
 
-	NextRount();
+	NextRound();
 }
 
-void URoundComponent::NextRount()
+void URoundComponent::NextRound()
 {
 	if (IsValid(RoundTable) == false)
 	{

@@ -41,7 +41,8 @@ void ASpawner::Spawn(const FSpawnInfo& InSpawnInfo)
 				{
 					if (AActor* SpawnedActor = World->SpawnActor<AActor>(ActorClassToSpawnNum.Key, GetSpawnTransform(), SpawnParam))
 					{
-						SpawnedActros.Add(SpawnedActor);
+						SpawnedActors.Add(SpawnedActor);
+						OnSpawned(SpawnedActor);
 					}
 				}
 			}
@@ -59,7 +60,8 @@ void ASpawner::Spawn(const FSpawnInfo& InSpawnInfo)
 					{
 						if (AActor* SpawnedActor = World->SpawnActor<AActor>(ActorClassToSpawnNum.Key, GetSpawnTransform(), SpawnParam))
 						{
-							SpawnedActros.Add(SpawnedActor);
+							SpawnedActors.Add(SpawnedActor);
+							OnSpawned(SpawnedActor);
 						}
 						break;
 					}
@@ -111,6 +113,34 @@ void AMonsterSpawner::SpawnUsingRoundInfo(const FRoundInfo& InRoundInfo)
 	}
 
 	UE_LOG(Log_Spawner, Error, TEXT("%s 몬스터 스폰 B"), *FString(__FUNCTION__));
+}
+
+void AMonsterSpawner::OnSpawned(AActor* SpawnedActor)
+{
+	if (IsValid(SpawnedActor) == false)
+	{
+		return;
+	}
+
+	SpawnedActor->OnEndPlay.AddDynamic(this, &AMonsterSpawner::RemoveSpawnedActor);
+}
+
+void AMonsterSpawner::RemoveSpawnedActor(AActor* Actor, EEndPlayReason::Type EndPlayReason)
+{
+	SpawnedActors.Remove(Actor);
+
+	AMGameStateInGame* GameState = Cast<AMGameStateInGame>(UGameplayStatics::GetGameState(this));
+	check(GameState);
+
+	if (URoundComponent* RoundComponent = GameState->GetComponentByClass<URoundComponent>())
+	{
+		RoundComponent->TryNextRound(this);
+	}
+}
+
+bool AMonsterSpawner::IsClear_Implementation()
+{
+	return SpawnedActors.Num() == 0;
 }
 
 FTransform AMonsterSpawner::GetSpawnTransform()

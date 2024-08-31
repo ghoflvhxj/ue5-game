@@ -86,8 +86,8 @@ public:
 	bool IsRoundStarted();
 	const FRoundInfo& GetRoundInfo() { return RoundInfo; }
 public:
-	void TryNextRound();
-	void NextRount();
+	void TryNextRound(AActor* Rounder);
+	void NextRound();
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_RoundInfo(const FRoundInfo& InRoundInfo);
 public:
@@ -99,4 +99,19 @@ protected:
 	UPROPERTY(Replicated)
 	FRoundInfo RoundInfo;
 	FName CurrentRoundName = NAME_None;
+};
+
+UINTERFACE()
+class TESTGAME_API URoundInterface : public UInterface
+{
+	GENERATED_BODY()
+};
+
+class TESTGAME_API IRoundInterface
+{
+	GENERATED_BODY()
+
+public:
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+	bool IsClear();
 };

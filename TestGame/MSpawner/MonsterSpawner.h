@@ -43,10 +43,11 @@ class TESTGAME_API ASpawner : public AActor
 public:
 	virtual void Spawn(const FSpawnInfo& InSpawnInfo);
 	virtual FTransform GetSpawnTransform();
+	virtual void OnSpawned(AActor* SpawnedActor) {}
 
-private:
+protected:
 	TArray<TSubclassOf<AActor>> SpawneeClassArray;
-	TArray<TWeakObjectPtr<AActor>> SpawnedActros;
+	TArray<TWeakObjectPtr<AActor>> SpawnedActors;
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -67,16 +68,22 @@ public:
 };
 
 UCLASS()
-class TESTGAME_API AMonsterSpawner : public ARoundSpanwer
+class TESTGAME_API AMonsterSpawner : public ARoundSpanwer, public IRoundInterface
 {
 	GENERATED_BODY()
 
 public:
 	virtual void SpawnUsingRoundInfo(const FRoundInfo& InRoundInfo) override;
+	virtual void OnSpawned(AActor* SpawnedActor) override;
+	virtual FTransform GetSpawnTransform() override;
+public:
+	UFUNCTION()
+	void RemoveSpawnedActor(AActor* Actor, EEndPlayReason::Type EndPlayReason);
 
 public:
-	virtual FTransform GetSpawnTransform() override;
-	
+	bool IsClear_Implementation() override;
+
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	UDataTable* MonsterSpawnTable;
 };
