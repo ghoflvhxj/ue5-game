@@ -12,10 +12,13 @@
 #include "CharacterState/MCharacterState.h"
 #include "TestGame/Mcharacter/MCharacterEnum.h"
 
+#include "TestGame/MWeapon/Weapon.h"
+
 #include "NavigationSystem.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "AbilitySystemBlueprintLibrary.h"
 #include "OnlineSubsystem.h"
+#include "Kismet/KismetMathLibrary.h"
 //#include "OnlineSubsystemUtils.h"
 
 
@@ -41,12 +44,56 @@ AMCharacter::AMCharacter()
 void AMCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (IsValid(AbilitySystemComponent))
+	{
+		if (HasAuthority())
+		{
+			AbilitySystemComponent->SetAvatarActor(this);
+
+			if (IsValid(AbilitySetData))
+			{
+				AbilitySetData->GiveAbilities(AbilitySystemComponent, AblitiyHandles);
+			}
+		}
+		else
+		{
+
+		}
+
+		AttributeSet = const_cast<UMAttributeSet*>(AbilitySystemComponent->GetSet<UMAttributeSet>());
+		if (ensure(AttributeSet))
+		{
+			AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(AttributeSet->GetMoveSpeedAttribute()).AddUObject(this, &AMCharacter::OnMoveSpeedChanged);
+			AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(AttributeSet->GetHealthAttribute()).AddUObject(this, &AMCharacter::OnHealthChanged);
+
+			TArray<FGameplayAttribute> Attributes;
+			AbilitySystemComponent->GetAllAttributes(Attributes);
+
+			for (FGameplayAttribute& Attribute : Attributes)
+			{
+				float AttributeValue = Attribute.GetNumericValue(AttributeSet);
+
+				FOnAttributeChangeData AttributeChangeData;
+				AttributeChangeData.Attribute = Attribute;
+				AttributeChangeData.OldValue = AttributeValue;
+				AttributeChangeData.NewValue = AttributeValue;
+
+				AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(Attribute).Broadcast(AttributeChangeData);
+			}
+		}
+	}
 }
 
 // Called every frame
 void AMCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (bRotateToTargetAngle)
+	{
+		RotateToTargetAngle();
+	}
 }
 
 // Called to bind functionality to input
@@ -101,45 +148,16 @@ float AMCharacter::TakeDamage(float Damage, struct FDamageEvent const& DamageEve
 void AMCharacter::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
+}
 
-	if (IsValid(AbilitySystemComponent))
-	{
-		if (HasAuthority())
-		{
-			AbilitySystemComponent->SetAvatarActor(this);
+void AMCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-			if (IsValid(AbilitySetData))
-			{
-				AbilitySetData->GiveAbilities(AbilitySystemComponent, AblitiyHandles);
-			}
-		}
-		else
-		{
+	DOREPLIFETIME_CONDITION(AMCharacter, TargetAngle, COND_SimulatedOnly);
+	DOREPLIFETIME_CONDITION(AMCharacter, bRotateToTargetAngle, COND_SimulatedOnly);
 
-		}
-
-		AttributeSet = const_cast<UMAttributeSet*>(AbilitySystemComponent->GetSet<UMAttributeSet>());
-		if (ensure(AttributeSet))
-		{
-			AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(AttributeSet->GetMoveSpeedAttribute()).AddUObject(this, &AMCharacter::OnMoveSpeedChanged);
-			AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(AttributeSet->GetHealthAttribute()).AddUObject(this, &AMCharacter::OnHealthChanged);
-
-			TArray<FGameplayAttribute> Attributes;
-			AbilitySystemComponent->GetAllAttributes(Attributes);
-
-			for (FGameplayAttribute& Attribute : Attributes)
-			{
-				float AttributeValue = Attribute.GetNumericValue(AttributeSet);
-
-				FOnAttributeChangeData AttributeChangeData;
-				AttributeChangeData.Attribute = Attribute;
-				AttributeChangeData.OldValue = AttributeValue;
-				AttributeChangeData.NewValue = AttributeValue;
-
-				AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(Attribute).Broadcast(AttributeChangeData);
-			}
-		}
-	}
+	DOREPLIFETIME_CONDITION(AMCharacter, Weapon, COND_InitialOnly);
 }
 
 }
@@ -253,20 +271,100 @@ bool AMCharacter::IsWeaponEquipped() const
 	return true;
 }
 
-void AMCharacter::BasicAttack()
+void AMCharacter::EquipWeapon(AWeapon* InWeapon)
 {
-	if (IsValid(AbilitySystemComponent) == false)
+	if (HasAuthority() == false || Weapon == InWeapon)
 	{
 		return;
 	}
 
-	FGameplayEventData GameplayEventData;
-	GameplayEventData.EventTag = FGameplayTag::RequestGameplayTag(FName("Character.Action.BasicAttack"));
-	GameplayEventData.Instigator = this;
-	GameplayEventData.Target = this;
+	Multicast_EquipWeapon(InWeapon);
+}
 
-	UE_LOG(LogTemp, Warning, TEXT("ghoflvhxj BasicAttack Event"));
-	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, FGameplayTag::RequestGameplayTag(FName("Character.Action.BasicAttack")), GameplayEventData);
+void AMCharacter::Multicast_EquipWeapon_Implementation(AWeapon* InWeapon)
+{
+	Weapon = InWeapon;
+
+	if (UMActionComponent* ActionComponent = GetComponentByClass<UMActionComponent>())
+	{
+		ActionComponent->UpdateAction(Weapon->ActionComponent);
+	}
+}
+
+bool AMCharacter::IsAttackable()
+{
+	//ItemEquipComponent
+	if (Weapon.IsValid())
+	{
+		return Weapon->IsAttackable();
+	}
+
+	return false;
+}
+
+void AMCharacter::UpdateTargetAngle()
+{
+	if (IsLocallyControlled())
+	{
+		float NewTargetAngle = 0.f;
+		// 공격 시의 마우스 위치 시각화
+		if (APlayerController* PlayerController = GetController<APlayerController>())
+		{
+			FVector MouseWorldLocation;
+			FVector MouseWorldDirection;
+			FCollisionObjectQueryParams CollsionParam;
+			CollsionParam.AddObjectTypesToQuery(ECC_WorldStatic);
+			CollsionParam.AddObjectTypesToQuery(ECC_WorldDynamic);
+
+			if (PlayerController->DeprojectMousePositionToWorld(MouseWorldLocation, MouseWorldDirection))
+			{
+				TArray<FHitResult> HitResults;
+				if (GetWorld()->LineTraceMultiByObjectType(HitResults, MouseWorldLocation, MouseWorldLocation + MouseWorldDirection * 10000.f, CollsionParam))
+				{
+					DrawDebugSphere(GetWorld(), HitResults[0].Location, 100.f, 32, FColor::Red);
+
+					NewTargetAngle = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), HitResults[0].Location).Yaw;
+				}
+			}
+		}
+
+		TargetAngle = NewTargetAngle;
+		Server_UpdateTargetAngle(TargetAngle);
+	}
+}
+
+void AMCharacter::Server_UpdateTargetAngle_Implementation(float InTargetAngle)
+{
+	TargetAngle = InTargetAngle;
+}
+
+void AMCharacter::SetRotateToTargetAngle(bool bNewValue)
+{
+	bRotateToTargetAngle = bNewValue;
+	Server_SetRotateToTargetAngle(bRotateToTargetAngle);
+}
+
+void AMCharacter::Server_SetRotateToTargetAngle_Implementation(bool bNewValue)
+{
+	bRotateToTargetAngle = bNewValue;
+}
+
+void AMCharacter::OnRep_TargetAngle()
+{
+	UE_LOG(LogTemp, Warning, TEXT("TargetAngle OnRep"));
+	RotateToTargetAngle();
+}
+
+void AMCharacter::RotateToTargetAngle()
+{
+	if (Weapon.IsValid())
+	{
+		//Weapon->
+	}
+
+	FRotator Rotator;
+	Rotator.Yaw = TargetAngle;
+	SetActorRotation(Rotator);
 }
 
 void AMCharacter::MoveToLocation()

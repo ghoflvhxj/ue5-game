@@ -23,6 +23,7 @@ class UMBattleComponent;
 class UMAttributeSet;
 class UMAbilityDataAsset;
 class UStateComponent;
+class AWeapon;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnAttackedDelegate);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDieDelegate);
@@ -56,6 +57,7 @@ public:
 	virtual void NotifyActorEndOverlap(AActor* OtherActor) override;
 	virtual float TakeDamage(float Damage, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 	virtual void PostInitializeComponents() override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
@@ -156,12 +158,35 @@ public:
 	bool IsSameTeam(AActor* OtherCharacter) const;
 
 // 무기
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintPure)
 	bool IsWeaponEquipped() const;
+	UFUNCTION(BlueprintCallable)
+	void EquipWeapon(AWeapon* InWeapon);
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_EquipWeapon(AWeapon* InWeapon);
+	UPROPERTY(Replicated)
+	TWeakObjectPtr<AWeapon> Weapon = nullptr;
 
 // 공격
 	UFUNCTION(BlueprintCallable)
-	void BasicAttack();
+	bool IsAttackable();
+
+public:
+	void UpdateTargetAngle();
+	UFUNCTION(Server, Unreliable)
+	void Server_UpdateTargetAngle(float InTargetAngle);
+	void SetRotateToTargetAngle(bool bNewValue);
+	UFUNCTION(Server, Unreliable)
+	void Server_SetRotateToTargetAngle(bool bNewValue);
+	float GetTargetAngle() { return TargetAngle; }
+	UFUNCTION()
+	void OnRep_TargetAngle();
+	UPROPERTY(ReplicatedUsing = OnRep_TargetAngle)
+	float TargetAngle = 0.f;
+	UPROPERTY(Replicated)
+	bool bRotateToTargetAngle = false;
+private:
+	void RotateToTargetAngle();
 
 // 이동
 public:
