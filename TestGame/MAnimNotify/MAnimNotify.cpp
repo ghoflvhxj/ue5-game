@@ -1,5 +1,6 @@
 #include "MAnimNotify.h"
 #include "TestGame/Bullet/Bullet.h"
+#include "TestGame/MCharacter/MCharacter.h"
 
 void UMAnimNotify_SpawnActor::Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference)
 {
@@ -28,19 +29,31 @@ void UMAnimNotify_SpawnBullet::Notify(USkeletalMeshComponent* MeshComp, UAnimSeq
 {
 	Super::Notify(MeshComp, Animation, EventReference);
 
+	if (IsValid(MeshComp) == false)
+	{
+		return;
+	}
+
 	FVector Direction = MeshComp->GetForwardVector();
 	float Damage = 0.f;
-	UAbilitySystemComponent* AbilitySystemComponent = nullptr;
-
-	if (AActor* Actor = MeshComp->GetOwner())
+	
+	AActor* Owner = MeshComp->GetOwner();
+	if (AMCharacter* Character = Cast<AMCharacter>(Owner))
 	{
-		Direction = Actor->GetActorForwardVector();
-		AbilitySystemComponent = Actor->GetComponentByClass<UAbilitySystemComponent>();
+		FRotator Rotator = FRotator::ZeroRotator;
+		Rotator.Yaw = Character->GetTargetAngle();
+		Direction = Rotator.Vector();
 	}
 
 	if (ABullet* Bullet = GetSpawnActor<ABullet>())
 	{
-		Bullet->GiveEffects(AbilitySystemComponent);
+		if (IsValid(Owner))
+		{
+			if (UAbilitySystemComponent* AbilitySystemComponent = Owner->GetComponentByClass<UAbilitySystemComponent>())
+			{
+				Bullet->GiveEffects(AbilitySystemComponent);
+			}
+		}
 		Bullet->StartProjectile(Direction, 0.f);
 	}
 }
