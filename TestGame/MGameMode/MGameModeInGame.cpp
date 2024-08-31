@@ -19,40 +19,44 @@ void AMGameModeInGame::SetPlayerDefaults(APawn* PlayerPawn)
 	Super::SetPlayerDefaults(PlayerPawn);
 
 	AMCharacter* PlayerCharacter = Cast<AMCharacter>(PlayerPawn);
-	ensure(IsValid(PlayerCharacter));
+	if (ensure(PlayerCharacter))
+	{
+		PlayerCharacter->AddVitalityChangedDelegate(this, [this, PlayerCharacter](uint8 OldValue, uint8 NewValue) {
+			AMGameStateInGame* GameStateInGame = GetGameState<AMGameStateInGame>();
+			ensure(IsValid(GameStateInGame));
 
-	PlayerCharacter->AddVitalityChangedDelegate (this, [this, PlayerCharacter](uint8 OldValue, uint8 NewValue) {
-		AMGameStateInGame* GameStateInGame = GetGameState<AMGameStateInGame>();
-		ensure(IsValid(GameStateInGame));
-
-		APlayerState* PlayerState = PlayerCharacter->GetPlayerState();
-		if (IsValid(PlayerState) == false)
-		{
-			return;
-		}
-
-		switch (NewValue)
-		{
-		case (uint8)ECharacterVitalityState::Die:
-		{
-			APlayerController* PlayerController = PlayerState->GetPlayerController();
-			GameStateInGame->AddDeadPlayer(PlayerState);
-			if (PlayerCanRestart(PlayerController))
+			APlayerState* PlayerState = PlayerCharacter->GetPlayerState();
+			if (IsValid(PlayerState) == false)
 			{
-				PlayerController->UnPossess();
-				RestartPlayer(PlayerController);
+				return;
 			}
-			else
+
+			switch (NewValue)
 			{
-				GameStateInGame->Multicast_GameOver();
+			case (uint8)ECharacterVitalityState::Die:
+			{
+				APlayerController* PlayerController = PlayerState->GetPlayerController();
+				GameStateInGame->AddDeadPlayer(PlayerState);
+				if (PlayerCanRestart(PlayerController))
+				{
+					FTimerHandle DummyHandle;
+					PlayerCharacter->GetWorldTimerManager().SetTimer(DummyHandle, FTimerDelegate::CreateWeakLambda(this, [this, PlayerController]() {
+						PlayerController->UnPossess();
+						RestartPlayer(PlayerController);
+					}), 5.f, false);
+				}
+				else
+				{
+					GameStateInGame->Multicast_GameOver();
+				}
 			}
-		}
-		break;
-		case (uint8)ECharacterVitalityState::Alive:
-			
 			break;
-		}
-	});
+			case (uint8)ECharacterVitalityState::Alive:
+
+				break;
+			}
+		});
+	}
 }
 
 void AMGameModeInGame::RestartPlayer(AController* NewPlayer)
