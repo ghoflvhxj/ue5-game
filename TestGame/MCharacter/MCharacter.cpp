@@ -118,6 +118,7 @@ void AMCharacter::NotifyActorBeginOverlap(AActor* OtherActor)
 				if (Iterator->IsValid() == false)
 				{
 					Iterator.RemoveCurrent();
+					continue;
 				}
 
 				if ((*Iterator)->GetDistanceTo(this) < ClosetTarget->GetDistanceTo(this))
