@@ -5,3 +5,13 @@ AItemBase::AItemBase()
 {
 	PrimaryActorTick.bCanEverTick = false;
 }
+
+FItemBaseInfo* AItemBase::GetItemBaseInfo()
+{
+	if (IsValid(ItemDataTable) && ItemIndex != INDEX_NONE)
+	{
+		return ItemDataTable->FindRow<FItemBaseInfo>(*FString::FromInt(ItemIndex), TEXT("ItemTable"));
+	}
+
+	return nullptr;
+}

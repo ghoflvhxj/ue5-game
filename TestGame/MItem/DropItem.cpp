@@ -23,15 +23,40 @@ void ADropItem::BeginPlay()
 	Super::BeginPlay();
 }
 
+void ADropItem::OnConstruction(const FTransform& Transform)
+{
+	Super::OnConstruction(Transform);
+
+	if (FItemBaseInfo * ItemBaseInfo = GetItemBaseInfo())
+	{
+		SkeletalMeshComponent->SetSkeletalMesh(ItemBaseInfo->DropMesh);
+	}
+}
+
 // Called every frame
 void ADropItem::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 }
 
+void ADropItem::Interaction_Implementation(AActor* Interactor)
+{
+	if (FItemBaseInfo * ItemBaseInfo = GetItemBaseInfo())
+	{
+		//switch (ItemBaseInfo->ItemType)
+		//{
+		//default:
+		//break;
+		//}
+	}
+}
+
 void ADropItem::OnTargeted_Implementation(AActor* Interactor)
 {
 	UE_LOG(LogTemp, Log, TEXT("상호작용 대상이 됨"));
+
+	Interaction(Interactor);
+
 	OnInteractTargetedDelegate.Broadcast(true);
 }
 

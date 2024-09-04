@@ -197,9 +197,9 @@ public:
 public:
 	bool IsInteractableActor(AActor* OtherActor);
 private:
-	bool GetInteractInterface(AActor* Actor, IInteractInterface*& OutInterface);
+	IInteractInterface* GetInteractInterface(AActor* Actor);
 private:
-	TArray<AActor*> InteractTargets;
+	TArray<TWeakObjectPtr<AActor>> InteractTargets;
 
 public:
 // 리더보드

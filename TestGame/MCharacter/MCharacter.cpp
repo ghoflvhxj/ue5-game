@@ -110,7 +110,32 @@ void AMCharacter::NotifyActorBeginOverlap(AActor* OtherActor)
 
 	if (IsInteractableActor(OtherActor))
 	{
+		TWeakObjectPtr<AActor> ClosetTarget = OtherActor;
+		if (InteractTargets.Num() > 0)
+		{
+			for (auto Iterator = InteractTargets.CreateIterator(); Iterator; ++Iterator)
+			{
+				if (Iterator->IsValid() == false)
+				{
+					Iterator.RemoveCurrent();
+				}
+
+				if ((*Iterator)->GetDistanceTo(this) < ClosetTarget->GetDistanceTo(this))
+				{
+					ClosetTarget = *Iterator;
+				}
+			}
+		}
+
 		InteractTargets.AddUnique(OtherActor);
+
+		if (ClosetTarget.IsValid())
+		{
+			if (IInteractInterface* InteractInterface = GetInteractInterface(OtherActor))
+			{
+				InteractInterface->Execute_OnTargeted(OtherActor, this);
+			}
+		}
 	}
 }
 
@@ -121,8 +146,7 @@ void AMCharacter::NotifyActorEndOverlap(AActor* OtherActor)
 
 	if (InteractTargets.Contains(OtherActor))
 	{
-		IInteractInterface* InteractInterface = nullptr;
-		if (GetInteractInterface(OtherActor, InteractInterface))
+		if (IInteractInterface* InteractInterface = GetInteractInterface(OtherActor))
 		{
 			InteractInterface->Execute_OnUnTargeted(OtherActor, this);
 		}
@@ -385,42 +409,25 @@ void AMCharacter::MoveToLocation()
 
 bool AMCharacter::IsInteractableActor(AActor* OtherActor)
 {
-	if (IsValid(OtherActor) == false)
+	if (IsValid(OtherActor))
 	{
-		return false;
+		if (IInteractInterface * InteractInterface = GetInteractInterface(OtherActor))
+		{
+			return InteractInterface->Execute_IsInteractable(OtherActor, this);
+		}
 	}
 
-	IInteractInterface* InteractInterface = nullptr;
-	if (GetInteractInterface(OtherActor, InteractInterface) == false)
-	{
-		return false;
-	}
-
-	if (InteractInterface->Execute_IsInteractable(OtherActor, this) == false)
-	{
-		return false;
-	}
-
-	InteractInterface->Execute_OnTargeted(OtherActor, this);
-
-	return true;
+	return false;
 }
 
-bool AMCharacter::GetInteractInterface(AActor* Actor, IInteractInterface*& OutInterface)
+IInteractInterface* AMCharacter::GetInteractInterface(AActor* Actor)
 {
-	bool bIsInterfaceImplemented = Actor->GetClass()->ImplementsInterface(UInteractInterface::StaticClass());
-	if (bIsInterfaceImplemented == false)
+	if (Actor->GetClass()->ImplementsInterface(UInteractInterface::StaticClass()))
 	{
-		return false;
+		return Cast<IInteractInterface>(Actor);
 	}
 
-	OutInterface = Cast<IInteractInterface>(Actor);
-	if (OutInterface == nullptr)
-	{
-		return false;
-	}
-
-	return true;
+	return nullptr;
 }
 
 void AMCharacter::LeaderboardTest()

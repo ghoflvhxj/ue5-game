@@ -7,13 +7,38 @@
 
 #include "ItemBase.generated.h"
 
-USTRUCT(Atomic, BlueprintType)
-struct FItemBaseInfo
+class UPaperSprite;
+
+UENUM()
+enum class EItemType : uint8
+{
+	None,
+	Common,
+	Weapon,
+};
+
+USTRUCT(BlueprintType)
+struct FItemBaseInfo : public FTableRowBase
 {
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	int32 ItemIndex = -1;
+	int32 Index = INDEX_NONE;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	EItemType ItemType = EItemType::None;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FString Name = TEXT("");
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FString Description = TEXT("");
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPaperSprite* Icon = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	USkeletalMesh* DropMesh = nullptr;
 };
 
 UCLASS()
@@ -28,6 +53,10 @@ public:
 // 아이템 정보
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	FItemBaseInfo ItemBaseInfo;
+	int32 ItemIndex = INDEX_NONE;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UDataTable* ItemDataTable = nullptr;
+protected:
+	FItemBaseInfo* GetItemBaseInfo();
 };
 

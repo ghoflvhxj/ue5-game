@@ -17,7 +17,7 @@ class TESTGAME_API IInteractInterface
 
 public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	void Interaction();
+	void Interaction(AActor* Interactor);
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 	void OnTargeted(AActor* Interactor);
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
