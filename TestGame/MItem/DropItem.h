@@ -9,10 +9,13 @@
 
 #include "DropItem.generated.h"
 
+class UMInteractorComponent;
+class AWeapon;
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnInteractTargetedDelegate, bool, bTargeted);
 
 UCLASS()
-class TESTGAME_API ADropItem : public AItemBase, public IInteractInterface
+class TESTGAME_API ADropItem : public AItemBase
 {
 	GENERATED_BODY()
 
@@ -27,6 +30,8 @@ protected:
 	UStaticMeshComponent* StaticMeshComponent;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	USkeletalMeshComponent* SkeletalMeshComponent;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UMInteractorComponent* InteractorComponent;
 
 protected:
 	virtual void BeginPlay() override;
@@ -35,13 +40,16 @@ public:
 	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void Tick(float DeltaTime) override;
 
-// 상호작용
 public:
-	virtual void Interaction_Implementation(AActor* Interactor);
-	virtual void OnTargeted_Implementation(AActor* Interactor);
-	virtual void OnUnTargeted_Implementation(AActor* Interactor);
-	virtual bool IsInteractable_Implementation(AActor* Interactor);
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TSubclassOf<AWeapon> WeaponClass = nullptr;
+
+public:
+	//virtual void Interaction_Implementation(AActor* Interactor);
+	//virtual void OnTargeted_Implementation(AActor* Interactor);
+	//virtual void OnUnTargeted_Implementation(AActor* Interactor);
+	//virtual bool IsInteractable_Implementation(AActor* Interactor);
 protected:
-	UPROPERTY(BlueprintAssignable, BlueprintReadOnly)
-	FOnInteractTargetedDelegate OnInteractTargetedDelegate;
+	//UPROPERTY(BlueprintAssignable, BlueprintReadOnly)
+	//FOnInteractTargetedDelegate OnInteractTargetedDelegate;
 };

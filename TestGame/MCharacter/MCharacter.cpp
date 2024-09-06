@@ -4,6 +4,8 @@
 
 #include "Component/MBattleComponent.h"
 #include "Component/StateMachineComponent.h"
+#include "Component/ActionComponent.h"
+#include "TestGame/MCharacter/Component/InteractorComponent.h"
 
 #include "AttributeSet.h"
 #include "TestGame/MAttribute/MAttribute.h"
@@ -94,6 +96,32 @@ void AMCharacter::Tick(float DeltaTime)
 	{
 		RotateToTargetAngle();
 	}
+
+	if (InteractTargets.Num() > 0)
+	{
+		TWeakObjectPtr<AActor> ClosetTarget = InteractTargets[0];
+		for (auto Iterator = InteractTargets.CreateIterator(); Iterator; ++Iterator)
+		{
+			if (Iterator->IsValid() == false)
+			{
+				Iterator.RemoveCurrent();
+				continue;
+			}
+
+			if ((*Iterator)->GetDistanceTo(this) < ClosetTarget->GetDistanceTo(this))
+			{
+				ClosetTarget = *Iterator;
+			}
+		}
+
+		if (ClosetTarget.IsValid())
+		{
+			if (UMInteractorComponent* InteractorComponent = ClosetTarget->FindComponentByClass<UMInteractorComponent>())
+			{
+				InteractorComponent->Interact(this);
+			}
+		}
+	}
 }
 
 // Called to bind functionality to input
@@ -110,36 +138,9 @@ void AMCharacter::NotifyActorBeginOverlap(AActor* OtherActor)
 
 	if (IsInteractableActor(OtherActor))
 	{
-		TWeakObjectPtr<AActor> ClosetTarget = OtherActor;
-		if (InteractTargets.Num() > 0)
-		{
-			for (auto Iterator = InteractTargets.CreateIterator(); Iterator; ++Iterator)
-			{
-				if (Iterator->IsValid() == false)
-				{
-					Iterator.RemoveCurrent();
-					continue;
-				}
-
-				if ((*Iterator)->GetDistanceTo(this) < ClosetTarget->GetDistanceTo(this))
-				{
-					ClosetTarget = *Iterator;
-				}
-			}
-		}
-
 		InteractTargets.AddUnique(OtherActor);
-
-		if (ClosetTarget.IsValid())
-		{
-			if (IInteractInterface* InteractInterface = GetInteractInterface(OtherActor))
-			{
-				InteractInterface->Execute_OnTargeted(OtherActor, this);
-			}
-		}
 	}
 }
-
 
 void AMCharacter::NotifyActorEndOverlap(AActor* OtherActor)
 {
@@ -298,28 +299,54 @@ bool AMCharacter::IsWeaponEquipped() const
 
 void AMCharacter::EquipWeapon(AWeapon* InWeapon)
 {
-	if (HasAuthority() == false || Weapon == InWeapon)
+	if (HasAuthority() == false)
 	{
 		return;
 	}
 
-	Multicast_EquipWeapon(InWeapon);
+	if (Weapon != InWeapon)
+	{
+		//if (IsValid(Weapon))
+		//{
+		//	Weapon->SetActorHiddenInGame(true);
+		//}
+
+		Multicast_ChangeWeapon(InWeapon);
+	}
+
+	if (IsValid(Weapon))
+	{
+		Weapon->AttachToActor(this, FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), TEXT("hand_rSocket"));
+		if (USkeletalMeshComponent* WeaponMesh = Weapon->GetComponentByClass<USkeletalMeshComponent>())
+		{
+			//WeaponMesh->SetRelativeLocation(WeaponMesh->GetSocketTransform(FName("Root")).GetLocation());
+			//WeaponMesh->SetRelativeRotation(WeaponMesh->GetSocketTransform(FName("Root")).GetRotation().Rotator());
+		}
+	}
 }
 
-void AMCharacter::Multicast_EquipWeapon_Implementation(AWeapon* InWeapon)
+void AMCharacter::Multicast_ChangeWeapon_Implementation(AWeapon* InWeapon)
 {
+	if (IsValid(Weapon))
+	{
+		Weapon->SetActorHiddenInGame(true);
+	}
+
 	Weapon = InWeapon;
 
-	if (UMActionComponent* ActionComponent = GetComponentByClass<UMActionComponent>())
+	if (IsValid(Weapon))
 	{
-		ActionComponent->UpdateAction(Weapon->ActionComponent);
+		if (UMActionComponent* ActionComponent = GetComponentByClass<UMActionComponent>())
+		{
+			ActionComponent->UpdateAction(Weapon->ActionComponent);
+		}
 	}
 }
 
 bool AMCharacter::IsAttackable()
 {
 	//ItemEquipComponent
-	if (Weapon.IsValid())
+	if (IsValid(Weapon))
 	{
 		return Weapon->IsAttackable();
 	}
@@ -382,7 +409,7 @@ void AMCharacter::OnRep_TargetAngle()
 
 void AMCharacter::RotateToTargetAngle()
 {
-	if (Weapon.IsValid())
+	if (IsValid(Weapon))
 	{
 		//Weapon->
 	}
@@ -405,17 +432,21 @@ void AMCharacter::MoveToLocation()
 	GameplayEventData.Target = this;
 
 	UE_LOG(LogTemp, Warning, TEXT("ghoflvhxj Send Move Event"));
-	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, FGameplayTag::RequestGameplayTag(FName("Character.Action.Move")), GameplayEventData);
+	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, FGameplayTag::RequestGameplayTag(FName("Controller.MouseRightClick")), GameplayEventData);
+
+	//AbilitySystemComponent->TryActivateAbilityByClass(UGameplayAbility_MoveToMouse::StaticClass());
 }
 
 bool AMCharacter::IsInteractableActor(AActor* OtherActor)
 {
 	if (IsValid(OtherActor))
 	{
-		if (IInteractInterface * InteractInterface = GetInteractInterface(OtherActor))
-		{
-			return InteractInterface->Execute_IsInteractable(OtherActor, this);
-		}
+		//if (IInteractInterface * InteractInterface = GetInteractInterface(OtherActor))
+		//{
+		//	return InteractInterface->Execute_IsInteractable(OtherActor, this);
+		//}
+
+		return IsValid(OtherActor->FindComponentByClass<UMInteractorComponent>());
 	}
 
 	return false;

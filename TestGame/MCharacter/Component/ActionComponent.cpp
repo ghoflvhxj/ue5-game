@@ -17,9 +17,24 @@ UAnimMontage* UMActionComponent::GetActionMontage(FGameplayTag ActionGameplayTag
 
 void UMActionComponent::UpdateAction(UMActionComponent* InActionComponent)
 {
-	if (IsValid(InActionComponent) && IsNetSimulating() == false)
+	if (IsValid(InActionComponent) && IsNetSimulating() == false && IsValid(InActionComponent->ActionData))
 	{
 		Multicast_UpdateAction(InActionComponent->ActionData->ActionInfos);
+	}
+}
+
+void UMActionComponent::UpdateActionData(UMActionDataAsset* IntActionDataAsset)
+{
+	ActionData = IntActionDataAsset;
+
+	if (HasBegunPlay())
+	{
+		ActionMap.Empty();
+
+		if (IsValid(ActionData))
+		{
+			AddActions(ActionData->ActionInfos);
+		}
 	}
 }
 

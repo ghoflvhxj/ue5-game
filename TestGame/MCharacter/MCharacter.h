@@ -58,6 +58,7 @@ public:
 	virtual float TakeDamage(float Damage, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 	virtual void PostInitializeComponents() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual USceneComponent* GetDefaultAttachComponent() const override { return GetMesh(); }
 
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
@@ -163,9 +164,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void EquipWeapon(AWeapon* InWeapon);
 	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_EquipWeapon(AWeapon* InWeapon);
+	void Multicast_ChangeWeapon(AWeapon* InWeapon);
 	UPROPERTY(Replicated)
-	TWeakObjectPtr<AWeapon> Weapon = nullptr;
+	AWeapon* Weapon = nullptr;
 
 // 공격
 	UFUNCTION(BlueprintCallable)

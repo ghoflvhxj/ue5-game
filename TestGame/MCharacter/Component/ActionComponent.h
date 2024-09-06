@@ -44,6 +44,7 @@ public:
 public:
 	UAnimMontage* GetActionMontage(FGameplayTag ActionGameplayTag);
 	void UpdateAction(UMActionComponent* InActionComponent);
+	void UpdateActionData(UMActionDataAsset* IntActionDataAsset);
 private:
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_UpdateAction(const TArray<FMActionInfo>& InActionInfos);
