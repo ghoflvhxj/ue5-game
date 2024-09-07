@@ -13,7 +13,7 @@ struct FInteractData
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	float InteractingTime = 1.f;
+	float InteractingTime = 0.f;
 };
 
 DECLARE_EVENT(UMInteractorComponent, FInteractEvent);

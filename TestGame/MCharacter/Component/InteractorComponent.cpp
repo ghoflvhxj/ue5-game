@@ -33,14 +33,23 @@ bool UMInteractorComponent::Interact(AActor* InActor)
 			InteractStartEvent.Broadcast();
 		}
 
-		World->GetTimerManager().SetTimer(InteractTimerHandle, FTimerDelegate::CreateWeakLambda(this, [this]() {
+		if (FMath::IsNearlyZero(InteractData.InteractingTime))
+		{
 			if (InteractFinishEvent.IsBound())
 			{
 				InteractFinishEvent.Broadcast();
 			}
-			ChangeInteractor(nullptr);
-		}), FMath::Max(0.1f, InteractData.InteractingTime), false);
-
+		}
+		else
+		{
+			World->GetTimerManager().SetTimer(InteractTimerHandle, FTimerDelegate::CreateWeakLambda(this, [this]() {
+				if (InteractFinishEvent.IsBound())
+				{
+					InteractFinishEvent.Broadcast();
+				}
+				ChangeInteractor(nullptr);
+			}), FMath::Max(0.1f, InteractData.InteractingTime), false);
+		}
 		return true;
 	}
 
