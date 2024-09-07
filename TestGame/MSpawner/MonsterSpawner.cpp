@@ -93,7 +93,7 @@ void ARoundSpanwer::BeginPlay()
 
 	if (URoundComponent* RoundComponent = GameState->GetComponentByClass<URoundComponent>())
 	{
-		RoundComponent->RoundChangedEvent.AddUObject(this, &ARoundSpanwer::SpawnUsingRoundInfo);
+		RoundComponent->OnRoundChangedEvent.AddUObject(this, &ARoundSpanwer::SpawnUsingRoundInfo);
 	}
 }
 

@@ -72,5 +72,10 @@ void AMHudInGame::BeginPlay()
 	if (AMGameStateInGame* GameStateInGame = Cast<AMGameStateInGame>(UGameplayStatics::GetGameState(this)))
 	{
 		GameStateInGame->GameOverDynamicDelegate.AddDynamic(this, &AMHudInGame::ShowGameOver);
+
+		if (URoundComponent* RoundComponent = GameStateInGame->GetComponentByClass<URoundComponent>())
+		{
+			RoundComponent->OnRoundChangedEvent.AddUObject(this, &AMHudInGame::UpdateRoundInfo);
+		}
 	}
 }

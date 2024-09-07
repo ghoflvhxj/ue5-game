@@ -84,6 +84,7 @@ public:
 	// 라운드
 public:
 	bool IsRoundStarted();
+	UFUNCTION(BlueprintPure)
 	const FRoundInfo& GetRoundInfo() { return RoundInfo; }
 public:
 	void TryNextRound(AActor* Rounder);
@@ -92,7 +93,7 @@ public:
 	void Multicast_RoundInfo(const FRoundInfo& InRoundInfo);
 public:
 	DECLARE_EVENT_OneParam(URoundComponent, FOnRoundChangedEvent, const FRoundInfo&);
-	FOnRoundChangedEvent RoundChangedEvent;
+	FOnRoundChangedEvent OnRoundChangedEvent;
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class UDataTable* RoundTable;

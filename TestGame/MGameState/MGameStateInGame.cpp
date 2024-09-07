@@ -154,7 +154,7 @@ void URoundComponent::NextRound()
 void URoundComponent::Multicast_RoundInfo_Implementation(const FRoundInfo& InRoundInfo)
 {
 	RoundInfo = InRoundInfo;
-	RoundChangedEvent.Broadcast(RoundInfo);
+	OnRoundChangedEvent.Broadcast(RoundInfo);
 
 	UE_LOG(LogRound, Log, TEXT("RoundInfo Updated Round:%d"), RoundInfo.Round);
 }

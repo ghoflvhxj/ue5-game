@@ -47,4 +47,8 @@ protected:
 public:
 	UFUNCTION(BlueprintNativeEvent)
 	void ShowGameOver();
+	// 라운드 정보 갱신
+public:
+	UFUNCTION(BlueprintImplementableEvent)
+	void UpdateRoundInfo(const FRoundInfo& InRoundInfo);
 };
