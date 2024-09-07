@@ -2,6 +2,7 @@
 #include "TestGame/MGameState/MGameStateInGame.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/Character.h"
+#include "TestGame/MCharacter/MCharacter.h"
 #include "Blueprint/UserWidget.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -56,19 +57,15 @@ void AMHudInGame::BeginPlay()
 {
 	Super::BeginPlay();
 
-	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
-	ensure(IsValid(PlayerController));
+	if (AMCharacter* PlayerCharacter = Cast<AMCharacter>(PlayerOwner->GetCharacter()))
+	{
+		UpdateCharacterInfo(nullptr, PlayerCharacter);
 
-	ACharacter* PlayerCharacter = PlayerController->GetCharacter();
-	if (IsValid(PlayerCharacter))
-	{
-		BeginPlayWithCharacter(nullptr, PlayerCharacter);
-	}
-	else
-	{
-		PlayerController->OnPossessedPawnChanged.AddDynamic(this, &AMHudInGame::BeginPlayWithCharacter);
+		PlayerCharacter->OnWeaponChangedEvent.AddUObject(this, &AMHudInGame::UpdateWeaponInfo);
 	}
 
+	PlayerOwner->OnPossessedPawnChanged.AddDynamic(this, &AMHudInGame::UpdateCharacterInfo);
+	
 	if (AMGameStateInGame* GameStateInGame = Cast<AMGameStateInGame>(UGameplayStatics::GetGameState(this)))
 	{
 		GameStateInGame->GameOverDynamicDelegate.AddDynamic(this, &AMHudInGame::ShowGameOver);

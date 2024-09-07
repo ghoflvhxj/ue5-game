@@ -66,8 +66,8 @@ protected:
 public:
 	UFUNCTION()
 	void OnRep_WeaponIndex();
-private:
-	UPROPERTY(ReplicatedUsing = OnRep_WeaponIndex)
+protected:
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_WeaponIndex)
 	int32 WeaponIndex = INDEX_NONE;
 
 public:

@@ -28,6 +28,7 @@ class AWeapon;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnAttackedDelegate);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDieDelegate);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnHealthChangedDelegate, float, OldValue, float, NewValue, float, MaxValue);
+DECLARE_EVENT_TwoParams(AMCharacter, FOnWeaponChangedEvent, AWeapon*, AWeapon*);
 
 UCLASS()
 class TESTGAME_API AMCharacter : public ACharacter, public IAbilitySystemInterface
@@ -165,8 +166,12 @@ public:
 	void EquipWeapon(AWeapon* InWeapon);
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_ChangeWeapon(AWeapon* InWeapon);
-	UPROPERTY(Replicated)
+	UFUNCTION()
+	void OnRep_Weapon(AWeapon* OldWeapon);
+	UPROPERTY(ReplicatedUsing = OnRep_Weapon)
 	AWeapon* Weapon = nullptr;
+	FOnWeaponChangedEvent OnWeaponChangedEvent;
+	FTimerDelegate TestDelegate;
 
 // 공격
 	UFUNCTION(BlueprintCallable)

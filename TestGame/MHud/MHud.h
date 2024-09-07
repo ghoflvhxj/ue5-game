@@ -6,6 +6,8 @@
 #include "MHud.generated.h"
 
 class UUserWidget;
+class AWeapon;
+struct FRoundInfo;
 
 UCLASS()
 class TESTGAME_API AMHud : public AHUD
@@ -42,11 +44,17 @@ public:
 	virtual void BeginPlay() override;
 protected:
 	UFUNCTION(BlueprintImplementableEvent)
-	void BeginPlayWithCharacter(APawn* OldPawn, APawn* NewPawn);
+	void UpdateCharacterInfo(APawn* OldPawn, APawn* NewPawn);
 
 public:
 	UFUNCTION(BlueprintNativeEvent)
 	void ShowGameOver();
+
+	// 무기 정보 갱신
+public:
+	UFUNCTION(BlueprintImplementableEvent)
+	void UpdateWeaponInfo(AWeapon* OldWeapon, AWeapon* NewWeapon);
+
 	// 라운드 정보 갱신
 public:
 	UFUNCTION(BlueprintImplementableEvent)

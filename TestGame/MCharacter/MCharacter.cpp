@@ -183,7 +183,7 @@ void AMCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifet
 	DOREPLIFETIME_CONDITION(AMCharacter, TargetAngle, COND_SimulatedOnly);
 	DOREPLIFETIME_CONDITION(AMCharacter, bRotateToTargetAngle, COND_SimulatedOnly);
 
-	DOREPLIFETIME_CONDITION(AMCharacter, Weapon, COND_InitialOnly);
+	DOREPLIFETIME(AMCharacter, Weapon);
 }
 
 }
@@ -299,19 +299,41 @@ bool AMCharacter::IsWeaponEquipped() const
 
 void AMCharacter::EquipWeapon(AWeapon* InWeapon)
 {
-	if (HasAuthority() == false)
+	if (Weapon == InWeapon)
 	{
 		return;
 	}
 
-	if (Weapon != InWeapon)
+	if (HasAuthority())
 	{
-		//if (IsValid(Weapon))
-		//{
-		//	Weapon->SetActorHiddenInGame(true);
-		//}
+		if (IsValid(Weapon))
+		{
+			Weapon->SetActorHiddenInGame(true);
+		}
 
 		Multicast_ChangeWeapon(InWeapon);
+	}
+	else
+	{
+		if (IsValid(Weapon))
+		{
+			Weapon->SetActorHiddenInGame(true);
+		}
+
+		Weapon = InWeapon;
+		if (OnWeaponChangedEvent.IsBound())
+		{
+			OnWeaponChangedEvent.Broadcast(Weapon, InWeapon);
+		}
+
+		TestDelegate = FTimerDelegate::CreateWeakLambda(this, [this, InWeapon]() {
+			if (IsValid(InWeapon) && InWeapon->IsHidden() == false)
+			{
+				InWeapon->SetActorHiddenInGame(true);
+			}
+		});
+		FTimerHandle DummyHandle;
+		GetWorldTimerManager().SetTimer(DummyHandle, TestDelegate, 3.f, false);
 	}
 
 	if (IsValid(Weapon))
@@ -327,11 +349,6 @@ void AMCharacter::EquipWeapon(AWeapon* InWeapon)
 
 void AMCharacter::Multicast_ChangeWeapon_Implementation(AWeapon* InWeapon)
 {
-	if (IsValid(Weapon))
-	{
-		Weapon->SetActorHiddenInGame(true);
-	}
-
 	Weapon = InWeapon;
 
 	if (IsValid(Weapon))
@@ -343,6 +360,18 @@ void AMCharacter::Multicast_ChangeWeapon_Implementation(AWeapon* InWeapon)
 	}
 }
 
+void AMCharacter::OnRep_Weapon(AWeapon* OldWeapon)
+{
+	if (TestDelegate.IsBound())
+	{
+		TestDelegate.Execute();
+	}
+
+	if (OnWeaponChangedEvent.IsBound())
+	{
+		OnWeaponChangedEvent.Broadcast(OldWeapon, Weapon);
+	}
+}
 bool AMCharacter::IsAttackable()
 {
 	//ItemEquipComponent

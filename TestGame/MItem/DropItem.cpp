@@ -26,7 +26,7 @@ void ADropItem::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (IsValid(InteractorComponent) && HasAuthority())
+	if (IsValid(InteractorComponent))
 	{
 		InteractorComponent->InteractFinishEvent.AddWeakLambda(this, [this]() {
 			FItemBaseInfo* ItemBaseInfo = GetItemBaseInfo();
