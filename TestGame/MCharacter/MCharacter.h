@@ -75,14 +75,8 @@ public:
 
 // GAS Attribute
 public:
-	UFUNCTION(BlueprintCallable)
-	void EffectTest();
-	UFUNCTION(BlueprintImplementableEvent)
-	void CreateFloaterWidget(float OldValue, float NewValue);
 	UFUNCTION(BlueprintImplementableEvent)
 	void UpdateHealthbarWidget(float OldValue, float NewValue);
-	UFUNCTION(BlueprintCallable)
-	void ChangeAttribute();
 public:
 	virtual void OnMoveSpeedChanged(const FOnAttributeChangeData& AttributeChangeData);
 	virtual void OnHealthChanged(const FOnAttributeChangeData& AttributeChangeData);
