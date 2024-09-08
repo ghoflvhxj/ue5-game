@@ -92,7 +92,7 @@ void AMCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (bRotateToTargetAngle)
+	if (bRotateToTargetAngle && HasAuthority() == false)
 	{
 		RotateToTargetAngle();
 	}
@@ -119,6 +119,7 @@ void AMCharacter::Tick(float DeltaTime)
 			if (UMInteractorComponent* InteractorComponent = ClosetTarget->FindComponentByClass<UMInteractorComponent>())
 			{
 				InteractorComponent->Interact(this);
+				InteractTargets.Remove(ClosetTarget);
 			}
 		}
 	}
@@ -186,27 +187,9 @@ void AMCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifet
 	DOREPLIFETIME(AMCharacter, Weapon);
 }
 
-}
-
-
-void AMCharacter::EffectTest()
+UAbilitySystemComponent* AMCharacter::GetAbilitySystemComponent() const
 {
-	UGameplayEffect* NewEffect = NewObject<UGameplayEffect>();
-	NewEffect->DurationPolicy = EGameplayEffectDurationType::Instant;
-	//NewEffect->DurationMagnitude = FGameplayEffectModifierMagnitude(1.f);
-
-	FGameplayModifierInfo ModifierInfo;
-	ModifierInfo.Attribute = FGameplayAttribute(UMAttributeSet::StaticClass()->FindPropertyByName("Health"));
-	ModifierInfo.ModifierOp = EGameplayModOp::Additive;
-	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(100.f);
-	NewEffect->Modifiers.Add(ModifierInfo);
-
-	FGameplayEffectContextHandle EffectContextHandle = AbilitySystemComponent->MakeEffectContext();
-	EffectContextHandle.AddSourceObject(this);
-
-	//FGameplayEffectSpecHandle EffectSpecHandle = AbilitySystemComponent->MakeOutgoingSpec(UGameplayEffect, 1, EffectContextHandle);
-
-	AbilitySystemComponent->ApplyGameplayEffectToSelf(NewEffect, 0, EffectContextHandle);
+	return AbilitySystemComponent;
 }
 
 void AMCharacter::OnMoveSpeedChanged(const FOnAttributeChangeData& AttributeChangeData)
