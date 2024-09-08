@@ -6,6 +6,8 @@
 #include "TestGame/MGameState/MGameStateInGame.h"
 #include "Kismet/KismetMathLibrary.h"
 
+#include "NavigationSystem.h"
+
 DECLARE_LOG_CATEGORY_CLASS(Log_Spawner, Log, Log);
 
 void ASpawner::Spawn(const FSpawnInfo& InSpawnInfo)
@@ -81,6 +83,7 @@ FTransform ASpawner::GetSpawnTransform()
 {
 	FTransform Transform = GetActorTransform();
 	Transform.SetScale3D(FVector::OneVector);
+
 	return Transform;
 }
 
@@ -91,9 +94,12 @@ void ARoundSpanwer::BeginPlay()
 	AMGameStateInGame* GameState = Cast<AMGameStateInGame>(UGameplayStatics::GetGameState(this));
 	check(GameState);
 
-	if (URoundComponent* RoundComponent = GameState->GetComponentByClass<URoundComponent>())
+	if (HasAuthority())
 	{
-		RoundComponent->OnRoundChangedEvent.AddUObject(this, &ARoundSpanwer::SpawnUsingRoundInfo);
+		if (URoundComponent* RoundComponent = GameState->GetComponentByClass<URoundComponent>())
+		{
+			RoundComponent->OnRoundChangedEvent.AddUObject(this, &ARoundSpanwer::SpawnUsingRoundInfo);
+		}
 	}
 }
 
@@ -145,10 +151,16 @@ bool AMonsterSpawner::IsClear_Implementation()
 
 FTransform AMonsterSpawner::GetSpawnTransform()
 {
-	FTransform Transform;
-	
-	// 위치
-	Transform.SetTranslation(GetActorLocation());
+	FTransform Transform = Super::GetSpawnTransform();
+
+	if (UNavigationSystemV1* NavigationSystem = UNavigationSystemV1::GetNavigationSystem(this))
+	{
+		FNavLocation NavLocation;
+		if (NavigationSystem->GetRandomReachablePointInRadius(GetActorLocation(), 3000.f, NavLocation))
+		{
+			Transform.SetLocation(NavLocation.Location);
+		}
+	}
 
 	// 회전
 	if (AActor* PlayerCharacter = UGameplayStatics::GetPlayerCharacter(this, 0))
