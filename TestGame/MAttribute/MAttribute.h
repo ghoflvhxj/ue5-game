@@ -27,7 +27,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated)
 	FGameplayAttributeData MaxHealth;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing = OnRep_Health)
 	FGameplayAttributeData Health;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated)
@@ -41,6 +41,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated)
 	FGameplayAttributeData BasicAttackSpeed;
+
+	UFUNCTION()
+	void OnRep_Health(const FGameplayAttributeData& OldValue);
 
 	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, MaxHealth);
 	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, Health);

@@ -30,6 +30,11 @@ void UMAttributeSet::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty> 
 	DOREPLIFETIME(UMAttributeSet, BasicAttackSpeed);
 }
 
+void UMAttributeSet::OnRep_Health(const FGameplayAttributeData& OldValue)
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(UMAttributeSet, Health, OldValue);
+}
+
 //void UMAttributeSet::AddAttributeChangedDelegate(UObject* Object, FOnAttributeChangedDelegate Functor)
 //{
 //	OnAttributeChangedDelegate.AddDynamic(Object, Functor);

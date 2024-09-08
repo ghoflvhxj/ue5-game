@@ -224,19 +224,22 @@ void AMCharacter::OnHealthChanged(const FOnAttributeChangeData& AttributeChangeD
 
 	if (FMath::IsNearlyEqual(FMath::Max(AttributeChangeData.NewValue, 0.f), 0.f))
 	{
-		if (UStateComponent* StateMachineComponent = GetComponentByClass<UStateComponent>())
+		if (HasAuthority())
 		{
-			StateMachineComponent->ChangeState<ECharacterVitalityState>(ECharacterVitalityState::Die);
-			SetActorEnableCollision(false);
-			//SetLifeSpan(0.1f);
+			if (UStateComponent* StateComponent = GetComponentByClass<UStateComponent>())
+			{
+				StateComponent->ChangeState<ECharacterVitalityState>(ECharacterVitalityState::Die);
+				//SetLifeSpan(0.1f);
+			}
 		}
+
+		GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	}
 
-	float MaxHealth = AbilitySystemComponent->GetNumericAttributeBase(AttributeSet->GetMaxHealthAttribute());
-	//CreateFloaterWidget(AttributeChangeData.OldValue, AttributeChangeData.NewValue); // 체력이 
-	//UpdateHealthbarWidget(); // HUD를 가져와서 작업되도록 변경하기
-
-	OnHealthChangedDelegate.Broadcast(AttributeChangeData.OldValue, AttributeChangeData.NewValue, MaxHealth);
+	if (IsNetMode(NM_DedicatedServer) == false)
+	{
+		UpdateHealthbarWidget(AttributeChangeData.OldValue, AttributeChangeData.NewValue);
+	}
 }
 
 UPrimitiveComponent* AMCharacter::GetComponentForAttackSearch()

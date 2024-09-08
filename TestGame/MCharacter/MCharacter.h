@@ -27,7 +27,6 @@ class AWeapon;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnAttackedDelegate);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDieDelegate);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnHealthChangedDelegate, float, OldValue, float, NewValue, float, MaxValue);
 DECLARE_EVENT_TwoParams(AMCharacter, FOnWeaponChangedEvent, AWeapon*, AWeapon*);
 
 UCLASS()
@@ -81,13 +80,12 @@ public:
 	UFUNCTION(BlueprintImplementableEvent)
 	void CreateFloaterWidget(float OldValue, float NewValue);
 	UFUNCTION(BlueprintImplementableEvent)
-	void UpdateHealthbarWidget();
+	void UpdateHealthbarWidget(float OldValue, float NewValue);
+	UFUNCTION(BlueprintCallable)
+	void ChangeAttribute();
 public:
 	virtual void OnMoveSpeedChanged(const FOnAttributeChangeData& AttributeChangeData);
 	virtual void OnHealthChanged(const FOnAttributeChangeData& AttributeChangeData);
-protected:
-	UPROPERTY(BlueprintAssignable, BlueprintReadOnly)
-	FOnHealthChangedDelegate OnHealthChangedDelegate;
 protected:
 	UPROPERTY(BlueprintReadOnly)
 	UMAttributeSet* AttributeSet;
