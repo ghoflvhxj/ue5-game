@@ -152,6 +152,12 @@ public:
 	bool IsSameTeam(AActor* OtherCharacter) const;
 
 // 무기
+public:
+	FOnWeaponChangedEvent OnWeaponChangedEvent;
+	FTimerDelegate TestDelegate;
+public:
+	UFUNCTION(BlueprintPure)
+	bool GetWeaponMuzzleTransform(FTransform& OutTransform);	// 총알 나가는 소켓 위치. 이름은 임시로
 	UFUNCTION(BlueprintPure)
 	bool IsWeaponEquipped() const;
 	UFUNCTION(BlueprintCallable)
@@ -160,15 +166,20 @@ public:
 	void Multicast_ChangeWeapon(AWeapon* InWeapon);
 	UFUNCTION()
 	void OnRep_Weapon(AWeapon* OldWeapon);
+protected:
 	UPROPERTY(ReplicatedUsing = OnRep_Weapon)
 	AWeapon* Weapon = nullptr;
-	FOnWeaponChangedEvent OnWeaponChangedEvent;
-	FTimerDelegate TestDelegate;
 
 // 공격
+public:
+	UFUNCTION(BlueprintCallable)
+	void TryBasicAttack();
+	void StartBasicAttack();
+	void FinishBasicAttack();
 	UFUNCTION(BlueprintCallable)
 	bool IsAttackable();
 
+// 타겟팅 -> 컴포넌트로 뺴기
 public:
 	void UpdateTargetAngle();
 	UFUNCTION(Server, Unreliable)

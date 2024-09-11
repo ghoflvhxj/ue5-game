@@ -9,15 +9,6 @@
 //struct 
 
 UENUM(BlueprintType)
-enum class EWeaponType : uint8
-{
-	Pistol,
-	Rifle,
-	Shotgun,
-	Machinegun
-};
-
-UENUM(BlueprintType)
 enum class EAbilityType : uint8
 {
 	Attack,

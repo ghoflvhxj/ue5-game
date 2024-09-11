@@ -107,4 +107,6 @@ void ABullet::StartProjectile(const FVector& NewDirection, float NewDamage)
 
 	ProjectileComponent->Activate();
 	ProjectileComponent->Velocity = Direction * ProjectileComponent->InitialSpeed;
+
+	SetLifeSpan(10.f);
 }

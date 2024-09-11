@@ -52,7 +52,7 @@ public:
 
 // 아이템 정보
 protected:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 ItemIndex = INDEX_NONE;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	UDataTable* ItemDataTable = nullptr;

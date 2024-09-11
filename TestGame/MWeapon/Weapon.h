@@ -6,19 +6,29 @@
 #include "TestGame/MCharacter/Component/ActionComponent.h"
 #include "Weapon.generated.h"
 
-enum class WeaponRotateType
+UENUM(BlueprintType)
+enum class EWeaponType : uint8
 {
 	None,
-	Instantly,
-	Smoothly,
+	Sword,
+	Gun,
 };
 
-enum class WeaponAttackType
+UENUM(BlueprintType)
+enum class EWeaponInputType : uint8
 {
 	None,
 	Click,
 	Press,
 	Charge
+};
+
+UENUM(BlueprintType)
+enum class EWeaponRotateType : uint8
+{
+	None,
+	Instantly,
+	Smoothly
 };
 
 USTRUCT(BlueprintType)
@@ -30,16 +40,21 @@ struct FWeaponData : public FTableRowBase
 	USkeletalMesh* Mesh = nullptr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	EWeaponType WeaponType = EWeaponType::None;
+
+	// 컨트롤 관련
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	EWeaponInputType WeaponInputType = EWeaponInputType::None;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	EWeaponRotateType WeaponRotateType = EWeaponRotateType::None;
+
+	// 스탯 관련
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float AttackSpeed = 1.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	UMActionDataAsset* ActionData = nullptr;
-};
-
-struct FWeaponControlData
-{
-	WeaponRotateType RotateType;
-	WeaponAttackType AttackType;
 };
 
 UCLASS()
@@ -64,6 +79,9 @@ protected:
 	UDataTable* WeaponDataTable;
 
 public:
+	void OnEquipped(AActor* EquipActor);
+
+public:
 	UFUNCTION()
 	void OnRep_WeaponIndex();
 protected:
@@ -75,7 +93,10 @@ public:
 	FWeaponData* GetWeaponData();
 
 public:
-	virtual bool Attack();
+	bool GetMuzzleTransform(FTransform& OutTransform);
+
+public:
+	virtual bool BasicAttack();
 	virtual void OnAttackCoolDownFinished();
 
 public:
@@ -83,6 +104,5 @@ public:
 protected:
 	bool bAttackable = true;
 
-	float AttackSpeed = 0.25f;
 	FTimerHandle AttackTimerHandle;
 };

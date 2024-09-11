@@ -10,19 +10,26 @@ void UMAnimNotify_SpawnActor::Notify(USkeletalMeshComponent* MeshComp, UAnimSequ
 
 	if (IsValid(ActorClass) && IsValid(World))
 	{
-		FTransform SpawnTransform;
-		if (SpawnSocketName != NAME_None)
-		{
-			SpawnTransform = MeshComp->GetSocketTransform(SpawnSocketName);
-		}
-		else if(AActor* Actor = MeshComp->GetOwner())
-		{
-			SpawnTransform = Actor->GetActorTransform();
-		}
+		FTransform SpawnTransform = GetSocketTransform(MeshComp);
 		SpawnTransform.SetRotation(FRotator::ZeroRotator.Quaternion());
 		SpawnTransform.AddToTranslation(SpawnOffset);
 		SpawnActor = World->SpawnActor<AActor>((ActorClass), SpawnTransform);
 	}
+}
+
+FTransform UMAnimNotify_SpawnActor::GetSocketTransform(USkeletalMeshComponent* MeshComp)
+{
+	FTransform Transform;
+	if (SpawnSocketName != NAME_None)
+	{
+		Transform = MeshComp->GetSocketTransform(SpawnSocketName);
+	}
+	else if (AActor* Actor = MeshComp->GetOwner())
+	{
+		Transform = Actor->GetActorTransform();
+	}
+
+	return Transform;
 }
 
 void UMAnimNotify_SpawnBullet::Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference)
@@ -41,7 +48,8 @@ void UMAnimNotify_SpawnBullet::Notify(USkeletalMeshComponent* MeshComp, UAnimSeq
 	if (AMCharacter* Character = Cast<AMCharacter>(Owner))
 	{
 		FRotator Rotator = FRotator::ZeroRotator;
-		Rotator.Yaw = Character->GetTargetAngle();
+		//Rotator.Yaw = Character->GetTargetAngle();
+		Rotator.Yaw = Character->GetActorRotation().Yaw;
 		Direction = Rotator.Vector();
 	}
 
@@ -56,4 +64,19 @@ void UMAnimNotify_SpawnBullet::Notify(USkeletalMeshComponent* MeshComp, UAnimSeq
 		}
 		Bullet->StartProjectile(Direction, 0.f);
 	}
+}
+
+FTransform UMAnimNotify_SpawnBullet::GetSocketTransform(USkeletalMeshComponent* MeshComp)
+{
+	FTransform Transform;
+
+	if (AMCharacter* Character = Cast<AMCharacter>(MeshComp->GetOwner()))
+	{
+		if (Character->GetWeaponMuzzleTransform(Transform))
+		{
+			return Transform;
+		}
+	}
+
+	return Super::GetSocketTransform(MeshComp);
 }

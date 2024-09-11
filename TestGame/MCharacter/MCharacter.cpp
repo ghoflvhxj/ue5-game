@@ -92,7 +92,7 @@ void AMCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (bRotateToTargetAngle && HasAuthority() == false)
+	if (bRotateToTargetAngle)
 	{
 		RotateToTargetAngle();
 	}
@@ -209,7 +209,7 @@ void AMCharacter::OnHealthChanged(const FOnAttributeChangeData& AttributeChangeD
 	{
 		if (HasAuthority())
 		{
-			if (UStateComponent* StateComponent = GetComponentByClass<UStateComponent>())
+			if (IsValid(StateComponent))
 			{
 				StateComponent->ChangeState<ECharacterVitalityState>(ECharacterVitalityState::Die);
 				//SetLifeSpan(0.1f);
@@ -278,6 +278,16 @@ bool AMCharacter::IsSameTeam(AActor* OtherCharacter) const
 	return false;
 }
 
+bool AMCharacter::GetWeaponMuzzleTransform(FTransform& OutTransform)
+{
+	if (IsValid(Weapon))
+	{
+		return Weapon->GetMuzzleTransform(OutTransform);
+	}
+
+	return false;
+}
+
 bool AMCharacter::IsWeaponEquipped() const
 {
 	return true;
@@ -324,12 +334,7 @@ void AMCharacter::EquipWeapon(AWeapon* InWeapon)
 
 	if (IsValid(Weapon))
 	{
-		Weapon->AttachToActor(this, FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), TEXT("hand_rSocket"));
-		if (USkeletalMeshComponent* WeaponMesh = Weapon->GetComponentByClass<USkeletalMeshComponent>())
-		{
-			//WeaponMesh->SetRelativeLocation(WeaponMesh->GetSocketTransform(FName("Root")).GetLocation());
-			//WeaponMesh->SetRelativeRotation(WeaponMesh->GetSocketTransform(FName("Root")).GetRotation().Rotator());
-		}
+		Weapon->OnEquipped(this);
 	}
 }
 
@@ -358,15 +363,50 @@ void AMCharacter::OnRep_Weapon(AWeapon* OldWeapon)
 		OnWeaponChangedEvent.Broadcast(OldWeapon, Weapon);
 	}
 }
-bool AMCharacter::IsAttackable()
+
+void AMCharacter::TryBasicAttack()
 {
-	//ItemEquipComponent
-	if (IsValid(Weapon))
+	if (IsAttackable() == false)
 	{
-		return Weapon->IsAttackable();
+		return;
 	}
 
-	return false;
+	TArray<FGameplayAbilitySpecHandle> ActiveAbilities;
+	AbilitySystemComponent->FindAllAbilitiesWithTags(ActiveAbilities, FGameplayTagContainer(FGameplayTag::RequestGameplayTag("Character.Action.BasicAttack")));
+	for (const FGameplayAbilitySpecHandle& AbilitySpecHandle : ActiveAbilities)
+	{
+		AbilitySystemComponent->CancelAbilityHandle(AbilitySpecHandle);
+	}
+
+	FGameplayEventData GameplayEventData;
+	GameplayEventData.EventTag = FGameplayTag::RequestGameplayTag(FName("Character.Action.Move"));
+	GameplayEventData.Instigator = this;
+	GameplayEventData.Target = this;
+
+	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, FGameplayTag::RequestGameplayTag("Controller.MouseLeftClick"), GameplayEventData);
+}
+
+void AMCharacter::StartBasicAttack()
+{
+	if (IsAttackable() == false)
+	{
+		return;
+	}
+
+	UpdateTargetAngle();
+	SetRotateToTargetAngle(true);
+
+	Weapon->BasicAttack();
+}
+
+void AMCharacter::FinishBasicAttack()
+{
+
+}
+
+bool AMCharacter::IsAttackable()
+{
+	return IsValid(Weapon) && Weapon->IsAttackable();
 }
 
 void AMCharacter::UpdateTargetAngle()
@@ -409,6 +449,11 @@ void AMCharacter::SetRotateToTargetAngle(bool bNewValue)
 {
 	bRotateToTargetAngle = bNewValue;
 	Server_SetRotateToTargetAngle(bRotateToTargetAngle);
+
+	if (GetLocalRole() == ROLE_AutonomousProxy)
+	{
+		UpdateTargetAngle();
+	}
 }
 
 void AMCharacter::Server_SetRotateToTargetAngle_Implementation(bool bNewValue)
@@ -426,21 +471,46 @@ void AMCharacter::RotateToTargetAngle()
 {
 	if (IsValid(Weapon))
 	{
-		//Weapon->
-	}
+		switch (Weapon->GetWeaponData()->WeaponRotateType)
+		{
+			default:
+			case EWeaponRotateType::Instantly:
+			{
+				FRotator Rotator;
+				Rotator.Yaw = TargetAngle;
+				SetActorRotation(Rotator);
+			}
+			break;
+			case EWeaponRotateType::Smoothly:
+			{	
+				FRotator CurrentRot = GetActorRotation();
+				if (CurrentRot.Yaw != TargetAngle)
+				{
+					FVector XDirectVector = { 1.0, 0.0, 0.0 };
+					FRotator Rotator;
+					Rotator.Yaw = TargetAngle >= 0.f ? TargetAngle : TargetAngle + 360.f;
+					float RotScale = GetActorForwardVector().Cross(Rotator.Vector()).Z >= 0.f ? -1.f : 1.f;
 
-	FRotator Rotator;
-	Rotator.Yaw = TargetAngle;
-	SetActorRotation(Rotator);
+					FRotator AddRot = FRotator::ZeroRotator;
+					AddRot.Yaw = 360.f * GetWorld()->GetDeltaSeconds() * RotScale;
+					
+					AddActorWorldRotation(AddRot);
+
+					if ((RotScale > 0.f && GetActorRotation().Yaw > TargetAngle) || (RotScale < 0.f && GetActorRotation().Yaw < TargetAngle))
+					{
+						Rotator = FRotator::ZeroRotator;
+						Rotator.Yaw = TargetAngle;
+						SetActorRotation(Rotator);
+					}
+				}
+			}
+			break;
+		}
+	}
 }
 
 void AMCharacter::MoveToLocation()
 {
-	if (IsValid(AbilitySystemComponent) == false)
-	{
-		return;
-	}
-
 	FGameplayEventData GameplayEventData;
 	GameplayEventData.EventTag = FGameplayTag::RequestGameplayTag(FName("Character.Action.Move"));
 	GameplayEventData.Instigator = this;
@@ -448,8 +518,6 @@ void AMCharacter::MoveToLocation()
 
 	UE_LOG(LogTemp, Warning, TEXT("ghoflvhxj Send Move Event"));
 	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, FGameplayTag::RequestGameplayTag(FName("Controller.MouseRightClick")), GameplayEventData);
-
-	//AbilitySystemComponent->TryActivateAbilityByClass(UGameplayAbility_MoveToMouse::StaticClass());
 }
 
 bool AMCharacter::IsInteractableActor(AActor* OtherActor)

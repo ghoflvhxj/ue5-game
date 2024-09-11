@@ -8,6 +8,7 @@
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "TestGame/MCharacter/Component/ActionComponent.h"
 #include "TestGame/MCharacter/MCharacter.h"
+#include "TestGame/MWeapon/Weapon.h"
 #include "GameFramework/Pawn.h"
 #include "NavigationSystem.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
@@ -171,8 +172,7 @@ void UGameplayAbility_BasicAttack::ActivateAbility(const FGameplayAbilitySpecHan
 		AMCharacter* Character = Cast<AMCharacter>(GetAvatarActorFromActorInfo());
 		if (IsValid(Character))
 		{
-			Character->UpdateTargetAngle();
-			Character->SetRotateToTargetAngle(true);
+			Character->StartBasicAttack();
 		}
 
 		if (UMActionComponent* ActionComponent = TriggerEventData->Instigator->GetComponentByClass<UMActionComponent>())
@@ -218,7 +218,7 @@ bool UGameplayAbility_BasicAttack::CommitAbility(const FGameplayAbilitySpecHandl
 {
 	if (AMCharacter* Character = Cast<AMCharacter>(GetAvatarActorFromActorInfo()))
 	{
-		return Super::CommitAbility(Handle, ActorInfo, ActivationInfo, OptionalRelevantTags)/* && Character->IsAttackable()*/;
+		return Super::CommitAbility(Handle, ActorInfo, ActivationInfo, OptionalRelevantTags) && Character->IsAttackable();
 	}
 
 	return false;

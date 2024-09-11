@@ -51,6 +51,35 @@ void AWeapon::BeginPlay()
 	}
 }
 
+void AWeapon::OnEquipped(AActor* EquipActor)
+{
+	if (IsValid(EquipActor))
+	{
+		if (FWeaponData* WeaponData = GetWeaponData())
+		{
+			FString SocketName;
+			switch (WeaponData->WeaponType)
+			{
+				default:
+				case EWeaponType::Sword:
+				{
+					SocketName = TEXT("hand_rSocket");
+				}
+				break;
+				case EWeaponType::Gun:
+				{
+					SocketName = TEXT("hand_rSocket_FPS");
+				}
+				break;
+			}
+
+			AttachToActor(EquipActor, FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), *SocketName);
+		}
+	}
+
+	SetOwner(EquipActor);
+}
+
 void AWeapon::OnRep_WeaponIndex()
 {
 	if (HasAuthority() == false)
@@ -80,21 +109,36 @@ FWeaponData* AWeapon::GetWeaponData()
 	return nullptr;
 }
 
-bool AWeapon::Attack()
+bool AWeapon::GetMuzzleTransform(FTransform& OutTransform)
+{
+	if (USkeletalMeshComponent* WeaponMesh = GetComponentByClass<USkeletalMeshComponent>())
+	{
+		OutTransform = WeaponMesh->GetSocketTransform(TEXT("Muzzle"));
+		return true;
+	}
+
+	return false;
+}
+
+bool AWeapon::BasicAttack()
 {
 	if (IsAttackable() == false || IsValid(GetOwner()) == false)
 	{
 		return false;
 	}
 
-	//if (UMActionComponent* ActionComponent = GetOwner()->GetComponentByClass<UMActionComponent>())
-	//{
-	//	UAnimMontage* Montage = ActionComponent->GetActionMontage(AbilityTags.GetByIndex(0));
-	//}
+	if (FWeaponData* WeaponData = GetWeaponData())
+	{
+		if (WeaponData->AttackSpeed > 0.f)
+		{
+			bAttackable = false;
+			GetWorldTimerManager().SetTimer(AttackTimerHandle, this, &AWeapon::OnAttackCoolDownFinished, WeaponData->AttackSpeed, false);
+		}
 
-	GetWorldTimerManager().SetTimer(AttackTimerHandle, this, &AWeapon::OnAttackCoolDownFinished, AttackSpeed, false);
+		return true;
+	}
 
-	return true;
+	return false;
 }
 
 void AWeapon::OnAttackCoolDownFinished()
