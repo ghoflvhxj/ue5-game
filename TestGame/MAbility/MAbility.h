@@ -3,8 +3,8 @@
 #pragma once
 
 #include "TestGame/TestGame.h"
-#include "GameplayTags/Classes/GameplayTagContainer.h"
-#include "Engine/Classes/Engine/DataAsset.h"
+#include "GameplayTagContainer.h"
+#include "Engine/DataAsset.h"
 #include "GameplayAbilities/Public/AbilitySystemComponent.h"
 #include "MAbility.generated.h"
 

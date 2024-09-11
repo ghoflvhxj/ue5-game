@@ -107,7 +107,7 @@ void UGameplayAbility_MoveToMouse::EndAbility(const FGameplayAbilitySpecHandle H
 
 void UGameplayAbility_MoveToMouse::MoveToMouse(FGameplayEventData Payload)
 {
-	APawn* Pawn = Cast<APawn>(Payload.Target);
+	const APawn* Pawn = Cast<APawn>(Payload.Target);
 	if (IsValid(Pawn) == false)
 	{
 		return;
@@ -139,8 +139,6 @@ UGameplayAbility_BasicAttack::UGameplayAbility_BasicAttack()
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Action.BasicAttack"));
 
 	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Character.Action.Move"));
-
-	BlockAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Character.Action.ChangeWeapon"));
 }
 
 void UGameplayAbility_BasicAttack::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)

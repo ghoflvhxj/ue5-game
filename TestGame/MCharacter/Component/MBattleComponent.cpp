@@ -1,5 +1,6 @@
 #include "MBattleComponent.h"
 #include "TestGame/MCharacter/MCharacter.h"
+#include "Engine/OverlapResult.h"
 
 #include "TestGame/Bullet/Bullet.h"
 

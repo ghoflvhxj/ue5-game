@@ -6,8 +6,8 @@
 #include "GameFramework/Character.h"
 #include "GameFramework/MovementComponent.h"
 
-#include "GameplayTags/Classes/GameplayTagContainer.h"
-#include "Engine/Classes/Engine/DataAsset.h"
+#include "GameplayTagContainer.h"
+#include "Engine/DataAsset.h"
 
 #include "ActionComponent.generated.h"
 
