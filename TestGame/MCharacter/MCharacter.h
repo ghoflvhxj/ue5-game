@@ -32,16 +32,6 @@ DECLARE_EVENT_TwoParams(AMCharacter, FOnWeaponChangedEvent, AWeapon*, AWeapon*);
 UCLASS()
 class TESTGAME_API AMCharacter : public ACharacter, public IAbilitySystemInterface
 {
-	/*--------------------------------------------------------------
-	캐릭터는 상태를 관리합니다.
-	공존할 수 없는 상태들의 집합으로 카테고리가 만들 수 있습니다. ex) 앉음, 일어서있음 상태는 공존할 수 없기 때문에 포즈 카테고리로 묶입니다.
-	
-	현재 제공하는 것은 생명, 베이스포즈, 확장포즈, 액션 3개의 카테고리입니다.
-	ex) 
-	1. 살아있는 캐릭터가(생명상태), 일어선 상태에서(포즈상태), 가만히 있으면서(이동상태), 공격한다(액션상태)
-	2. 살아있는 캐릭터가(생명상태) 일어선 상태에서(포즈상태), 이동하면서(이동상태), 공격한다(액션상태)
-
-	--------------------------------------------------------------*/
 	GENERATED_BODY()
 
 public:
