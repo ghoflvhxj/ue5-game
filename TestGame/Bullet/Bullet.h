@@ -56,5 +56,10 @@ protected:
 
 protected:
 	float Damage = 0.f;
+
+public:
+	bool IsReactable(AActor* InActor);
+protected:
+	TArray<TWeakObjectPtr<AActor>> IgnoreActors;
 };
 

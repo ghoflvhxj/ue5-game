@@ -32,30 +32,32 @@ void ABullet::BeginPlay()
 	{
 		ProjectileComponent->Deactivate();
 	}
+
+	IgnoreActors.Add(GetInstigator());
 }
 
 void ABullet::NotifyActorBeginOverlap(AActor* OtherActor)
 {
 	Super::NotifyActorBeginOverlap(OtherActor);
 
-	if (IsValid(OtherActor) == false)
+	if (IsValid(OtherActor) == false || IsReactable(OtherActor) == false)
 	{
 		return;
 	}
 
 	if (APawn* OwnerPawn = Cast<APawn>(GetOwner()))	
 	{
-		UGameplayStatics::ApplyDamage(OtherActor, Damage, OwnerPawn->GetController(), OwnerPawn, UDamageType::StaticClass());
+		//UGameplayStatics::ApplyDamage(OtherActor, Damage, OwnerPawn->GetController(), OwnerPawn, UDamageType::StaticClass());
 	}
 
-	if (OtherActor->IsA<APawn>())
-	{
+	if (OtherActor->IsA<APawn>() && HasAuthority())
+	{	
 		if (UAbilitySystemComponent* AbilitySystemComponent = OtherActor->FindComponentByClass<UAbilitySystemComponent>())
 		{
 			for (auto GameplayEffect : GameplayEffects)
 			{
 				FGameplayEffectContextHandle EffectContextHandle = AbilitySystemComponent->MakeEffectContext();
-				EffectContextHandle.AddSourceObject(this);
+				EffectContextHandle.AddSourceObject(GameplayEffect);
 
 				AbilitySystemComponent->ApplyGameplayEffectToSelf(GameplayEffect, 1, EffectContextHandle);
 			}
@@ -109,4 +111,14 @@ void ABullet::StartProjectile(const FVector& NewDirection, float NewDamage)
 	ProjectileComponent->Velocity = Direction * ProjectileComponent->InitialSpeed;
 
 	SetLifeSpan(10.f);
+}
+
+bool ABullet::IsReactable(AActor* InActor)
+{
+	if (IsValid(InActor) == false || IgnoreActors.Contains(InActor))
+	{
+		return false;
+	}
+
+	return true;
 }
