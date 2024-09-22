@@ -156,6 +156,11 @@ public:
 	void Multicast_ChangeWeapon(AWeapon* InWeapon);
 	UFUNCTION()
 	void OnRep_Weapon(AWeapon* OldWeapon);
+	template <class T>
+	T* GetWeapon()
+	{
+		return Cast<T>(Weapon);
+	}
 protected:
 	UPROPERTY(ReplicatedUsing = OnRep_Weapon)
 	AWeapon* Weapon = nullptr;
