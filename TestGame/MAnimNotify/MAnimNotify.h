@@ -34,7 +34,7 @@ class TESTGAME_API UMAnimNotify_SpawnBullet : public UMAnimNotify_SpawnActor
 GENERATED_BODY()
 
 public:
-	virtual void Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference) override;
+	virtual void OnActorSpawned(AActor* InActor, USkeletalMeshComponent* MeshComp) override;
 
 public:
 	virtual FTransform GetSocketTransform(USkeletalMeshComponent* MeshComp) override;

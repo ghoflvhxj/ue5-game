@@ -13,7 +13,6 @@ void UMAnimNotify_SpawnActor::Notify(USkeletalMeshComponent* MeshComp, UAnimSequ
 		FTransform SpawnTransform = GetSocketTransform(MeshComp);
 		SpawnTransform.SetRotation(FRotator::ZeroRotator.Quaternion());
 		SpawnTransform.AddToTranslation(SpawnOffset);
-		SpawnActor = World->SpawnActor<AActor>((ActorClass), SpawnTransform);
 
 		FActorSpawnParameters SpawnParam;
 		if (AMCharacter* Character = Cast<AMCharacter>(MeshComp->GetOwner()))
