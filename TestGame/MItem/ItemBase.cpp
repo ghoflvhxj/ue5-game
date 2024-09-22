@@ -6,6 +6,11 @@ AItemBase::AItemBase()
 	PrimaryActorTick.bCanEverTick = false;
 }
 
+void AItemBase::SetItemIndex(int32 InItemIndex)
+{
+	ItemIndex = InItemIndex;
+}
+
 FItemBaseInfo* AItemBase::GetItemBaseInfo()
 {
 	if (IsValid(ItemDataTable) && ItemIndex != INDEX_NONE)

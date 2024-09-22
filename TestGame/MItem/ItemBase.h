@@ -51,8 +51,11 @@ public:
 	AItemBase();
 
 // 아이템 정보
+public:
+	UFUNCTION(BlueprintCallable)
+	void SetItemIndex(int32 InItemIndex);
 protected:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	int32 ItemIndex = INDEX_NONE;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	UDataTable* ItemDataTable = nullptr;
