@@ -97,7 +97,7 @@ void AMCharacter::Tick(float DeltaTime)
 		RotateToTargetAngle();
 	}
 
-	if (InteractTargets.Num() > 0)
+	if (InteractTargets.Num() > 0 && IsPlayerControlled())
 	{
 		TWeakObjectPtr<AActor> ClosetTarget = InteractTargets[0];
 		for (auto Iterator = InteractTargets.CreateIterator(); Iterator; ++Iterator)
