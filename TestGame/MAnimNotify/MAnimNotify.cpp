@@ -14,6 +14,18 @@ void UMAnimNotify_SpawnActor::Notify(USkeletalMeshComponent* MeshComp, UAnimSequ
 		SpawnTransform.SetRotation(FRotator::ZeroRotator.Quaternion());
 		SpawnTransform.AddToTranslation(SpawnOffset);
 		SpawnActor = World->SpawnActor<AActor>((ActorClass), SpawnTransform);
+
+		FActorSpawnParameters SpawnParam;
+		if (AMCharacter* Character = Cast<AMCharacter>(MeshComp->GetOwner()))
+		{
+			SpawnParam.Instigator = Character;
+			SpawnParam.Owner = Character->GetWeapon<AActor>();
+		}
+
+		if (AActor* NewActor = World->SpawnActor<AActor>((ActorClass), SpawnTransform, SpawnParam))
+		{
+			OnActorSpawned(NewActor, MeshComp);
+		}
 	}
 }
 
@@ -32,19 +44,18 @@ FTransform UMAnimNotify_SpawnActor::GetSocketTransform(USkeletalMeshComponent* M
 	return Transform;
 }
 
-void UMAnimNotify_SpawnBullet::Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference)
+void UMAnimNotify_SpawnBullet::OnActorSpawned(AActor* InActor, USkeletalMeshComponent* MeshComp)
 {
-	Super::Notify(MeshComp, Animation, EventReference);
-
-	if (IsValid(MeshComp) == false)
+	AActor* Owner = MeshComp->GetOwner();
+	if (IsValid(MeshComp) == false || IsValid(Owner) == false)
 	{
 		return;
 	}
 
 	FVector Direction = MeshComp->GetForwardVector();
 	float Damage = 0.f;
-	
-	AActor* Owner = MeshComp->GetOwner();
+
+
 	if (AMCharacter* Character = Cast<AMCharacter>(Owner))
 	{
 		FRotator Rotator = FRotator::ZeroRotator;
@@ -53,7 +64,7 @@ void UMAnimNotify_SpawnBullet::Notify(USkeletalMeshComponent* MeshComp, UAnimSeq
 		Direction = Rotator.Vector();
 	}
 
-	if (ABullet* Bullet = GetSpawnActor<ABullet>())
+	if (ABullet* Bullet = Cast<ABullet>(InActor))
 	{
 		if (IsValid(Owner))
 		{
@@ -62,6 +73,7 @@ void UMAnimNotify_SpawnBullet::Notify(USkeletalMeshComponent* MeshComp, UAnimSeq
 				Bullet->GiveEffects(AbilitySystemComponent);
 			}
 		}
+
 		Bullet->StartProjectile(Direction, 0.f);
 	}
 }

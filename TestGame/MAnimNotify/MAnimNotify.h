@@ -13,6 +13,8 @@ class TESTGAME_API UMAnimNotify_SpawnActor : public UAnimNotify
 
 public:
 	virtual void Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference) override;
+public:
+	virtual void OnActorSpawned(AActor* InActor, USkeletalMeshComponent* MeshComp) {}
 
 public:
 	virtual FTransform GetSocketTransform(USkeletalMeshComponent* MeshComp);
@@ -24,10 +26,6 @@ protected:
 	FName SpawnSocketName;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FVector SpawnOffset;
-
-	template<class T>
-	T* GetSpawnActor() { return Cast<T>(SpawnActor.Get()); }
-	TWeakObjectPtr<AActor> SpawnActor;
 };
 
 UCLASS()
