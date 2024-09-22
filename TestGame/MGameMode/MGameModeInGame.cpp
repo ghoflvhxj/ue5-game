@@ -6,6 +6,8 @@
 #include "Gameframework/PlayerState.h"
 #include "TestGame/MGameState/MGameStateInGame.h"
 #include "TestGame/MCharacter/MCharacter.h"
+#include "TestGame/MChest/Chest.h"
+#include "TestGame/MItem/DropItem.h"
 #include "TestGame/MCharacter/MCharacterEnum.h"
 
 void AMGameModeInGame::BeginPlay()
@@ -70,6 +72,38 @@ void AMGameModeInGame::RestartPlayer(AController* NewPlayer)
 	ensure(IsValid(PlayerController));
 
 	GameStateInGame->RevivePlayer(PlayerController->GetPlayerState<APlayerState>());
+}
+
+void AMGameModeInGame::OnActorDestruct(ADestructableActor* InDestructableActor)
+{
+	if (IsValid(InDestructableActor))
+	{
+		FTransform Transform = InDestructableActor->GetActorTransform();
+		Transform.SetScale3D(FVector::OneVector);
+
+		auto PickItemIndex = []()->int32 {
+			return FMath::RandRange(0, 3);
+		};
+
+		int32 ItemIndex = PickItemIndex();
+		SpawnDropItem(ItemIndex, Transform);
+
+		// GameItemComponent->SpawnRandomItem();
+	}
+}
+
+ADropItem* AMGameModeInGame::SpawnDropItem(int32 InItemIndex, FTransform& InTransform)
+{
+	if (IsValid(DropItemClass))
+	{
+		if (ADropItem* DropItem = Cast<ADropItem>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, DropItemClass, InTransform)))
+		{
+			DropItem->SetItemIndex(InItemIndex);
+			UGameplayStatics::FinishSpawningActor(DropItem, InTransform);
+		}
+	}
+
+	return nullptr;
 }
 
 bool AMGameModeInGame::PlayerCanRestart_Implementation(APlayerController* Player)

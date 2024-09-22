@@ -8,7 +8,7 @@ public class TestGame : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "NavigationSystem", "AIModule", "GameplayTags", "OnlineSubsystem", "Sockets", "Networking", "GameplayAbilities", "GameplayTasks", "UMG", "Paper2D" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "NavigationSystem", "AIModule", "GameplayTags", "OnlineSubsystem", "Sockets", "Networking", "GameplayAbilities", "GameplayTasks", "UMG", "Paper2D", "GeometryCollectionEngine" });
 
 		PrivateDependencyModuleNames.AddRange(new string[] { "OnlineSubsystem" });
 		// Uncomment if you are using Slate UI
