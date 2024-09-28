@@ -183,7 +183,6 @@ void AMCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifet
 
 	DOREPLIFETIME_CONDITION(AMCharacter, TargetAngle, COND_SimulatedOnly);
 	DOREPLIFETIME_CONDITION(AMCharacter, bRotateToTargetAngle, COND_SimulatedOnly);
-
 	DOREPLIFETIME(AMCharacter, Weapon);
 }
 
@@ -300,47 +299,49 @@ void AMCharacter::EquipWeapon(AWeapon* InWeapon)
 		return;
 	}
 
-	if (HasAuthority())
-	{
-		if (IsValid(Weapon))
-		{
-			Weapon->SetActorHiddenInGame(true);
-		}
-
-		Multicast_ChangeWeapon(InWeapon);
-	}
-	else
-	{
-		if (IsValid(Weapon))
-		{
-			Weapon->SetActorHiddenInGame(true);
-		}
-
-		Weapon = InWeapon;
-		if (OnWeaponChangedEvent.IsBound())
-		{
-			OnWeaponChangedEvent.Broadcast(Weapon, InWeapon);
-		}
-
-		TestDelegate = FTimerDelegate::CreateWeakLambda(this, [this, InWeapon]() {
-			if (IsValid(InWeapon) && InWeapon->IsHidden() == false)
-			{
-				InWeapon->SetActorHiddenInGame(true);
-			}
-		});
-		FTimerHandle DummyHandle;
-		GetWorldTimerManager().SetTimer(DummyHandle, TestDelegate, 3.f, false);
-	}
+	AWeapon* OldWeapon = Weapon;
 
 	if (IsValid(Weapon))
 	{
-		Weapon->OnEquipped(this);
+		Weapon->SetActorHiddenInGame(true);
+	}
+
+	if (HasAuthority())
+	{
+		Weapon = InWeapon;
+		OnRep_Weapon(OldWeapon);
+	}
+	
+	if (HasAuthority() == false && InWeapon->HasAuthority())
+	{
+		if (IsValid(WeaponCached))
+		{
+			WeaponCached->SetActorHiddenInGame(true);
+			WeaponCached->SetLifeSpan(0.1f);
+		}
+		
+		WeaponCached = InWeapon;
+	}
+
+	if (IsValid(InWeapon))
+	{
+		InWeapon->OnEquipped(this);
+	}
+
+	if (OnWeaponChangedEvent.IsBound())
+	{
+		OnWeaponChangedEvent.Broadcast(OldWeapon, InWeapon);
 	}
 }
 
-void AMCharacter::Multicast_ChangeWeapon_Implementation(AWeapon* InWeapon)
+void AMCharacter::OnRep_Weapon(AWeapon* OldWeapon)
 {
-	Weapon = InWeapon;
+	if (IsLocallyControlled() && IsValid(WeaponCached))
+	{
+		WeaponCached->SetActorHiddenInGame(true);
+		WeaponCached->SetLifeSpan(0.1f);
+		WeaponCached = nullptr;
+	}
 
 	if (IsValid(Weapon))
 	{
@@ -348,14 +349,6 @@ void AMCharacter::Multicast_ChangeWeapon_Implementation(AWeapon* InWeapon)
 		{
 			ActionComponent->UpdateAction(Weapon->ActionComponent);
 		}
-	}
-}
-
-void AMCharacter::OnRep_Weapon(AWeapon* OldWeapon)
-{
-	if (TestDelegate.IsBound())
-	{
-		TestDelegate.Execute();
 	}
 
 	if (OnWeaponChangedEvent.IsBound())

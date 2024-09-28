@@ -152,8 +152,6 @@ public:
 	bool IsWeaponEquipped() const;
 	UFUNCTION(BlueprintCallable)
 	void EquipWeapon(AWeapon* InWeapon);
-	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_ChangeWeapon(AWeapon* InWeapon);
 	UFUNCTION()
 	void OnRep_Weapon(AWeapon* OldWeapon);
 	template <class T>
@@ -164,6 +162,7 @@ public:
 protected:
 	UPROPERTY(ReplicatedUsing = OnRep_Weapon)
 	AWeapon* Weapon = nullptr;
+	AWeapon* WeaponCached = nullptr;
 
 // 공격
 public:
