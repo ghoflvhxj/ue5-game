@@ -36,6 +36,12 @@ protected:
 protected:
 	virtual void BeginPlay() override;
 
+public:
+	virtual void OnRep_ItemIndex();
+
+protected:
+	void UpdateItemMesh();
+
 public:	
 	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void Tick(float DeltaTime) override;

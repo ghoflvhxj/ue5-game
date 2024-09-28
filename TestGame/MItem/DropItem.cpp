@@ -30,7 +30,8 @@ void ADropItem::BeginPlay()
 	{
 		InteractorComponent->InteractFinishEvent.AddWeakLambda(this, [this]() {
 			FItemBaseInfo* ItemBaseInfo = GetItemBaseInfo();
-			if (ItemBaseInfo == nullptr)
+			AMCharacter* Interactor = InteractorComponent->GetInteractor<AMCharacter>();
+			if (IsValid(Interactor) == false || ItemBaseInfo == nullptr)
 			{
 				return;
 			}
@@ -40,13 +41,16 @@ void ADropItem::BeginPlay()
 				case EItemType::Weapon:
 				{
 					// 장비 장착하는 거 EquipComponent로 분리하고, 그 컴포넌트를 사용하는 것으로 바꾸기
-					if (AMCharacter* InteractCharacter = InteractorComponent->GetInteractor<AMCharacter>())
+					if (AWeapon* Weapon = Cast<AWeapon>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, WeaponClass, Interactor->GetActorTransform())))
 					{
-						if (AWeapon* Weapon = Cast<AWeapon>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, WeaponClass, InteractCharacter->GetActorTransform())))
+						Weapon->SetWeaponIndex(ItemBaseInfo->Index);
+						UGameplayStatics::FinishSpawningActor(Weapon, Interactor->GetActorTransform());
+						Interactor->EquipWeapon(Weapon);
+
+						// 클라 액터는 즉각적인 피드백을 위한 것이니 삭제되야 함
+						if (HasAuthority() == false)
 						{
-							Weapon->SetWeaponIndex(ItemBaseInfo->Index);
-							UGameplayStatics::FinishSpawningActor(Weapon, InteractCharacter->GetActorTransform());
-							InteractCharacter->EquipWeapon(Weapon);
+							Weapon->SetLifeSpan(3.f);
 						}
 					}
 				}
@@ -54,16 +58,38 @@ void ADropItem::BeginPlay()
 			}
 		});
 	}
+
+	UpdateItemMesh();
+}
+
+void ADropItem::OnRep_ItemIndex()
+{
+	Super::OnRep_ItemIndex();
+
+	UpdateItemMesh();
+}
+
+void ADropItem::UpdateItemMesh()
+{
+	if (IsNetMode(NM_DedicatedServer))
+	{
+		return;
+	}
+
+	if (FItemBaseInfo* ItemBaseInfo = GetItemBaseInfo())
+	{
+		if (SkeletalMeshComponent->GetSkeletalMeshAsset() != ItemBaseInfo->DropMesh)
+		{
+			SkeletalMeshComponent->SetSkeletalMesh(ItemBaseInfo->DropMesh);
+		}
+	}
 }
 
 void ADropItem::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
 
-	if (FItemBaseInfo* ItemBaseInfo = GetItemBaseInfo())
-	{
-		SkeletalMeshComponent->SetSkeletalMesh(ItemBaseInfo->DropMesh);
-	}
+	UpdateItemMesh();
 }
 
 // Called every frame

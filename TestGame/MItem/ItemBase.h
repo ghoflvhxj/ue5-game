@@ -47,15 +47,19 @@ class TESTGAME_API AItemBase : public AActor
 	GENERATED_BODY()
 
 public:
-	// Sets default values for this character's properties
 	AItemBase();
 
-// 아이템 정보
+public:
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+	// 아이템 정보
 public:
 	UFUNCTION(BlueprintCallable)
 	void SetItemIndex(int32 InItemIndex);
+	UFUNCTION()
+	virtual void OnRep_ItemIndex();
 protected:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_ItemIndex)
 	int32 ItemIndex = INDEX_NONE;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	UDataTable* ItemDataTable = nullptr;
