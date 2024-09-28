@@ -86,4 +86,19 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	UDataTable* MonsterSpawnTable;
+
+	UPROPERTY(EditAnywhere)
+	float MinRadius = 1000.f;
+	UPROPERTY(EditAnywhere)
+	float MaxRadius = 1500.f;
+
+#if WITH_EDITORONLY_DATA
+	UPROPERTY(EditAnywhere)
+	int32 SpawnPositionNum = 0;
+#endif
+
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PostEditMove(bool bFinished) override;
+#endif
 };

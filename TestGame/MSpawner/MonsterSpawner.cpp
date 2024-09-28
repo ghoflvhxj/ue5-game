@@ -153,12 +153,52 @@ FTransform AMonsterSpawner::GetSpawnTransform()
 {
 	FTransform Transform = Super::GetSpawnTransform();
 
+	//if (UNavigationSystemV1* NavigationSystem = UNavigationSystemV1::GetNavigationSystem(this))
+	//{
+	//	for (int i = 0; i < 5; ++i)
+	//	{
+	//		FNavLocation NavLocation;
+	//		FVector Origin = GetActorLocation();
+
+	//		float Distance = FMath::FRandRange(MinRadius, MaxRadius);
+	//		float Angle = FMath::FRand() * 90.f;
+
+	//		if (NavigationSystem->GetRandomReachablePointInRadius(Origin, MaxRadius, NavLocation))
+	//		{
+	//			if (MinRadius <= FVector::Distance(Origin, NavLocation.Location) && FVector::Distance(Origin, NavLocation.Location) <= MaxRadius)
+	//			{
+	//				Transform.SetLocation(NavLocation.Location);
+	//				break;
+	//			}
+	//		}
+	//	}
+	//}
+
 	if (UNavigationSystemV1* NavigationSystem = UNavigationSystemV1::GetNavigationSystem(this))
 	{
-		FNavLocation NavLocation;
-		if (NavigationSystem->GetRandomReachablePointInRadius(GetActorLocation(), 3000.f, NavLocation))
+		if (ANavigationData* NavData = NavigationSystem->GetDefaultNavDataInstance())
 		{
-			Transform.SetLocation(NavLocation.Location);
+			FNavLocation NavLocation;
+			FVector Origin = GetActorLocation();
+
+			float Distance = FMath::FRandRange(MinRadius, MaxRadius);
+			float Angle = FMath::FRand() * 360.f;
+
+			int Interval = 36;
+			int LoopCount = 360 / Interval;
+			for (int i = 0; i < LoopCount; ++i)
+			{
+				FPathFindingQuery Query;
+				Query.StartLocation = GetActorLocation();
+				Query.EndLocation = GetActorLocation() + FRotator(0.0, Angle + (i * Interval), 0.0).RotateVector(FVector::XAxisVector) * Distance; 
+				Query.QueryFilter = NavData->GetDefaultQueryFilter();
+				FPathFindingResult PathFindingResult = NavigationSystem->FindPathSync(Query);
+				if (PathFindingResult.IsSuccessful())
+				{
+					Transform.SetLocation(PathFindingResult.Path->GetPathPoints().Last().Location);
+					break;
+				}
+			}
 		}
 	}
 
@@ -170,3 +210,31 @@ FTransform AMonsterSpawner::GetSpawnTransform()
 
 	return Transform;
 }
+
+#if WITH_EDITOR
+void AMonsterSpawner::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+	
+	FlushPersistentDebugLines(GetWorld());
+	for (int i=0; i< SpawnPositionNum; ++i)
+	{
+		DrawDebugSphere(GetWorld(), GetSpawnTransform().GetLocation(), 100.f, 4, FColor::Blue, true);
+	}
+}
+
+void AMonsterSpawner::PostEditMove(bool bFinished)
+{
+	Super::PostEditMove(bFinished);
+
+	if (bFinished)
+	{
+		FlushPersistentDebugLines(GetWorld());
+		for (int i = 0; i < SpawnPositionNum; ++i)
+		{
+			DrawDebugSphere(GetWorld(), GetSpawnTransform().GetLocation(), 100.f, 4, FColor::Blue, true);
+		}
+	}
+}
+
+#endif
