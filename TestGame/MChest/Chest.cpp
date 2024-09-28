@@ -20,12 +20,12 @@ void ADestructableActor::Destruct_Implementation()
 	if (AMGameModeInGame* GameMode = Cast<AMGameModeInGame>(UGameplayStatics::GetGameMode(this)))
 	{
 		GameMode->OnActorDestruct(this);
+	}
 
-		if (IsValid(SphereComponent))
-		{
-			SphereComponent->SetGenerateOverlapEvents(false);
-			SphereComponent->SetCanEverAffectNavigation(false);
-			ClearComponentOverlaps();
-		}
+	if (IsValid(SphereComponent))
+	{
+		SphereComponent->SetGenerateOverlapEvents(false);
+		SphereComponent->SetCanEverAffectNavigation(false);
+		ClearComponentOverlaps();
 	}
 }
