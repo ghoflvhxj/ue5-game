@@ -15,8 +15,7 @@ public:
 	virtual void Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference) override;
 public:
 	virtual void OnActorSpawned(AActor* InActor, USkeletalMeshComponent* MeshComp) {}
-
-public:
+	virtual bool GetSpawnParam(USkeletalMeshComponent* MeshComp, FActorSpawnParameters& OutSpawnTransform);
 	virtual FTransform GetSocketTransform(USkeletalMeshComponent* MeshComp);
 
 protected:
@@ -35,7 +34,6 @@ GENERATED_BODY()
 
 public:
 	virtual void OnActorSpawned(AActor* InActor, USkeletalMeshComponent* MeshComp) override;
-
-public:
+	virtual bool GetSpawnParam(USkeletalMeshComponent* MeshComp, FActorSpawnParameters& OutSpawnTransform) override;
 	virtual FTransform GetSocketTransform(USkeletalMeshComponent* MeshComp) override;
 };

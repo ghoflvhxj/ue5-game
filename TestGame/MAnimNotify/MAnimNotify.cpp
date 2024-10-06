@@ -15,17 +15,24 @@ void UMAnimNotify_SpawnActor::Notify(USkeletalMeshComponent* MeshComp, UAnimSequ
 		SpawnTransform.AddToTranslation(SpawnOffset);
 
 		FActorSpawnParameters SpawnParam;
-		if (AMCharacter* Character = Cast<AMCharacter>(MeshComp->GetOwner()))
-		{
-			SpawnParam.Instigator = Character;
-			SpawnParam.Owner = Character->GetWeapon<AActor>();
-		}
+		GetSpawnParam(MeshComp, SpawnParam);
 
 		if (AActor* NewActor = World->SpawnActor<AActor>((ActorClass), SpawnTransform, SpawnParam))
 		{
 			OnActorSpawned(NewActor, MeshComp);
 		}
 	}
+}
+
+bool UMAnimNotify_SpawnActor::GetSpawnParam(USkeletalMeshComponent* MeshComp, FActorSpawnParameters& OutSpawnTransform)
+{
+	if (AMCharacter* Character = Cast<AMCharacter>(MeshComp->GetOwner()))
+	{
+		OutSpawnTransform.Instigator = Character;
+		return true;
+	}
+
+	return false;
 }
 
 FTransform UMAnimNotify_SpawnActor::GetSocketTransform(USkeletalMeshComponent* MeshComp)
@@ -75,6 +82,20 @@ void UMAnimNotify_SpawnBullet::OnActorSpawned(AActor* InActor, USkeletalMeshComp
 
 		Bullet->StartProjectile(Direction, 0.f);
 	}
+}
+
+bool UMAnimNotify_SpawnBullet::GetSpawnParam(USkeletalMeshComponent* MeshComp, FActorSpawnParameters& OutSpawnTransform)
+{
+	if (Super::GetSpawnParam(MeshComp, OutSpawnTransform))
+	{
+		if (AMCharacter* Character = Cast<AMCharacter>(MeshComp->GetOwner()))
+		{
+			OutSpawnTransform.Owner = Character->GetWeapon<AActor>();
+			return true;
+		}
+	}
+
+	return false;
 }
 
 FTransform UMAnimNotify_SpawnBullet::GetSocketTransform(USkeletalMeshComponent* MeshComp)
