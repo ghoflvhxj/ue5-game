@@ -29,7 +29,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void GiveEffects(UAbilitySystemComponent* AbilitySystemComponent);
 protected:
-	TWeakObjectPtr<UAbilitySystemComponent> OwnerASC = nullptr;
+	//TWeakObjectPtr<UAbilitySystemComponent> OwnerASC = nullptr;
 	TArray<UGameplayEffect*> GameplayEffects;
 
 public:

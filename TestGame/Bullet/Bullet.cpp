@@ -1,10 +1,12 @@
 #include "Bullet.h"
 
-#include "TestGame/MCharacter/Component/MBattleComponent.h"
+#include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MAttribute/MAttribute.h"
 
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "GameplayAbilities/Public/AbilitySystemComponent.h"
+
+DECLARE_LOG_CATEGORY_CLASS(LogBullet, Log, Log)
 
 // Sets default values
 ABullet::ABullet()
@@ -50,29 +52,37 @@ void ABullet::NotifyActorBeginOverlap(AActor* OtherActor)
 		//UGameplayStatics::ApplyDamage(OtherActor, Damage, OwnerPawn->GetController(), OwnerPawn, UDamageType::StaticClass());
 	}
 
-	if (OtherActor->IsA<APawn>() && HasAuthority())
-	{	
+	if (HasAuthority())
+	{
 		if (UAbilitySystemComponent* AbilitySystemComponent = OtherActor->FindComponentByClass<UAbilitySystemComponent>())
 		{
+			UE_LOG(LogBullet, Log, TEXT("%p, %s Apply Effect Num:%d"), this, *GetName(), GameplayEffects.Num());
+
 			for (auto GameplayEffect : GameplayEffects)
 			{
 				FGameplayEffectContextHandle EffectContextHandle = AbilitySystemComponent->MakeEffectContext();
-				EffectContextHandle.AddSourceObject(GameplayEffect);
+				EffectContextHandle.AddSourceObject(this);
+				EffectContextHandle.AddInstigator(GetInstigator()/*Character*/, GetOwner()/*Weapon*/);
 
 				AbilitySystemComponent->ApplyGameplayEffectToSelf(GameplayEffect, 1, EffectContextHandle);
 			}
 		}
 	}
+
 }
 
 void ABullet::GiveEffects(UAbilitySystemComponent* AbilitySystemComponent)
 {
+	if (HasAuthority() == false)
+	{
+		return;
+	}
+
 	GameplayEffects.Reset();
 
-	OwnerASC = AbilitySystemComponent;
-	if (OwnerASC.IsValid())
+	if (IsValid(AbilitySystemComponent))
 	{
-		Damage = OwnerASC->GetNumericAttribute(UMAttributeSet::GetAttackPowerAttribute());
+		Damage = AbilitySystemComponent->GetNumericAttribute(UMAttributeSet::GetAttackPowerAttribute());
 	}
 
 	// 임시 작업
@@ -87,6 +97,7 @@ void ABullet::GiveEffects(UAbilitySystemComponent* AbilitySystemComponent)
 		ModifierInfo.ModifierOp = EGameplayModOp::Additive;
 		ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(-Damage);
 		NewHealthAddEffect->Modifiers.Add(ModifierInfo);
+
 		GameplayEffects.Add(NewHealthAddEffect);
 	}
 }
@@ -118,6 +129,19 @@ bool ABullet::IsReactable(AActor* InActor)
 	if (IsValid(InActor) == false || IgnoreActors.Contains(InActor))
 	{
 		return false;
+	}
+
+	if (InActor->IsA<APawn>() == false)
+	{
+		return false;
+	}
+
+	if (AMCharacter* Character = Cast<AMCharacter>(InActor))
+	{
+		if (Character->IsDead())
+		{
+			return false;
+		}
 	}
 
 	return true;
