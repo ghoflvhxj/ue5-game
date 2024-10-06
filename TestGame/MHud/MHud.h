@@ -16,6 +16,7 @@ class TESTGAME_API AMHud : public AHUD
 
 public:
 	virtual void BeginPlay() override;
+	virtual bool InitializeUsingPlayerState(APlayerState* PlayerState);
 
 protected:
 	void CreateHUDWidget();
@@ -42,6 +43,8 @@ public:
 
 public:
 	virtual void BeginPlay() override;
+	virtual bool InitializeUsingPlayerState(APlayerState* PlayerState) override;
+
 protected:
 	UFUNCTION(BlueprintImplementableEvent)
 	void UpdateCharacterInfo(APawn* OldPawn, APawn* NewPawn);
@@ -59,4 +62,8 @@ public:
 public:
 	UFUNCTION(BlueprintImplementableEvent)
 	void UpdateRoundInfo(const FRoundInfo& InRoundInfo);
+
+public:
+	UFUNCTION(BlueprintImplementableEvent)
+	void UpdateMoney(int32 InMoney);
 };

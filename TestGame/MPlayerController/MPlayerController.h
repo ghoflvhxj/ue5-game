@@ -30,6 +30,7 @@ public:
 
 public:
 	virtual void BeginPlay() override;
+	virtual void OnRep_PlayerState() override;
 
 public:
 	UFUNCTION(BlueprintCallable)

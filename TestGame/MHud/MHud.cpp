@@ -1,8 +1,10 @@
 #include "MHud.h"
 #include "TestGame/MGameState/MGameStateInGame.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/PlayerState.h"
 #include "GameFramework/Character.h"
 #include "TestGame/MCharacter/MCharacter.h"
+#include "TestGame/MComponents/InventoryComponent.h"
 #include "Blueprint/UserWidget.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -11,6 +13,11 @@ void AMHud::BeginPlay()
 	Super::BeginPlay();
 
 	CreateHUDWidget();
+}
+
+bool AMHud::InitializeUsingPlayerState(APlayerState* PlayerState)
+{
+	return IsValid(PlayerState);
 }
 
 void AMHud::CreateHUDWidget()
@@ -57,14 +64,18 @@ void AMHudInGame::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (AMCharacter* PlayerCharacter = Cast<AMCharacter>(PlayerOwner->GetCharacter()))
+	if (IsValid(PlayerOwner))
 	{
-		UpdateCharacterInfo(nullptr, PlayerCharacter);
+		if (AMCharacter* PlayerCharacter = Cast<AMCharacter>(PlayerOwner->GetCharacter()))
+		{
+			UpdateCharacterInfo(nullptr, PlayerCharacter);
 
-		PlayerCharacter->OnWeaponChangedEvent.AddUObject(this, &AMHudInGame::UpdateWeaponInfo);
+			PlayerCharacter->OnWeaponChangedEvent.AddUObject(this, &AMHudInGame::UpdateWeaponInfo);
+		}
+
+		PlayerOwner->OnPossessedPawnChanged.AddDynamic(this, &AMHudInGame::UpdateCharacterInfo);
 	}
 
-	PlayerOwner->OnPossessedPawnChanged.AddDynamic(this, &AMHudInGame::UpdateCharacterInfo);
 	
 	if (AMGameStateInGame* GameStateInGame = Cast<AMGameStateInGame>(UGameplayStatics::GetGameState(this)))
 	{
@@ -75,4 +86,19 @@ void AMHudInGame::BeginPlay()
 			RoundComponent->OnRoundChangedEvent.AddUObject(this, &AMHudInGame::UpdateRoundInfo);
 		}
 	}
+}
+
+bool AMHudInGame::InitializeUsingPlayerState(APlayerState* PlayerState)
+{
+	if (Super::InitializeUsingPlayerState(PlayerState))
+	{
+		if (UMInventoryComponent* InventoryComponent = PlayerState->GetComponentByClass<UMInventoryComponent>())
+		{
+			InventoryComponent->OnMoneyChangedEvent.AddUObject(this, &AMHudInGame::UpdateMoney);
+		}
+
+		return true;
+	}
+
+	return false;
 }

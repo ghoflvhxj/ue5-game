@@ -13,6 +13,20 @@ void AMPlayerControllerInGame::BeginPlay()
 	Super::BeginPlay();
 
 	AddInputMappingContext();
+	if (IsNetMode(NM_Standalone))
+	{
+		OnRep_PlayerState();
+	}
+}
+
+void AMPlayerControllerInGame::OnRep_PlayerState()
+{
+	Super::OnRep_PlayerState();
+
+	if (AMHud* Hud = GetHUD<AMHud>())
+	{
+		Hud->InitializeUsingPlayerState(GetPlayerState<APlayerState>());
+	}
 }
 
 FVector AMPlayerControllerInGame::GetMouseWorldPosition()
