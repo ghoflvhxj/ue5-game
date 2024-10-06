@@ -1,4 +1,5 @@
 #include "ItemBase.h"
+#include "MGameInstance.h"
 
 DECLARE_LOG_CATEGORY_CLASS(LogItem, Log, Log);
 
@@ -32,9 +33,24 @@ void AItemBase::OnRep_ItemIndex()
 
 FItemBaseInfo* AItemBase::GetItemBaseInfo()
 {
-	if (IsValid(ItemDataTable) && ItemIndex != INDEX_NONE)
+#if WITH_EDITOR
+	if (IsValid(ItemDataTable))
 	{
-		return ItemDataTable->FindRow<FItemBaseInfo>(*FString::FromInt(ItemIndex), TEXT("ItemTable"));
+		FName ItemRowName = NAME_None;
+		ItemDataTable->ForeachRow<FItemBaseInfo>(TEXT("ItemTable"), [this, &ItemRowName](const FName & Key, const FItemBaseInfo & Value) {
+			if (Value.Index == ItemIndex)
+			{
+				ItemRowName = Key;
+			}
+		});
+
+		return ItemDataTable->FindRow<FItemBaseInfo>(ItemRowName, TEXT("ItemTable"));
+	}
+#endif
+
+	if (UMGameInstance* GameInstance = Cast<UMGameInstance>(UGameplayStatics::GetGameInstance(this)))
+	{
+		return GameInstance->GetItemBaseInfo(ItemIndex);
 	}
 
 	return nullptr;

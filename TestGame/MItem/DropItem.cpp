@@ -1,7 +1,9 @@
 #include "DropItem.h"
 
+#include "GameFramework/PlayerState.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MCharacter/Component/InteractorComponent.h"
+#include "TestGame/MComponents/InventoryComponent.h"
 #include "TestGame/MWeapon/Weapon.h"
 
 // Sets default values
@@ -14,11 +16,23 @@ ADropItem::ADropItem()
 
 	StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMeshComponent"));
 	StaticMeshComponent->SetupAttachment(GetRootComponent());
+	StaticMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	SkeletalMeshComponent = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SkeletalMeshMeshComponent"));
 	SkeletalMeshComponent->SetupAttachment(GetRootComponent());
+	SkeletalMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	InteractorComponent = CreateDefaultSubobject<UMInteractorComponent>(TEXT("InteractorComponent"));
+}
+
+void ADropItem::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	if (PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(ADropItem, ItemIndex))
+	{
+		UpdateItemMesh();
+	}
 }
 
 // Called when the game starts or when spawned
@@ -38,6 +52,17 @@ void ADropItem::BeginPlay()
 
 			switch (ItemBaseInfo->ItemType)
 			{
+				case EItemType::Money:
+				{
+					if (APlayerState* PlayerState = Interactor->GetPlayerState())
+					{
+						if (UMInventoryComponent* InventoryComponent = PlayerState->GetComponentByClass<UMInventoryComponent>())
+						{
+							InventoryComponent->AddMoney(10);
+						}
+					}
+				}
+				break;
 				case EItemType::Weapon:
 				{
 					// 장비 장착하는 거 EquipComponent로 분리하고, 그 컴포넌트를 사용하는 것으로 바꾸기
@@ -55,6 +80,14 @@ void ADropItem::BeginPlay()
 					}
 				}
 				break;
+			}
+
+			SetActorHiddenInGame(true);
+			SetLifeSpan(0.1f);
+			if (IsValid(SphereComponent))
+			{
+				SphereComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+				SphereComponent->SetGenerateOverlapEvents(false);
 			}
 		});
 	}
@@ -78,9 +111,35 @@ void ADropItem::UpdateItemMesh()
 
 	if (FItemBaseInfo* ItemBaseInfo = GetItemBaseInfo())
 	{
-		if (SkeletalMeshComponent->GetSkeletalMeshAsset() != ItemBaseInfo->DropMesh)
+		if (UStreamableRenderAsset* MeshAsset = ItemBaseInfo->GetMesh())
 		{
-			SkeletalMeshComponent->SetSkeletalMesh(ItemBaseInfo->DropMesh);
+			switch (MeshAsset->GetRenderAssetType())
+			{
+				case EStreamableRenderAssetType::SkeletalMesh:
+				{
+					if (IsValid(SkeletalMeshComponent) && SkeletalMeshComponent->GetSkeletalMeshAsset() != MeshAsset)
+					{
+						SkeletalMeshComponent->SetSkeletalMesh(Cast<USkeletalMesh>(MeshAsset));
+					}
+					if (IsValid(StaticMeshComponent))
+					{
+						StaticMeshComponent->SetStaticMesh(nullptr);
+					}
+				}
+				break;
+				case EStreamableRenderAssetType::StaticMesh:
+				{
+					if (IsValid(StaticMeshComponent) && StaticMeshComponent->GetStaticMesh() != MeshAsset)
+					{
+						StaticMeshComponent->SetStaticMesh(Cast<UStaticMesh>(MeshAsset));
+					}
+					if (IsValid(SkeletalMeshComponent))
+					{
+						SkeletalMeshComponent->SetSkeletalMesh(nullptr);
+					}
+				}
+				break;
+			}
 		}
 	}
 }
@@ -89,7 +148,7 @@ void ADropItem::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
 
-	UpdateItemMesh();
+	//UpdateItemMesh();
 }
 
 // Called every frame

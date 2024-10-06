@@ -5,6 +5,7 @@
 #include "Component/MBattleComponent.h"
 #include "Component/StateMachineComponent.h"
 #include "Component/ActionComponent.h"
+#include "TestGame/MGameMode/MGameModeInGame.h"
 #include "TestGame/MCharacter/Component/InteractorComponent.h"
 
 #include "AttributeSet.h"
@@ -19,6 +20,7 @@
 #include "NavigationSystem.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "AbilitySystemBlueprintLibrary.h"
+#include "GameplayEffectExtension.h"
 #include "OnlineSubsystem.h"
 #include "Kismet/KismetMathLibrary.h"
 //#include "OnlineSubsystemUtils.h"
@@ -204,14 +206,18 @@ void AMCharacter::OnHealthChanged(const FOnAttributeChangeData& AttributeChangeD
 		return;
 	}
 
-	if (FMath::IsNearlyEqual(FMath::Max(AttributeChangeData.NewValue, 0.f), 0.f))
+	if (AttributeChangeData.NewValue <= 0.f)
 	{
 		if (HasAuthority())
 		{
 			if (IsValid(StateComponent))
 			{
 				StateComponent->ChangeState<ECharacterVitalityState>(ECharacterVitalityState::Die);
-				//SetLifeSpan(0.1f);
+			}
+
+			if (AMGameModeInGame* GameMode = Cast<AMGameModeInGame>(UGameplayStatics::GetGameMode(this)))
+			{
+				GameMode->OnPawnKilled(Cast<APawn>(AttributeChangeData.GEModData->EffectSpec.GetEffectContext().GetInstigator()), this);
 			}
 		}
 

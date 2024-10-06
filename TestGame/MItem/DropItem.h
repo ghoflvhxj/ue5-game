@@ -33,6 +33,8 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	UMInteractorComponent* InteractorComponent;
 
+public:
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 protected:
 	virtual void BeginPlay() override;
 

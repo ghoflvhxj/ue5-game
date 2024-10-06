@@ -4,11 +4,13 @@
 #include "MGameModeInGame.h"
 #include "OnlineSubsystem.h"
 #include "Gameframework/PlayerState.h"
+#include "MGameInstance.h"
 #include "TestGame/MGameState/MGameStateInGame.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MChest/Chest.h"
 #include "TestGame/MItem/DropItem.h"
 #include "TestGame/MCharacter/MCharacterEnum.h"
+#include "TestGame/MComponents/InventoryComponent.h"
 
 void AMGameModeInGame::BeginPlay()
 {
@@ -89,6 +91,23 @@ void AMGameModeInGame::OnActorDestruct(ADestructableActor* InDestructableActor)
 		SpawnDropItem(ItemIndex, Transform);
 
 		// GameItemComponent->SpawnRandomItem();
+	}
+}
+
+void AMGameModeInGame::OnPawnKilled(APawn* Killer, APawn* Killed)
+{
+	if (IsValid(Killed) && Killed->IsPlayerControlled() == false)
+	{
+		FTransform Transform = Killed->GetActorTransform();
+		Transform.SetScale3D(FVector::OneVector);
+		
+		if (UMGameInstance* GameInstance = Cast<UMGameInstance>(UGameplayStatics::GetGameInstance(this)))
+		{
+			if (FItemBaseInfo* MoneyItemInfo = GameInstance->GetItemBaseInfo(TEXT("Money")))
+			{
+				SpawnDropItem(MoneyItemInfo->Index, Transform);
+			}
+		}
 	}
 }
 

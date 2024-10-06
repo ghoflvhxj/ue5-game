@@ -24,6 +24,7 @@ public:
 
 public:
 	void OnActorDestruct(ADestructableActor* InDestructableActor);
+	void OnPawnKilled(APawn* Killer, APawn* Killed);
 protected:
 	ADropItem* SpawnDropItem(int32 InItemIndex, FTransform& InTransform);
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)

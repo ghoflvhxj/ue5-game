@@ -7,39 +7,7 @@
 
 #include "ItemBase.generated.h"
 
-class UPaperSprite;
-
-UENUM()
-enum class EItemType : uint8
-{
-	None,
-	Common,
-	Weapon,
-};
-
-USTRUCT(BlueprintType)
-struct FItemBaseInfo : public FTableRowBase
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	int32 Index = INDEX_NONE;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	EItemType ItemType = EItemType::None;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FString Name = TEXT("");
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FString Description = TEXT("");
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	UPaperSprite* Icon = nullptr;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	USkeletalMesh* DropMesh = nullptr;
-};
+struct FItemBaseInfo;
 
 UCLASS()
 class TESTGAME_API AItemBase : public AActor
@@ -61,9 +29,13 @@ public:
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_ItemIndex)
 	int32 ItemIndex = INDEX_NONE;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	UDataTable* ItemDataTable = nullptr;
 protected:
 	FItemBaseInfo* GetItemBaseInfo();
+
+#if WITH_EDITORONLY_DATA
+protected:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UDataTable* ItemDataTable = nullptr;
+#endif
 };
 
