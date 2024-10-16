@@ -2,13 +2,15 @@
 #include "TestGame/Bullet/Bullet.h"
 #include "TestGame/MCharacter/MCharacter.h"
 
+DECLARE_LOG_CATEGORY_CLASS(LogNotify, Log, Log)
+
 void UMAnimNotify_SpawnActor::Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference)
 {
 	Super::Notify(MeshComp, Animation, EventReference);
 
 	UWorld* World = MeshComp->GetWorld();
 
-	if (IsValid(ActorClass) && IsValid(World))
+	if (IsValid(ActorClass) && IsValid(World) && IsValid(World->GetAuthGameMode()))
 	{
 		FTransform SpawnTransform = GetSocketTransform(MeshComp);
 		SpawnTransform.SetRotation(FRotator::ZeroRotator.Quaternion());
@@ -17,9 +19,11 @@ void UMAnimNotify_SpawnActor::Notify(USkeletalMeshComponent* MeshComp, UAnimSequ
 		FActorSpawnParameters SpawnParam;
 		GetSpawnParam(MeshComp, SpawnParam);
 
-		if (AActor* NewActor = World->SpawnActor<AActor>((ActorClass), SpawnTransform, SpawnParam))
+		if (AActor* NewActor = UGameplayStatics::BeginDeferredActorSpawnFromClass(World, ActorClass, SpawnTransform, ESpawnActorCollisionHandlingMethod::AlwaysSpawn))
 		{
-			OnActorSpawned(NewActor, MeshComp);
+			OnSpawn(NewActor, MeshComp);
+			UGameplayStatics::FinishSpawningActor(NewActor, SpawnTransform);
+			OnSpawnFinished(NewActor, MeshComp);
 		}
 	}
 }
@@ -50,24 +54,12 @@ FTransform UMAnimNotify_SpawnActor::GetSocketTransform(USkeletalMeshComponent* M
 	return Transform;
 }
 
-void UMAnimNotify_SpawnBullet::OnActorSpawned(AActor* InActor, USkeletalMeshComponent* MeshComp)
+void UMAnimNotify_SpawnBullet::OnSpawn(AActor* InActor, USkeletalMeshComponent* MeshComp)
 {
 	AActor* Owner = MeshComp->GetOwner();
 	if (IsValid(MeshComp) == false || IsValid(Owner) == false)
 	{
 		return;
-	}
-
-	FVector Direction = MeshComp->GetForwardVector();
-	float Damage = 0.f;
-
-
-	if (AMCharacter* Character = Cast<AMCharacter>(Owner))
-	{
-		FRotator Rotator = FRotator::ZeroRotator;
-		//Rotator.Yaw = Character->GetTargetAngle();
-		Rotator.Yaw = Character->GetActorRotation().Yaw;
-		Direction = Rotator.Vector();
 	}
 
 	if (ABullet* Bullet = Cast<ABullet>(InActor))
@@ -79,8 +71,30 @@ void UMAnimNotify_SpawnBullet::OnActorSpawned(AActor* InActor, USkeletalMeshComp
 				Bullet->GiveEffects(AbilitySystemComponent);
 			}
 		}
+	}
+}
 
-		Bullet->StartProjectile(Direction, 0.f);
+void UMAnimNotify_SpawnBullet::OnSpawnFinished(AActor* InActor, USkeletalMeshComponent* MeshComp)
+{
+	AActor* Owner = MeshComp->GetOwner();
+	if (IsValid(MeshComp) == false || IsValid(Owner) == false)
+	{
+		return;
+	}
+
+	if (ABullet* Bullet = Cast<ABullet>(InActor))
+	{
+		FVector Direction = MeshComp->GetForwardVector();
+		if (AMCharacter* Character = Cast<AMCharacter>(Owner))
+		{
+			FRotator Rotator = FRotator::ZeroRotator;
+			//Rotator.Yaw = Character->GetTargetAngle();
+			Rotator.Yaw = Character->GetActorRotation().Yaw;
+			Direction = Rotator.Vector();
+		}
+
+		float Damage = 0.f;
+		Bullet->StartProjectile(Direction, Damage);
 	}
 }
 
