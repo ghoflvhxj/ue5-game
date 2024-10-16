@@ -23,8 +23,9 @@
 #include "GameplayEffectExtension.h"
 #include "OnlineSubsystem.h"
 #include "Kismet/KismetMathLibrary.h"
-//#include "OnlineSubsystemUtils.h"
 
+// 임시
+#include "BehaviorTree/BehaviorTreeComponent.h"
 
 // Sets default values
 AMCharacter::AMCharacter()
@@ -218,6 +219,21 @@ void AMCharacter::OnHealthChanged(const FOnAttributeChangeData& AttributeChangeD
 			if (AMGameModeInGame* GameMode = Cast<AMGameModeInGame>(UGameplayStatics::GetGameMode(this)))
 			{
 				GameMode->OnPawnKilled(Cast<APawn>(AttributeChangeData.GEModData->EffectSpec.GetEffectContext().GetInstigator()), this);
+			}
+
+			if (AController* MyController = GetController())
+			{
+				if (UBehaviorTreeComponent* BrainComponent = MyController->GetComponentByClass<UBehaviorTreeComponent>())
+				{
+					BrainComponent->StopLogic(TEXT("Dead"));
+				}
+				
+				MyController->StopMovement();
+			}
+
+			if (UAnimMontage* Montage = GetCurrentMontage())
+			{
+				StopAnimMontage(Montage);
 			}
 		}
 
