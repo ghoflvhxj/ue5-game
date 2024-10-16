@@ -97,7 +97,7 @@ protected:
 protected:
 	class UAbilityTask_WaitGameplayEvent* WaitTask;
 	//TWeakObjectPtr<class UAbilityTask_PlayMontageAndWait> PlayMontageTask;
-	class UAbilityTask_PlayMontageAndWait* PlayMontageTask;
+	//class UAbilityTask_PlayMontageAndWait* PlayMontageTask;
 
 	float WeaponAttackSpeed = 1.f;
 };

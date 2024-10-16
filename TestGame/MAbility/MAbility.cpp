@@ -151,7 +151,12 @@ void UGameplayAbility_BasicAttack::ActivateAbility(const FGameplayAbilitySpecHan
 	//	WaitTask->ReadyForActivation();
 	//}
 
-	UE_LOG(LogAbility, Warning, TEXT("%s"), *FString(__FUNCTION__));
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+
+	if (AActor* Actor = GetAvatarActorFromActorInfo())
+	{
+		UE_CLOG(Actor->HasAuthority(), LogAbility, Warning, TEXT("%s"), *FString(__FUNCTION__));
+	}
 
 	if (TriggerEventData == nullptr)
 	{
@@ -179,13 +184,14 @@ void UGameplayAbility_BasicAttack::ActivateAbility(const FGameplayAbilitySpecHan
 		{
 			if (UAnimMontage* Montage = ActionComponent->GetActionMontage(AbilityTags.GetByIndex(0)))
 			{
-				PlayMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, FName(TEXT("Attack")), Montage, BasicAttackSpeed, NAME_None, false);
-				PlayMontageTask->ReadyForActivation();
-
-				FTimerHandle THandle;
-				TriggerEventData->Instigator->GetWorldTimerManager().SetTimer(THandle, FTimerDelegate::CreateWeakLambda(this, [this, Handle, ActorInfo, ActivationInfo]() {
-					EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
-				}), IsValid(Montage) ? Montage->GetPlayLength() : 1.f, false);
+				if (UAbilityTask_PlayMontageAndWait* PlayMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, FName(TEXT("Attack")), Montage, BasicAttackSpeed, NAME_None, false))
+				{
+					PlayMontageTask->ReadyForActivation();
+					FTimerHandle THandle;
+					TriggerEventData->Instigator->GetWorldTimerManager().SetTimer(THandle, FTimerDelegate::CreateWeakLambda(this, [this, Handle, ActorInfo, ActivationInfo]() {
+						EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+					}), IsValid(Montage) ? Montage->GetPlayLength() : 1.f, false);
+				}
 			}
 		}
 
