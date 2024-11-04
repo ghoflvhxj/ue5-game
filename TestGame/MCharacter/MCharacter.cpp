@@ -207,6 +207,11 @@ void AMCharacter::OnHealthChanged(const FOnAttributeChangeData& AttributeChangeD
 		return;
 	}
 
+	if (AttributeChangeData.NewValue < AttributeChangeData.OldValue)
+	{
+		OnDamaged();
+	}
+
 	if (AttributeChangeData.NewValue <= 0.f)
 	{
 		if (HasAuthority())
@@ -243,6 +248,19 @@ void AMCharacter::OnHealthChanged(const FOnAttributeChangeData& AttributeChangeD
 	if (IsNetMode(NM_DedicatedServer) == false)
 	{
 		UpdateHealthbarWidget(AttributeChangeData.OldValue, AttributeChangeData.NewValue);
+	}
+}
+
+void AMCharacter::OnDamaged()
+{
+	if (IsValid(AbilitySystemComponent))
+	{
+		FGameplayEventData GameplayEventData;
+		GameplayEventData.EventTag = FGameplayTag::RequestGameplayTag(FName("Character.Event.Damaged"));
+		GameplayEventData.Instigator = this;
+		GameplayEventData.Target = this;
+
+		UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, FGameplayTag::RequestGameplayTag("Character.Event.Damaged"), GameplayEventData);
 	}
 }
 

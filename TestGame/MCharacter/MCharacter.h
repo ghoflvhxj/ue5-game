@@ -7,13 +7,9 @@
 #include "GameFramework/MovementComponent.h"
 #include "AbilitySystemComponent.h"
 #include "TestGame/MCharacter/Component/StateMachineComponent.h"
-//#include "GameplayEffectTypes.h"
 
 #include "Interfaces/OnlineLeaderboardInterface.h"
 #include "OnlineStats.h"
-//GameAbilitySystem
-//#include "GameplayAbilities/Public/GameplayEffectTypes.h"
-
 #include "TestGame/Interface/InteractInterface.h"
 #include "AbilitySystemInterface.h"
 
@@ -70,6 +66,7 @@ public:
 public:
 	virtual void OnMoveSpeedChanged(const FOnAttributeChangeData& AttributeChangeData);
 	virtual void OnHealthChanged(const FOnAttributeChangeData& AttributeChangeData);
+	virtual void OnDamaged();
 protected:
 	UPROPERTY(BlueprintReadOnly)
 	UMAttributeSet* AttributeSet;
