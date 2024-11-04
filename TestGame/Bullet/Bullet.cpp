@@ -69,6 +69,21 @@ void ABullet::NotifyActorBeginOverlap(AActor* OtherActor)
 		}
 	}
 
+	if (bPenerate == false)
+	{
+		if (HasAuthority())
+		{
+			if (IsValid(ProjectileComponent))
+			{
+				ProjectileComponent->StopMovementImmediately();
+			}
+			SetLifeSpan(1.f);
+		}
+
+		SetActorEnableCollision(false);
+		SetActorHiddenInGame(true);
+	}
+	
 }
 
 void ABullet::GiveEffects(UAbilitySystemComponent* AbilitySystemComponent)

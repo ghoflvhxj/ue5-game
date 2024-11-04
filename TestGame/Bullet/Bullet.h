@@ -56,6 +56,7 @@ protected:
 
 protected:
 	float Damage = 0.f;
+	bool bPenerate = false;
 
 public:
 	bool IsReactable(AActor* InActor);
