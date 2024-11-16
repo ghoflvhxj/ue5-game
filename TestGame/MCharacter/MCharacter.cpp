@@ -223,7 +223,10 @@ void AMCharacter::OnHealthChanged(const FOnAttributeChangeData& AttributeChangeD
 
 			if (AMGameModeInGame* GameMode = Cast<AMGameModeInGame>(UGameplayStatics::GetGameMode(this)))
 			{
-				GameMode->OnPawnKilled(Cast<APawn>(AttributeChangeData.GEModData->EffectSpec.GetEffectContext().GetInstigator()), this);
+				if (AttributeChangeData.GEModData)
+				{
+					GameMode->OnPawnKilled(Cast<APawn>(AttributeChangeData.GEModData->EffectSpec.GetEffectContext().GetInstigator()), this);
+				}
 			}
 
 			if (AController* MyController = GetController())
@@ -240,9 +243,22 @@ void AMCharacter::OnHealthChanged(const FOnAttributeChangeData& AttributeChangeD
 			{
 				StopAnimMontage(Montage);
 			}
+
+			SetLifeSpan(3.f);
 		}
 
-		GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+		TArray<UPrimitiveComponent*> Primitives;
+		GetComponents<UPrimitiveComponent>(Primitives);
+		for (UPrimitiveComponent* Primitive : Primitives)
+		{
+			Primitive->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
+			Primitive->SetGenerateOverlapEvents(false);
+		}
+
+		if (AbilitySystemComponent)
+		{
+			AbilitySystemComponent->AddLooseGameplayTag(FGameplayTag::RequestGameplayTag("Character.State.Dead"));
+		}
 	}
 
 	if (IsNetMode(NM_DedicatedServer) == false)
