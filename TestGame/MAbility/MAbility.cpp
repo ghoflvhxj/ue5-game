@@ -271,3 +271,91 @@ UGameplayEffect_CollideDamage::UGameplayEffect_CollideDamage()
 	ModifierInfo.TargetTags.IgnoreTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Ability.DamageImmune"));
 	Modifiers.Add(ModifierInfo);
 }
+
+UGameplayAbility_DamageImmune::UGameplayAbility_DamageImmune()
+{
+	//ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
+	//NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
+	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
+
+	FAbilityTriggerData TriggerData;
+	TriggerData.TriggerTag = FGameplayTag::RequestGameplayTag("Character.Event.Damaged");
+	AbilityTriggers.Add(TriggerData);
+
+	ActivationOwnedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Ability.DamageImmune"));
+}
+
+void UGameplayAbility_DamageImmune::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+
+	if (CommitAbility(Handle, ActorInfo, ActivationInfo))
+	{
+		if (UWorld* World = GetWorld())
+		{
+			// 태스크에 1000횟수를 넣어도, 어빌리티가 3초 뒤에 끝나기 때문에, 0.1초가 30번 하면 태스크도 끝남
+			UAbilityTask_Repeat* RepeatTask = UAbilityTask_Repeat::RepeatAction(this, 0.1, 1000);
+			RepeatTask->OnPerformAction.AddDynamic(this, &UGameplayAbility_DamageImmune::UpdateOpacityAndEmissive);
+			RepeatTask->ReadyForActivation();
+
+			Opacity = 0.3f;
+			SetOpacity(Opacity);
+
+			// GameplayEffect를 따로 만들지 않고 타이머로 구현
+			World->GetTimerManager().SetTimer(TimerHandle, FTimerDelegate::CreateWeakLambda(this, [this]() {
+				EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+			}), 3.f, false);
+		}
+	}
+}
+
+void UGameplayAbility_DamageImmune::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+{
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+
+	if (AActor* Actor = GetAvatarActorFromActorInfo())
+	{
+		Actor->ClearComponentOverlaps();
+		SetMaterialParam([this](UMaterialInstanceDynamic* DynamicMaterialInstance) {
+			DynamicMaterialInstance->SetScalarParameterValue("Opacity", 1.f);
+			DynamicMaterialInstance->SetVectorParameterValue("Emissive", FVector4(0.f, 0.f, 0.f, 0.f));
+		});
+	}
+}
+
+void UGameplayAbility_DamageImmune::UpdateOpacityAndEmissive(int32 ActionNumber)
+{
+	if (UWorld* World = GetWorld())
+	{
+		Opacity = (FMath::Cos((2.f * PI) * (ActionNumber / 10.f)) + 3.f) * 2.f / 10.f;
+
+		SetMaterialParam([this, ActionNumber](UMaterialInstanceDynamic* DynamicMaterialInstance) {
+			DynamicMaterialInstance->SetScalarParameterValue("Opacity", Opacity);
+			DynamicMaterialInstance->SetVectorParameterValue("Emissive", FVector4((30 - ActionNumber) / 30.f, 0.f, 0.f, 0.f));
+		});
+	}
+}
+
+void UGameplayAbility_DamageImmune::SetOpacity(float InOpacity)
+{
+	SetMaterialParam([InOpacity](UMaterialInstanceDynamic* DynamicMaterialInstance) {
+		DynamicMaterialInstance->SetScalarParameterValue("Opacity", InOpacity);
+	});
+}
+
+void UGameplayAbility_DamageImmune::SetMaterialParam(TFunction<void(UMaterialInstanceDynamic*)> Func)
+{
+	if (ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo()))
+	{
+		if (USkeletalMeshComponent* MeshComp = Character->GetMesh())
+		{
+			for (int MaterialIndex = 0; MaterialIndex < MeshComp->GetNumMaterials(); ++MaterialIndex)
+			{
+				if (UMaterialInstanceDynamic* DynamicMaterialInstance = MeshComp->CreateDynamicMaterialInstance(MaterialIndex))
+				{
+					Func(DynamicMaterialInstance);
+				}
+			}
+		}
+	}
+}

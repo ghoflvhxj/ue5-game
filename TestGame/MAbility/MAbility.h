@@ -131,3 +131,25 @@ class UGameplayEffect_CollideDamage : public UGameplayEffect
 public:
 	UGameplayEffect_CollideDamage();
 };
+
+UCLASS()
+class UGameplayAbility_DamageImmune : public UGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UGameplayAbility_DamageImmune();
+
+protected:
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
+
+public:
+	UFUNCTION()
+	void UpdateOpacityAndEmissive(int32 ActionNumber);
+	void SetOpacity(float InOpacity);
+	void SetMaterialParam(TFunction<void(UMaterialInstanceDynamic*)> Func);
+	float Opacity = 0.f;
+protected:
+	FTimerHandle TimerHandle;
+};
