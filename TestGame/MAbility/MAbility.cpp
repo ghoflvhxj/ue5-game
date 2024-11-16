@@ -6,6 +6,7 @@
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
+#include "Abilities/Tasks/AbilityTask_Repeat.h"
 #include "TestGame/MCharacter/Component/ActionComponent.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MWeapon/Weapon.h"
@@ -13,6 +14,7 @@
 #include "NavigationSystem.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "TestGame/MAttribute/MAttribute.h"
+#include "AbilitySystemBlueprintLibrary.h"
 
 // 임시
 #include "TestGame/MPlayerController/MPlayerController.h"
@@ -62,7 +64,7 @@ UGameplayAbility_MoveToMouse::UGameplayAbility_MoveToMouse()
 	AbilityTriggers.Add(TriggerData);
 
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag(FName("Character.Action.Move")));
-
+	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag(FName("Character.State.Dead")));
 	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag(FName("Character.Action.BasicAttack")));
 }
 
@@ -138,7 +140,7 @@ UGameplayAbility_BasicAttack::UGameplayAbility_BasicAttack()
 	AbilityTriggers.Add(TriggerData);
 
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Action.BasicAttack"));
-
+	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.State.Dead"));
 	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Character.Action.Move"));
 }
 
@@ -228,4 +230,44 @@ bool UGameplayAbility_BasicAttack::CommitAbility(const FGameplayAbilitySpecHandl
 	}
 
 	return false;
+}
+UGameplayAbility_CollideDamage::UGameplayAbility_CollideDamage()
+{
+	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
+	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
+}
+
+void UGameplayAbility_CollideDamage::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+
+	if (CommitAbility(Handle, ActorInfo, ActivationInfo))
+	{
+		if (AActor* AbilityOwer = GetAvatarActorFromActorInfo())
+		{
+			AbilityOwer->OnActorBeginOverlap.AddDynamic(this, &UGameplayAbility_CollideDamage::OnCollide);
+		}
+	}
+}
+
+void UGameplayAbility_CollideDamage::OnCollide(AActor* OverlappedActor, AActor* OtherActor)
+{
+	if (ACharacter* Character = Cast<ACharacter>(OtherActor))
+	{
+		if (Character->IsPlayerControlled())
+		{
+			ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, MakeOutgoingGameplayEffectSpec(UGameplayEffect_CollideDamage::StaticClass()), UAbilitySystemBlueprintLibrary::AbilityTargetDataFromActor(OtherActor));
+		}
+	}
+}
+
+UGameplayEffect_CollideDamage::UGameplayEffect_CollideDamage()
+{
+	FGameplayModifierInfo ModifierInfo;
+	ModifierInfo.Attribute = UMAttributeSet::GetHealthAttribute();
+	ModifierInfo.ModifierOp = EGameplayModOp::Additive;
+	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(FScalableFloat(-10.f));
+	ModifierInfo.TargetTags.IgnoreTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Ability.DamageImmune"));
+	Modifiers.Add(ModifierInfo);
 }

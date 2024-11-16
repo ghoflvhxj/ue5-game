@@ -107,3 +107,27 @@ protected:
 //{
 //	GENERATED_BODY()
 //};
+UCLASS()
+class UGameplayAbility_CollideDamage : public UGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UGameplayAbility_CollideDamage();
+
+protected:
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+
+protected:
+	UFUNCTION()
+	void OnCollide(AActor* OverlappedActor, AActor* OtherActor);
+};
+
+UCLASS()
+class UGameplayEffect_CollideDamage : public UGameplayEffect
+{
+	GENERATED_BODY()
+
+public:
+	UGameplayEffect_CollideDamage();
+};
