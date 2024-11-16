@@ -420,15 +420,19 @@ void AMCharacter::TryBasicAttack()
 		return;
 	}
 
+	// IsAttackable이 true면 공격 속도 시간이 지났으니, 기존 공격 어빌리티를 취소하고 새로 어빌리티 추가
 	TArray<FGameplayAbilitySpecHandle> ActiveAbilities;
-	AbilitySystemComponent->FindAllAbilitiesWithTags(ActiveAbilities, FGameplayTagContainer(FGameplayTag::RequestGameplayTag("Character.Action.BasicAttack")));
-	for (const FGameplayAbilitySpecHandle& AbilitySpecHandle : ActiveAbilities)
+	if (IsValid(AbilitySystemComponent))
 	{
-		AbilitySystemComponent->CancelAbilityHandle(AbilitySpecHandle);
+		AbilitySystemComponent->FindAllAbilitiesWithTags(ActiveAbilities, FGameplayTagContainer(FGameplayTag::RequestGameplayTag("Character.Action.BasicAttack")));
+		for (const FGameplayAbilitySpecHandle& AbilitySpecHandle : ActiveAbilities)
+		{
+			AbilitySystemComponent->CancelAbilityHandle(AbilitySpecHandle);
+		}
 	}
 
 	FGameplayEventData GameplayEventData;
-	GameplayEventData.EventTag = FGameplayTag::RequestGameplayTag(FName("Character.Action.Move"));
+	GameplayEventData.EventTag = FGameplayTag::RequestGameplayTag(FName("Character.Action.BasicAttack"));
 	GameplayEventData.Instigator = this;
 	GameplayEventData.Target = this;
 
@@ -518,7 +522,7 @@ void AMCharacter::OnRep_TargetAngle()
 
 void AMCharacter::RotateToTargetAngle()
 {
-	if (IsValid(Weapon))
+	if (IsValid(Weapon) && Weapon->GetWeaponData() != nullptr)
 	{
 		switch (Weapon->GetWeaponData()->WeaponRotateType)
 		{
