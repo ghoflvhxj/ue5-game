@@ -15,7 +15,10 @@ void UMAttributeSet::PostAttributeChange(const FGameplayAttribute& Attribute, fl
 {
 	Super::PostAttributeChange(Attribute, OldValue, NewValue);
 
-	UE_LOG(LogAttribute, Warning, TEXT("%s, AttributeChanged:%s %f->%f"), GetOwningActor() ? *GetOwningActor()->GetName() : *FString(TEXT("None")), *Attribute.GetName(), OldValue, NewValue);
+	if (AActor* Owner = GetOwningActor())
+	{
+		UE_CLOG(Owner, LogAttribute, Warning, TEXT("%s, AttributeChanged:%s %f->%f"), *Owner->GetName(), *Attribute.GetName(), OldValue, NewValue);
+	}
 }
 
 void UMAttributeSet::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty> & OutLifetimeProps) const
