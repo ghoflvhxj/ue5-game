@@ -129,10 +129,23 @@ bool AWeapon::BasicAttack()
 
 	if (FWeaponData* WeaponData = GetWeaponData())
 	{
+		// 임시작업
+		// 무기가 장착 중에는 지속되는 어빌리티,  어트리뷰트(이동 속도, 공격 속도 등) 영향을 줄 이펙트를 만들어야 함
 		if (WeaponData->AttackSpeed > 0.f)
 		{
 			bAttackable = false;
 			GetWorldTimerManager().SetTimer(AttackTimerHandle, this, &AWeapon::OnAttackCoolDownFinished, WeaponData->AttackSpeed, false);
+		}
+
+		if (WeaponData->MoveSpeed == 0.f)
+		{
+			if (APawn* Pawn = Cast<APawn>(GetOwner()))
+			{
+				if (AController* Controller = Pawn->GetController())
+				{
+					Controller->StopMovement();
+				}
+			}
 		}
 
 		return true;

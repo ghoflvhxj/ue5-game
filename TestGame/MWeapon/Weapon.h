@@ -49,7 +49,10 @@ struct FWeaponData : public FTableRowBase
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	EWeaponRotateType WeaponRotateType = EWeaponRotateType::None;
 
-	// 스탯 관련
+	// 어트리뷰트 관련
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float MoveSpeed = 1.f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float AttackSpeed = 1.f;
 
