@@ -6,6 +6,7 @@
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MComponents/InventoryComponent.h"
 #include "TestGame/MAttribute/MAttribute.h"
+//#include "CharacterLevelSubSystem.h"
 #include "Blueprint/UserWidget.h"
 #include "Kismet/GameplayStatics.h"
 #include "AbilitySystemComponent.h"
@@ -73,19 +74,6 @@ void AMHudInGame::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (IsValid(PlayerOwner))
-	{
-		if (AMCharacter* PlayerCharacter = Cast<AMCharacter>(PlayerOwner->GetCharacter()))
-		{
-			UpdateCharacterInfo(nullptr, PlayerCharacter);
-
-			PlayerCharacter->OnWeaponChangedEvent.AddUObject(this, &AMHudInGame::UpdateWeaponInfo);
-		}
-
-		PlayerOwner->OnPossessedPawnChanged.AddDynamic(this, &AMHudInGame::UpdateCharacterInfo);
-	}
-
-	
 	if (AMGameStateInGame* GameStateInGame = Cast<AMGameStateInGame>(UGameplayStatics::GetGameState(this)))
 	{
 		GameStateInGame->GameOverDynamicDelegate.AddDynamic(this, &AMHudInGame::ShowGameOver);
@@ -101,6 +89,13 @@ void AMHudInGame::BeginPlay()
 		if (UAbilitySystemComponent* AbilitySystemComponent = Pawn->GetComponentByClass<UAbilitySystemComponent>())
 		{
 			AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UMAttributeSet::GetHealthAttribute()).AddUObject(this, &AMHudInGame::UpdateHealth);
+		}
+
+		if (AMCharacter* PlayerCharacter = Cast<AMCharacter>(Pawn))
+		{
+			UpdateCharacterInfo(nullptr, PlayerCharacter);
+
+			PlayerCharacter->OnWeaponChangedEvent.AddUObject(this, &AMHudInGame::UpdateWeaponInfo);
 		}
 	}
 }
