@@ -13,16 +13,20 @@ ADropItem::ADropItem()
 
 	SphereComponent = CreateDefaultSubobject<USphereComponent>(TEXT("SphereComponent"));
 	SetRootComponent(SphereComponent);
+	SphereComponent->SetComponentTickEnabled(false);
 
 	StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMeshComponent"));
 	StaticMeshComponent->SetupAttachment(GetRootComponent());
 	StaticMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	StaticMeshComponent->SetComponentTickEnabled(false);
 
 	SkeletalMeshComponent = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SkeletalMeshMeshComponent"));
 	SkeletalMeshComponent->SetupAttachment(GetRootComponent());
 	SkeletalMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	SkeletalMeshComponent->SetComponentTickEnabled(false);
 
 	InteractorComponent = CreateDefaultSubobject<UMInteractorComponent>(TEXT("InteractorComponent"));
+	InteractorComponent->SetComponentTickEnabled(false);
 }
 
 void ADropItem::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)

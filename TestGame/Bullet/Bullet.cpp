@@ -15,9 +15,11 @@ ABullet::ABullet()
 
 	SphereComponent = CreateDefaultSubobject<USphereComponent>(TEXT("SphereComponent"));
 	SetRootComponent(SphereComponent);
+	SphereComponent->SetComponentTickEnabled(false);
 
 	StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMeshComponent"));
 	StaticMeshComponent->SetupAttachment(SphereComponent);
+	StaticMeshComponent->SetComponentTickEnabled(false);
 
 	ProjectileComponent = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileComponent"));
 
