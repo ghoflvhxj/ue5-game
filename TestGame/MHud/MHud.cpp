@@ -5,12 +5,21 @@
 #include "GameFramework/Character.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MComponents/InventoryComponent.h"
+#include "TestGame/MAttribute/MAttribute.h"
 #include "Blueprint/UserWidget.h"
 #include "Kismet/GameplayStatics.h"
+#include "AbilitySystemComponent.h"
 
 void AMHud::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (IsValid(PlayerOwner))
+	{
+		OnPawnChanged(nullptr, PlayerOwner->GetPawn());
+
+		PlayerOwner->OnPossessedPawnChanged.AddDynamic(this, &AMHud::OnPawnChanged);
+	}
 
 	CreateHUDWidget();
 }
@@ -86,6 +95,14 @@ void AMHudInGame::BeginPlay()
 			RoundComponent->OnRoundChangedEvent.AddUObject(this, &AMHudInGame::UpdateRoundInfo);
 		}
 	}
+
+	if (APawn* Pawn = GetOwningPawn())
+	{
+		if (UAbilitySystemComponent* AbilitySystemComponent = Pawn->GetComponentByClass<UAbilitySystemComponent>())
+		{
+			AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UMAttributeSet::GetHealthAttribute()).AddUObject(this, &AMHudInGame::UpdateHealth);
+		}
+	}
 }
 
 bool AMHudInGame::InitializeUsingPlayerState(APlayerState* PlayerState)
@@ -101,4 +118,31 @@ bool AMHudInGame::InitializeUsingPlayerState(APlayerState* PlayerState)
 	}
 
 	return false;
+}
+
+void AMHudInGame::OnPawnChanged(APawn* OldPawn, APawn* NewPawn)
+{
+	Super::OnPawnChanged(OldPawn, NewPawn);
+
+	UpdateCharacterInfo(OldPawn, NewPawn);
+	
+	if (IsValid(NewPawn))
+	{
+		//if (ULevelComponent* LevelComponent = NewPawn->GetComponentByClass<ULevelComponent>())
+		//{
+		//	UpdateCharacterExperience(LevelComponent->GetCurrentExperience());
+		//	LevelComponent->OnExperienceChangedEvent.AddUObject(this, &AMHudInGame::UpdateCharacterExperience);
+		//}
+	}
+}
+
+void AMHudInGame::UpdateHealth(const FOnAttributeChangeData& AttributeChangeData)
+{
+	if (APawn* Pawn = GetOwningPawn())
+	{
+		if (UAbilitySystemComponent* AbilitySystemComponent = Pawn->GetComponentByClass<UAbilitySystemComponent>())
+		{
+			UpdateHealthProxy(AttributeChangeData.OldValue, AttributeChangeData.NewValue, AbilitySystemComponent->GetNumericAttribute(UMAttributeSet::GetMaxHealthAttribute()));
+		}
+	}
 }

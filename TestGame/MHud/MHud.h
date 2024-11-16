@@ -8,6 +8,7 @@
 class UUserWidget;
 class AWeapon;
 struct FRoundInfo;
+//struct FExperienceInfo;
 
 UCLASS()
 class TESTGAME_API AMHud : public AHUD
@@ -17,6 +18,10 @@ class TESTGAME_API AMHud : public AHUD
 public:
 	virtual void BeginPlay() override;
 	virtual bool InitializeUsingPlayerState(APlayerState* PlayerState);
+
+protected:
+	UFUNCTION()
+	virtual void OnPawnChanged(APawn* OldPawn, APawn* NewPawn) {}
 
 protected:
 	void CreateHUDWidget();
@@ -46,8 +51,14 @@ public:
 	virtual bool InitializeUsingPlayerState(APlayerState* PlayerState) override;
 
 protected:
+	virtual void OnPawnChanged(APawn* OldPawn, APawn* NewPawn) override;
+	void UpdateHealth(const FOnAttributeChangeData& AttributeChangeData);
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "UpdateHealth"))
+	void UpdateHealthProxy(float OldValue, float NewValue, float MaxValue);
 	UFUNCTION(BlueprintImplementableEvent)
 	void UpdateCharacterInfo(APawn* OldPawn, APawn* NewPawn);
+	//UFUNCTION(BlueprintImplementableEvent)
+	//void UpdateCharacterExperience(const FExperienceInfo& InExperienceInfo);
 
 public:
 	UFUNCTION(BlueprintNativeEvent)
