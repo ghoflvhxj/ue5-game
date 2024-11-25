@@ -45,6 +45,7 @@ public:
 	TArray<FMAbilityBindInfo> Abilities;
 
 	void GiveAbilities(UAbilitySystemComponent* AbilitySystemComponent, TMap<FGameplayTag, FGameplayAbilitySpecHandle>& Handles) const;
+	void ClearAbilities(UAbilitySystemComponent* AbilitySystemComponent, TMap<FGameplayTag, FGameplayAbilitySpecHandle>& Handles) const;
 };
 
 class AMCharacter;

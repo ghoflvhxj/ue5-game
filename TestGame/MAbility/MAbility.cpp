@@ -23,35 +23,43 @@ DECLARE_LOG_CATEGORY_CLASS(LogAbility, Log, Log);
 
 void UMAbilityDataAsset::GiveAbilities(UAbilitySystemComponent* AbilitySystemComponent, TMap<FGameplayTag, FGameplayAbilitySpecHandle>& Handles) const
 { 
-	checkf(IsValid(AbilitySystemComponent), TEXT("ASC Invalid."));
-	AActor* Actor = AbilitySystemComponent->GetOwner<AActor>();
-	checkf(IsValid(Actor), TEXT("ASC Invalid."));
+	if (AbilitySystemComponent->IsNetSimulating())
+	{
+		return;
+	}
 
 	for (const FMAbilityBindInfo& BindInfo : Abilities)
 	{
 		if (IsValid(BindInfo.GameplayAbilityClass) == false)
 		{
-			UE_LOG(LogAbility, Warning, TEXT("Trying give Invalid AbilityClass to %s"), *(Actor->GetActorNameOrLabel()));
 			continue;
 		}
 
 		FGameplayTag GameplayTag = BindInfo.GameplayTag;
-
-		Handles.Emplace(GameplayTag, AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(BindInfo.GameplayAbilityClass)));
+		if (Handles.Contains(GameplayTag))
+		{
+			AbilitySystemComponent->ClearAbility(Handles[GameplayTag]);
+		}
+		
+		Handles.Emplace(GameplayTag, AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(BindInfo.GameplayAbilityClass, -1, -1)));
 		if (BindInfo.bActivate && Handles.Contains(GameplayTag))
 		{
-			if (AbilitySystemComponent->TryActivateAbility(Handles[GameplayTag], true))
-			{
-				UE_LOG(LogAbility, Warning, TEXT("Initial TryActivateAbility Success %s"), *BindInfo.GameplayAbilityClass->GetName())
-			}
-			else
-			{
-				UE_LOG(LogAbility, Warning, TEXT("Initial TryActivateAbility Failed"))
-			}
+			AbilitySystemComponent->TryActivateAbility(Handles[GameplayTag], true);
 		}
 	}
 }
 
+void UMAbilityDataAsset::ClearAbilities(UAbilitySystemComponent* AbilitySystemComponent, TMap<FGameplayTag, FGameplayAbilitySpecHandle>& Handles) const
+{
+	for (const FMAbilityBindInfo& BindInfo : Abilities)
+	{
+		if (Handles.Contains(BindInfo.GameplayTag))
+		{
+			AbilitySystemComponent->ClearAbility(Handles[BindInfo.GameplayTag]);
+			Handles.Remove(BindInfo.GameplayTag);
+		}
+	}
+}
 
 UGameplayAbility_MoveToMouse::UGameplayAbility_MoveToMouse()
 {
