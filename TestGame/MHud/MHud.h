@@ -9,6 +9,7 @@ class UUserWidget;
 class AWeapon;
 struct FRoundInfo;
 //struct FExperienceInfo;
+struct FOnAttributeChangeData;
 
 UCLASS()
 class TESTGAME_API AMHud : public AHUD
@@ -24,7 +25,6 @@ protected:
 	virtual void OnPawnChanged(APawn* OldPawn, APawn* NewPawn) {}
 
 protected:
-	void CreateHUDWidget();
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TSubclassOf<UUserWidget> HUDWidgetClass;
 	UPROPERTY(BlueprintReadOnly)
@@ -52,6 +52,8 @@ public:
 
 protected:
 	virtual void OnPawnChanged(APawn* OldPawn, APawn* NewPawn) override;
+
+public:
 	void UpdateHealth(const FOnAttributeChangeData& AttributeChangeData);
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "UpdateHealth"))
 	void UpdateHealthProxy(float OldValue, float NewValue, float MaxValue);
@@ -59,6 +61,8 @@ protected:
 	void UpdateCharacterInfo(APawn* OldPawn, APawn* NewPawn);
 	//UFUNCTION(BlueprintImplementableEvent)
 	//void UpdateCharacterExperience(const FExperienceInfo& InExperienceInfo);
+protected:
+	FDelegateHandle HealthUpdateHandle;
 
 public:
 	UFUNCTION(BlueprintNativeEvent)
@@ -67,12 +71,19 @@ public:
 	// 무기 정보 갱신
 public:
 	UFUNCTION(BlueprintImplementableEvent)
-	void UpdateWeaponInfo(AWeapon* OldWeapon, AWeapon* NewWeapon);
+	void UpdateWeaponInfo(AActor* OldWeapon, AActor* NewWeapon);
 
 	// 라운드 정보 갱신
 public:
 	UFUNCTION(BlueprintImplementableEvent)
-	void UpdateRoundInfo(const FRoundInfo& InRoundInfo);
+	void UpdateRoundInfo(int32 Round, const FRoundInfo& InRoundInfo, int32 Wave);
+	UFUNCTION(BlueprintImplementableEvent)
+	void BoundBoss(AActor* Boss);
+
+	// 게임 결과
+public:
+	UFUNCTION(BlueprintImplementableEvent)
+	void ShowGameFinish();
 
 public:
 	UFUNCTION(BlueprintImplementableEvent)

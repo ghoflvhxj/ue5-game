@@ -6,6 +6,7 @@
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MComponents/InventoryComponent.h"
 #include "TestGame/MAttribute/MAttribute.h"
+#include "TestGame/MSpawner/MonsterSpawner.h"
 //#include "CharacterLevelSubSystem.h"
 #include "Blueprint/UserWidget.h"
 #include "Kismet/GameplayStatics.h"
@@ -14,29 +15,6 @@
 void AMHud::BeginPlay()
 {
 	Super::BeginPlay();
-
-	if (IsValid(PlayerOwner))
-	{
-		OnPawnChanged(nullptr, PlayerOwner->GetPawn());
-
-		PlayerOwner->OnPossessedPawnChanged.AddDynamic(this, &AMHud::OnPawnChanged);
-	}
-
-	CreateHUDWidget();
-}
-
-bool AMHud::InitializeUsingPlayerState(APlayerState* PlayerState)
-{
-	return IsValid(PlayerState);
-}
-
-void AMHud::CreateHUDWidget()
-{
-	if (IsValid(HUDWidget))
-	{
-		HUDWidget->RemoveFromParent();
-		HUDWidget = nullptr;
-	}
 
 	if (IsValid(HUDWidgetClass))
 	{
@@ -47,6 +25,17 @@ void AMHud::CreateHUDWidget()
 	{
 		ShowWidget();
 	}
+
+	if (IsValid(PlayerOwner))
+	{
+		OnPawnChanged(nullptr, PlayerOwner->GetPawn());
+		PlayerOwner->OnPossessedPawnChanged.AddDynamic(this, &AMHud::OnPawnChanged);
+	}
+}
+
+bool AMHud::InitializeUsingPlayerState(APlayerState* PlayerState)
+{
+	return IsValid(PlayerState);
 }
 
 void AMHud::ShowWidget()
@@ -80,23 +69,11 @@ void AMHudInGame::BeginPlay()
 
 		if (URoundComponent* RoundComponent = GameStateInGame->GetComponentByClass<URoundComponent>())
 		{
-			RoundComponent->OnRoundChangedEvent.AddUObject(this, &AMHudInGame::UpdateRoundInfo);
-		}
-	}
-
-	if (APawn* Pawn = GetOwningPawn())
-	{
-		if (UAbilitySystemComponent* AbilitySystemComponent = Pawn->GetComponentByClass<UAbilitySystemComponent>())
-		{
-			AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UMAttributeSet::GetHealthAttribute()).AddUObject(this, &AMHudInGame::UpdateHealth);
+			RoundComponent->OnWaveChangedEvent.AddUObject(this, &AMHudInGame::UpdateRoundInfo);
 		}
 
-		if (AMCharacter* PlayerCharacter = Cast<AMCharacter>(Pawn))
-		{
-			UpdateCharacterInfo(nullptr, PlayerCharacter);
-
-			PlayerCharacter->OnWeaponChangedEvent.AddUObject(this, &AMHudInGame::UpdateWeaponInfo);
-		}
+		GameStateInGame->OnBossSpawnedEvent.AddUObject(this, &AMHudInGame::BoundBoss);
+		GameStateInGame->OnMatchEndEvent.AddUObject(this, &AMHudInGame::ShowGameFinish);
 	}
 }
 
@@ -119,15 +96,28 @@ void AMHudInGame::OnPawnChanged(APawn* OldPawn, APawn* NewPawn)
 {
 	Super::OnPawnChanged(OldPawn, NewPawn);
 
-	UpdateCharacterInfo(OldPawn, NewPawn);
-	
+	if (AMCharacter* PlayerCharacter = Cast<AMCharacter>(NewPawn))
+	{
+		UpdateCharacterInfo(nullptr, PlayerCharacter);
+
+		PlayerCharacter->OnWeaponChangedEvent.AddUObject(this, &AMHudInGame::UpdateWeaponInfo);
+	}
+
+	if (IsValid(OldPawn))
+	{
+		if (UAbilitySystemComponent* AbilitySystemComponent = OldPawn->GetComponentByClass<UAbilitySystemComponent>())
+		{
+			AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UMAttributeSet::GetHealthAttribute()).Remove(HealthUpdateHandle);
+		}
+	}
+
 	if (IsValid(NewPawn))
 	{
-		//if (ULevelComponent* LevelComponent = NewPawn->GetComponentByClass<ULevelComponent>())
-		//{
-		//	UpdateCharacterExperience(LevelComponent->GetCurrentExperience());
-		//	LevelComponent->OnExperienceChangedEvent.AddUObject(this, &AMHudInGame::UpdateCharacterExperience);
-		//}
+		if (UAbilitySystemComponent* AbilitySystemComponent = NewPawn->GetComponentByClass<UAbilitySystemComponent>())
+		{
+			HealthUpdateHandle = AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UMAttributeSet::GetHealthAttribute()).AddUObject(this, &AMHudInGame::UpdateHealth);
+			UpdateHealthProxy(0.f, AbilitySystemComponent->GetNumericAttribute(UMAttributeSet::GetHealthAttribute()), AbilitySystemComponent->GetNumericAttribute(UMAttributeSet::GetMaxHealthAttribute()));
+		}
 	}
 }
 
