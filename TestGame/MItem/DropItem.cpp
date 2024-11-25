@@ -29,6 +29,7 @@ ADropItem::ADropItem()
 	InteractorComponent->SetComponentTickEnabled(false);
 }
 
+#if WITH_EDITOR
 void ADropItem::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -38,6 +39,7 @@ void ADropItem::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEve
 		UpdateItemMesh();
 	}
 }
+#endif
 
 // Called when the game starts or when spawned
 void ADropItem::BeginPlay()
@@ -70,17 +72,11 @@ void ADropItem::BeginPlay()
 				case EItemType::Weapon:
 				{
 					// 장비 장착하는 거 EquipComponent로 분리하고, 그 컴포넌트를 사용하는 것으로 바꾸기
-					if (AWeapon* Weapon = Cast<AWeapon>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, WeaponClass, Interactor->GetActorTransform())))
+					if (AWeapon* Weapon = Cast<AWeapon>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, WeaponClass, Interactor->GetActorTransform(), ESpawnActorCollisionHandlingMethod::AlwaysSpawn, Interactor)))
 					{
 						Weapon->SetWeaponIndex(ItemBaseInfo->Index);
 						UGameplayStatics::FinishSpawningActor(Weapon, Interactor->GetActorTransform());
-						Interactor->EquipWeapon(Weapon);
-
-						// 클라 액터는 즉각적인 피드백을 위한 것이니 삭제되야 함
-						if (HasAuthority() == false)
-						{
-							Weapon->SetLifeSpan(3.f);
-						}
+						Weapon->SetEquipActor(Interactor);
 					}
 				}
 				break;
