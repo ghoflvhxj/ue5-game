@@ -584,7 +584,48 @@ void UGameplayAbility_CameraShake::EndAbility(const FGameplayAbilitySpecHandle H
 	TargetPlayers.Empty();
 }
 
-UGameplayAbility_ComboAttack::UGameplayAbility_ComboAttack()
+UGameplayAbility_Move::UGameplayAbility_Move()
+{
+	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalOnly;
+	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
+	bServerRespectsRemoteAbilityCancellation = false;
+
+	FAbilityTriggerData TriggerData;
+	TriggerData.TriggerTag = FGameplayTag::RequestGameplayTag("Controller.Move");
+	AbilityTriggers.Add(TriggerData);
+
+	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag(FName("Character.Move")));
+
+	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag(FName("Character.Dead")));
+	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag(FName("Character.Move.Block")));
+	
+	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("ActionType.Dynamic"));
+}
+
+void UGameplayAbility_Move::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+
+	if (CommitAbility(Handle, ActorInfo, ActivationInfo) == false)
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+
+	if (ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo()))
+	{
+		Character->AddMovementInput(FVector(Foward, Strafe, 0.f));
+	}
+
+	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+}
+
+UGameplayAbility_Move_KeepBasicAttack::UGameplayAbility_Move_KeepBasicAttack()
+{
+	CancelAbilitiesWithTag.RemoveTag(FGameplayTag::RequestGameplayTag("ActionType.Dynamic"));
+}
+
 UGameplayAbility_Combo::UGameplayAbility_Combo()
 {
 	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;

@@ -215,6 +215,15 @@ protected:
 };
 
 UCLASS()
+class UGameplayAbility_Move_KeepBasicAttack : public UGameplayAbility_Move
+{
+	GENERATED_BODY()
+
+public:
+	UGameplayAbility_Move_KeepBasicAttack();
+};
+
+UCLASS()
 class UGameplayAbility_CameraShake : public UGameplayAbility
 {
 	GENERATED_BODY()
