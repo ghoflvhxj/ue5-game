@@ -2,6 +2,7 @@
 
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MAttribute/MAttribute.h"
+#include "TestGame/MAbility/MAbility.h"
 
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "GameplayAbilities/Public/AbilitySystemComponent.h"
@@ -23,7 +24,7 @@ ABullet::ABullet()
 
 	ProjectileComponent = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileComponent"));
 
-	//BattleComponent = CreateDefaultSubobject<UMBattleComponent>(TEXT("BattleComponent"));
+	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilityComponent"));
 
 	//PrimaryActorTick.bCanEverTick = false;
 }
@@ -37,6 +38,12 @@ void ABullet::BeginPlay()
 		ProjectileComponent->Deactivate();
 	}
 
+	if (IsValid(AbilitySystemComponent) && HasAuthority())
+	{
+		FGameplayAbilitySpec Spec(UGameplayAbility_CollideDamage::StaticClass());
+		AbilitySystemComponent->GiveAbilityAndActivateOnce(Spec);
+	}
+
 	IgnoreActors.Add(GetInstigator());
 }
 
@@ -44,32 +51,27 @@ void ABullet::NotifyActorBeginOverlap(AActor* OtherActor)
 {
 	Super::NotifyActorBeginOverlap(OtherActor);
 
-	if (IsValid(OtherActor) == false || IsReactable(OtherActor) == false)
-	{
-		return;
-	}
+	//if (IsReactable(OtherActor) == false)
+	//{
+	//	return;
+	//}
 
-	if (APawn* OwnerPawn = Cast<APawn>(GetOwner()))	
-	{
-		//UGameplayStatics::ApplyDamage(OtherActor, Damage, OwnerPawn->GetController(), OwnerPawn, UDamageType::StaticClass());
-	}
+	//if (HasAuthority())
+	//{
+	//	if (UAbilitySystemComponent* AbilitySystemComponent = OtherActor->FindComponentByClass<UAbilitySystemComponent>())
+	//	{
+	//		UE_LOG(LogBullet, Log, TEXT("%p, %s Apply Effect Num:%d"), this, *GetName(), GameplayEffects.Num());
 
-	if (HasAuthority())
-	{
-		if (UAbilitySystemComponent* AbilitySystemComponent = OtherActor->FindComponentByClass<UAbilitySystemComponent>())
-		{
-			UE_LOG(LogBullet, Log, TEXT("%p, %s Apply Effect Num:%d"), this, *GetName(), GameplayEffects.Num());
+	//		for (auto GameplayEffect : GameplayEffects)
+	//		{
+	//			FGameplayEffectContextHandle EffectContextHandle = AbilitySystemComponent->MakeEffectContext();
+	//			EffectContextHandle.AddSourceObject(this);
+	//			EffectContextHandle.AddInstigator(GetInstigator()/*Character*/, GetOwner()/*Weapon*/);
 
-			for (auto GameplayEffect : GameplayEffects)
-			{
-				FGameplayEffectContextHandle EffectContextHandle = AbilitySystemComponent->MakeEffectContext();
-				EffectContextHandle.AddSourceObject(this);
-				EffectContextHandle.AddInstigator(GetInstigator()/*Character*/, GetOwner()/*Weapon*/);
-
-				AbilitySystemComponent->ApplyGameplayEffectToSelf(GameplayEffect, 1, EffectContextHandle);
-			}
-		}
-	}
+	//			AbilitySystemComponent->ApplyGameplayEffectToSelf(GameplayEffect, 1, EffectContextHandle);
+	//		}
+	//	}
+	//}
 
 	if (bPenerate == false)
 	{
@@ -88,36 +90,36 @@ void ABullet::NotifyActorBeginOverlap(AActor* OtherActor)
 	
 }
 
-void ABullet::GiveEffects(UAbilitySystemComponent* AbilitySystemComponent)
-{
-	if (HasAuthority() == false)
-	{
-		return;
-	}
-
-	GameplayEffects.Reset();
-
-	if (IsValid(AbilitySystemComponent))
-	{
-		Damage = AbilitySystemComponent->GetNumericAttribute(UMAttributeSet::GetAttackPowerAttribute());
-	}
-
-	// 임시 작업
-	// 이후에 최대 체력 감소, 마나 감소, 시전 시간 증가 등 다양한 이펙트를 추가할 수 있는 구조로 변경
-	// 그리고 Effects를 소유할 수 있는 컨테이너 컴포넌트를 만들자
-	{
-		UGameplayEffect* NewHealthAddEffect = NewObject<UGameplayEffect>();
-		NewHealthAddEffect->DurationPolicy = EGameplayEffectDurationType::Instant;
-
-		FGameplayModifierInfo ModifierInfo;
-		ModifierInfo.Attribute = UMAttributeSet::GetHealthAttribute();
-		ModifierInfo.ModifierOp = EGameplayModOp::Additive;
-		ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(-Damage);
-		NewHealthAddEffect->Modifiers.Add(ModifierInfo);
-
-		GameplayEffects.Add(NewHealthAddEffect);
-	}
-}
+//void ABullet::GiveEffects(UAbilitySystemComponent* AbilitySystemComponent)
+//{
+//	if (HasAuthority() == false)
+//	{
+//		return;
+//	}
+//
+//	GameplayEffects.Reset();
+//
+//	if (IsValid(AbilitySystemComponent))
+//	{
+//		Damage = AbilitySystemComponent->GetNumericAttribute(UMAttributeSet::GetAttackPowerAttribute());
+//	}
+//
+//	// 임시 작업
+//	// 이후에 최대 체력 감소, 마나 감소, 시전 시간 증가 등 다양한 이펙트를 추가할 수 있는 구조로 변경
+//	// 그리고 Effects를 소유할 수 있는 컨테이너 컴포넌트를 만들자
+//	{
+//		UGameplayEffect* NewHealthAddEffect = NewObject<UGameplayEffect>();
+//		NewHealthAddEffect->DurationPolicy = EGameplayEffectDurationType::Instant;
+//
+//		FGameplayModifierInfo ModifierInfo;
+//		ModifierInfo.Attribute = UMAttributeSet::GetHealthAttribute();
+//		ModifierInfo.ModifierOp = EGameplayModOp::Additive;
+//		ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(-Damage);
+//		NewHealthAddEffect->Modifiers.Add(ModifierInfo);
+//
+//		GameplayEffects.Add(NewHealthAddEffect);
+//	}
+//}
 
 void ABullet::DestroyBullet()
 {
@@ -128,7 +130,15 @@ void ABullet::DestroyBullet()
 void ABullet::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-}
+
+	if (HasAuthority() == false)
+	{
+		if (APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0))
+		{
+			SetActorTickEnabled(GetDistanceTo(PlayerController->GetViewTarget()) < 2000.f);
+		}
+	}
+}	
 
 void ABullet::StartProjectile(const FVector& NewDirection, float NewDamage)
 {

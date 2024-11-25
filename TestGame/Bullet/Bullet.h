@@ -26,8 +26,8 @@ public:
 
 // GameplayAbilitySystem;
 public:
-	UFUNCTION(BlueprintCallable)
-	void GiveEffects(UAbilitySystemComponent* AbilitySystemComponent);
+	//UFUNCTION(BlueprintCallable)
+	//void GiveEffects(UAbilitySystemComponent* AbilitySystemComponent);
 protected:
 	//TWeakObjectPtr<UAbilitySystemComponent> OwnerASC = nullptr;
 	TArray<UGameplayEffect*> GameplayEffects;
@@ -42,8 +42,8 @@ protected:
 	UProjectileMovementComponent* ProjectileComponent;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	UStaticMeshComponent* StaticMeshComponent;
-	//UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	//UMBattleComponent* BattleComponent;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UAbilitySystemComponent* AbilitySystemComponent;
 
 public:
 	virtual void Tick(float DeltaSeconds) override;
