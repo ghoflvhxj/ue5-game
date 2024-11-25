@@ -32,50 +32,22 @@ void ASpawner::Spawn(const FSpawnInfo& InSpawnInfo)
 	FActorSpawnParameters SpawnParam;
 	SpawnParam.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
-	switch (InSpawnInfo.SpawnType)
+	for (int32 SpawnCounter = 0; SpawnCounter < InSpawnInfo.SpawnNum; ++SpawnCounter)
 	{
-		case ESpawnType::Fixed:
+		float Test = FMath::FRand() * 100.f;
+		for (auto ActorClassToSpawnNum : InSpawnInfo.SpawneeClassMap)
 		{
-			for (auto ActorClassToSpawnNum : InSpawnInfo.SpawneeClassMap)
+			Test -= ActorClassToSpawnNum.Value;
+			if (Test < 0.f)
 			{
-				int32 SpawnNum = static_cast<int32>(ActorClassToSpawnNum.Value);
-				for (int32 SpawnCounter = 0; SpawnCounter < SpawnNum; ++SpawnCounter)
+				if (AActor* SpawnedActor = World->SpawnActor<AActor>(ActorClassToSpawnNum.Key, GetSpawnTransform(), SpawnParam))
 				{
-					if (AActor* SpawnedActor = World->SpawnActor<AActor>(ActorClassToSpawnNum.Key, GetSpawnTransform(), SpawnParam))
-					{
-						SpawnedActors.Add(SpawnedActor);
-						OnSpawned(SpawnedActor);
-					}
+					SpawnedActors.Add(SpawnedActor);
+					OnSpawned(SpawnedActor);
 				}
+				break;
 			}
 		}
-		break;
-		case ESpawnType::Probable:
-		{
-			for (int32 SpawnCounter = 0; SpawnCounter < 10; ++SpawnCounter)
-			{
-				float Test = FMath::FRand() * 100.f;
-				for (auto ActorClassToSpawnNum : InSpawnInfo.SpawneeClassMap)
-				{
-					Test -= ActorClassToSpawnNum.Value;
-					if (Test < 0.f)
-					{
-						if (AActor* SpawnedActor = World->SpawnActor<AActor>(ActorClassToSpawnNum.Key, GetSpawnTransform(), SpawnParam))
-						{
-							SpawnedActors.Add(SpawnedActor);
-							OnSpawned(SpawnedActor);
-						}
-						break;
-					}
-				}
-			}
-		}
-		break;
-		default:
-		{
-
-		}
-		break;
 	}
 }
 
@@ -91,6 +63,11 @@ void ARoundSpanwer::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (bActivated == false)
+	{
+		return;
+	}
+
 	AMGameStateInGame* GameState = Cast<AMGameStateInGame>(UGameplayStatics::GetGameState(this));
 	check(GameState);
 
@@ -98,12 +75,12 @@ void ARoundSpanwer::BeginPlay()
 	{
 		if (URoundComponent* RoundComponent = GameState->GetComponentByClass<URoundComponent>())
 		{
-			RoundComponent->OnRoundChangedEvent.AddUObject(this, &ARoundSpanwer::SpawnUsingRoundInfo);
+			RoundComponent->OnWaveChangedEvent.AddUObject(this, &ARoundSpanwer::SpawnUsingRoundInfo);
 		}
 	}
 }
 
-void AMonsterSpawner::SpawnUsingRoundInfo(const FRoundInfo& InRoundInfo)
+void AMonsterSpawner::SpawnUsingRoundInfo(int32 InRound, const FRoundInfo& InRoundInfo, int32 InWave)
 {
 	if (IsValid(MonsterSpawnTable) == false)
 	{
@@ -111,14 +88,21 @@ void AMonsterSpawner::SpawnUsingRoundInfo(const FRoundInfo& InRoundInfo)
 		return;
 	}
 
-	FName CurrentRoundName = FName(FString::FromInt(InRoundInfo.Round));
-	if (FSpawnInfo* SpawInfo = MonsterSpawnTable->FindRow<FSpawnInfo>(CurrentRoundName, TEXT("MonsterSpawnTable")))
+	FGameplayTag BossTag = FGameplayTag::RequestGameplayTag("Monster.Grade.Boss");
+	if (FSpawnInfos* SpawnInfos = MonsterSpawnTable->FindRow<FSpawnInfos>(FName(FString::Printf(TEXT("%d-%d"), InRound, InWave)), TEXT("MonsterSpawnTable")))
 	{
-		Spawn(*SpawInfo);
-		UE_LOG(Log_Spawner, Error, TEXT("%s 몬스터 스폰 A"), *FString(__FUNCTION__));
+		for (const FSpawnInfo& SpawnInfo : SpawnInfos->SpawnInfos)
+		{
+			Spawn(SpawnInfo);
+
+			if (SpawnInfo.GradeTag == BossTag)
+			{
+				OnBossSpawnedEvent.Broadcast(SpawnedActors.Last().Get());
+			}
+		}
 	}
 
-	UE_LOG(Log_Spawner, Error, TEXT("%s 몬스터 스폰 B"), *FString(__FUNCTION__));
+	LastSpawnWave = InWave;
 }
 
 void AMonsterSpawner::OnSpawned(AActor* SpawnedActor)
@@ -140,14 +124,17 @@ void AMonsterSpawner::RemoveSpawnedActor(AActor* Actor, EEndPlayReason::Type End
 
 	if (URoundComponent* RoundComponent = GameState->GetComponentByClass<URoundComponent>())
 	{
-		RoundComponent->TryNextRound(this);
+		if (RoundComponent->IsLastWave(LastSpawnWave) && SpawnedActors.IsEmpty())
+		{
+			RoundComponent->TryNextRound(this);
+		}
 	}
 }
 
-bool AMonsterSpawner::IsClear_Implementation()
-{
-	return SpawnedActors.Num() == 0;
-}
+//bool AMonsterSpawner::IsClear_Implementation()
+//{
+//	return SpawnedActors.Num() == 0;
+//}
 
 FTransform AMonsterSpawner::GetSpawnTransform()
 {
@@ -184,7 +171,7 @@ FTransform AMonsterSpawner::GetSpawnTransform()
 			float Distance = FMath::FRandRange(MinRadius, MaxRadius);
 			float Angle = FMath::FRand() * 360.f;
 
-			int Interval = 36;
+			int Interval = 90;
 			int LoopCount = 360 / Interval;
 			for (int i = 0; i < LoopCount; ++i)
 			{

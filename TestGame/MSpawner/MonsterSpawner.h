@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayTagContainer.h"
 #include "MonsterSpawner.generated.h"
 
 UENUM(BlueprintType)
@@ -21,19 +22,29 @@ struct FSpawnInfo : public FTableRowBase
 public:
 	bool IsValid() const
 	{
-		return SpawnType != ESpawnType::None;
+		return SpawnNum != 0;
 	}
 
 public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	ESpawnType SpawnType = ESpawnType::None;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 SpawnNum = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TMap<TSubclassOf<AActor>, float> SpawneeClassMap;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FGameplayTag GradeTag;
 };	
+
+USTRUCT(BlueprintType)
+struct FSpawnInfos : public FTableRowBase
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<FSpawnInfo> SpawnInfos;
+};
 
 UCLASS()
 class TESTGAME_API ASpawner : public AActor
@@ -64,16 +75,22 @@ public:
 
 public:
 	UFUNCTION()
-	virtual void SpawnUsingRoundInfo(const FRoundInfo& InRoundInfo) {}
+	virtual void SpawnUsingRoundInfo(int32 InRound, const FRoundInfo& InRoundInfo, int32 InWave) {}
 };
 
 UCLASS()
-class TESTGAME_API AMonsterSpawner : public ARoundSpanwer, public IRoundInterface
+class TESTGAME_API AMonsterSpawner : public ARoundSpanwer
 {
 	GENERATED_BODY()
 
 public:
-	virtual void SpawnUsingRoundInfo(const FRoundInfo& InRoundInfo) override;
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PostEditMove(bool bFinished) override;
+#endif
+
+public:
+	virtual void SpawnUsingRoundInfo(int32 InRound, const FRoundInfo& InRoundInfo, int32 InWave) override;
 	virtual void OnSpawned(AActor* SpawnedActor) override;
 	virtual FTransform GetSpawnTransform() override;
 public:
@@ -81,11 +98,15 @@ public:
 	void RemoveSpawnedActor(AActor* Actor, EEndPlayReason::Type EndPlayReason);
 
 public:
-	bool IsClear_Implementation() override;
+	//bool IsClear_Implementation() override;
 
+public:
+	DECLARE_EVENT_OneParam(AMonsterSpawner, FOnBossSpawnedEvent, AActor* /*BossMonster*/)
+	FOnBossSpawnedEvent OnBossSpawnedEvent;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	UDataTable* MonsterSpawnTable;
+	UDataTable* MonsterSpawnTable = nullptr;
+	int32 LastSpawnWave = INDEX_NONE;
 
 	UPROPERTY(EditAnywhere)
 	float MinRadius = 1000.f;
@@ -97,8 +118,18 @@ public:
 	int32 SpawnPositionNum = 0;
 #endif
 
-#if WITH_EDITOR
-	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
-	virtual void PostEditMove(bool bFinished) override;
-#endif
+	UFUNCTION(BlueprintPure)
+	static bool IsBossContain(const FSpawnInfos& InSpawnInfos)
+	{
+		FGameplayTag BossTag = FGameplayTag::RequestGameplayTag("Monster.Grade.Boss");
+		for (const FSpawnInfo& SpawnInfo : InSpawnInfos.SpawnInfos)
+		{
+			if (SpawnInfo.GradeTag == BossTag)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
 };
