@@ -672,3 +672,43 @@ bool UGameplayAbility_Combo::CommitAbility(const FGameplayAbilitySpecHandle Hand
 
 	return false;
 }
+
+UGameplayAbility_BasicAttackStop::UGameplayAbility_BasicAttackStop()
+{
+	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
+	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
+
+	ActivationOwnedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Attack"));
+	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Dead"));
+}
+
+void UGameplayAbility_BasicAttackStop::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+
+	if (CommitAbility(Handle, ActorInfo, ActivationInfo) == false)
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+
+	TArray<FGameplayAbilitySpecHandle> ActiveAbilities;
+	if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
+	{
+		AbilitySystemComponent->FindAllAbilitiesWithTags(ActiveAbilities, FGameplayTagContainer(FGameplayTag::RequestGameplayTag("Action.BasicAttack")));
+		for (const FGameplayAbilitySpecHandle& AbilitySpecHandle : ActiveAbilities)
+		{
+			FGameplayAbilitySpec* AbilitySpec = AbilitySystemComponent->FindAbilitySpecFromHandle(AbilitySpecHandle);
+			for (UGameplayAbility* Abilitiy : AbilitySpec->GetAbilityInstances())
+			{
+				if (UGameplayAbility_BasicAttack* BasicAttackAbility = Cast<UGameplayAbility_BasicAttack>(Abilitiy))
+				{
+					BasicAttackAbility->FinishAttack();
+				}
+			}
+		}
+	}
+
+	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+}
