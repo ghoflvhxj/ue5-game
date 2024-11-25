@@ -6,6 +6,10 @@
 #include "TestGame/MCharacter/Component/ActionComponent.h"
 #include "Weapon.generated.h"
 
+class UMAbilityDataAsset;
+class UMActionDataAsset;
+class AMCharacter;
+
 UENUM(BlueprintType)
 enum class EWeaponType : uint8
 {
@@ -49,6 +53,10 @@ struct FWeaponData : public FTableRowBase
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	EWeaponRotateType WeaponRotateType = EWeaponRotateType::None;
 
+	// 캐릭터 이동 시 회전 막음
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bBlockMovementRotate = false;
+
 	// 어트리뷰트 관련
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float MoveSpeed = 1.f;
@@ -58,6 +66,12 @@ struct FWeaponData : public FTableRowBase
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	UMActionDataAsset* ActionData = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UMAbilityDataAsset* AbilitiesDataAsset = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 Combo = INDEX_NONE;
 };
 
 UCLASS()
@@ -76,13 +90,16 @@ protected:
 
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	class UMActionComponent* ActionComponent;
+	class UMActionComponent* ActionComponent = nullptr;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UAbilitySystemComponent* AbilitySystemComponent = nullptr;
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	UDataTable* WeaponDataTable;
 
 public:
-	void OnEquipped(AActor* EquipActor);
+	void SetEquipActor(AActor* EquipActor);
+	void OnEquipmentChanged(AActor* OldWeapon, AActor* NewWeapon);
 
 public:
 	UFUNCTION()
@@ -93,19 +110,32 @@ protected:
 
 public:
 	void SetWeaponIndex(int32 ItemIndex);
-	FWeaponData* GetWeaponData();
+	const FWeaponData* GetItemData() const;
 
 public:
 	bool GetMuzzleTransform(FTransform& OutTransform);
 
 public:
-	virtual bool BasicAttack();
+	virtual void IncreaseCombo();
+	virtual void FinishBasicAttack();
 	virtual void OnAttackCoolDownFinished();
 
 public:
 	bool IsAttackable() const;
+	bool IsAttacking() const;
 protected:
 	bool bAttackable = true;
+
+public:
+	bool IsComboableWeapon() const;
+	bool IsComboable() const;
+	int32 GetCombo() const { return Combo; }
+public:
+	DECLARE_EVENT_OneParam(AWeapon, FOnComboChangedEvent, int32);
+	FOnComboChangedEvent OnComboChangedEvent;
+protected:
+	mutable int32 Combo = INDEX_NONE;
+
 
 	FTimerHandle AttackTimerHandle;
 };

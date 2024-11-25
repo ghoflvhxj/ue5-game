@@ -1,14 +1,20 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Weapon.h"
-//#include "TestGame/MCharacter/Component/ActionComponent.h"
+#include "Net/UnrealNetwork.h"
+#include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MCharacter/Component/ActionComponent.h"
+#include "TestGame/MAbility/MAbility.h"
+#include "Kismet/KismetMathLibrary.h"
+#include "AbilitySystemBlueprintLibrary.h"
 
 DECLARE_LOG_CATEGORY_CLASS(Log_Weapon, Log, Log);
 
 AWeapon::AWeapon()
 {
 	ActionComponent = CreateDefaultSubobject<UMActionComponent>(TEXT("ActionComponent"));
+
+	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
 
 	bReplicates = true;
 }
@@ -17,15 +23,22 @@ void AWeapon::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
 
-	UE_LOG(Log_Weapon, Warning, TEXT("Weapon Construct Index:%d"), WeaponIndex);
+	//UE_LOG(Log_Weapon, Warning, TEXT("Weapon Construct Index:%d"), WeaponIndex);
 
 	if (HasAuthority())
 	{
-		if (FWeaponData* WeaponData = GetWeaponData())
+		if (const FWeaponData* WeaponData = GetItemData())
 		{
 			if (USkeletalMeshComponent* SkeletalMeshComponent = GetComponentByClass<USkeletalMeshComponent>())
 			{
 				SkeletalMeshComponent->SetSkeletalMesh(WeaponData->Mesh);
+
+				TArray<UShapeComponent*> ShapeComponents;
+				GetComponents(ShapeComponents);
+				for (UShapeComponent* ShapeComponent : ShapeComponents)
+				{
+					ShapeComponent->AttachToComponent(SkeletalMeshComponent, FAttachmentTransformRules(EAttachmentRule::SnapToTarget, false), TEXT("Root"));
+				}
 			}
 		}
 	}
@@ -42,35 +55,37 @@ void AWeapon::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (FWeaponData* WeaponData = GetWeaponData())
+	if (const FWeaponData* WeaponData = GetItemData())
 	{
 		if (IsValid(ActionComponent))
 		{
 			ActionComponent->UpdateActionData(WeaponData->ActionData);
 		}
 	}
+
+	SetActorEnableCollision(false);
 }
 
-void AWeapon::OnEquipped(AActor* EquipActor)
+void AWeapon::SetEquipActor(AActor* EquipActor)
 {
 	if (IsValid(EquipActor))
 	{
-		if (FWeaponData* WeaponData = GetWeaponData())
+		if (const FWeaponData* WeaponData = GetItemData())
 		{
 			FString SocketName;
 			switch (WeaponData->WeaponType)
 			{
-				default:
-				case EWeaponType::Sword:
-				{
-					SocketName = TEXT("hand_rSocket");
-				}
-				break;
-				case EWeaponType::Gun:
-				{
-					SocketName = TEXT("hand_rSocket_FPS");
-				}
-				break;
+			default:
+			case EWeaponType::Sword:
+			{
+				SocketName = TEXT("hand_rSocket");
+			}
+			break;
+			case EWeaponType::Gun:
+			{
+				SocketName = TEXT("hand_rSocket_FPS");
+			}
+			break;
 			}
 
 			AttachToActor(EquipActor, FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), *SocketName);
@@ -78,13 +93,54 @@ void AWeapon::OnEquipped(AActor* EquipActor)
 	}
 
 	SetOwner(EquipActor);
+
+	if (AMCharacter* Character = Cast<AMCharacter>(EquipActor))
+	{
+		Character->OnWeaponChangedEvent.AddUObject(this, &AWeapon::OnEquipmentChanged);
+		Character->EquipItem(this);
+	}
+}
+
+void AWeapon::OnEquipmentChanged(AActor* OldWeapon, AActor* NewWeapon)
+{
+	AMCharacter* OwningCharacter = Cast<AMCharacter>(GetOwner());
+	if (IsValid(OwningCharacter) == false)
+	{
+		return;
+	}
+
+	if (OldWeapon == this)
+	{
+		SetActorHiddenInGame(true);
+		SetLifeSpan(0.1f);
+		// 기존 무기의 어빌리티를 모두 버림 -> 버리고 끼면 어빌리티 쿨같은게 초기화 되있을 듯?
+		if (const FWeaponData* WeaponData = GetItemData())
+		{
+			//OwningCharacter->RemoveAbilities(WeaponData->AbilitiesDataAsset);
+		}
+	}
+
+	if (NewWeapon == this)
+	{
+		// 새로운 무기의 어빌리티를 모두 가짐
+		if (const FWeaponData* WeaponData = GetItemData())
+		{
+			OwningCharacter->AddAbilities(WeaponData->AbilitiesDataAsset);
+		}
+
+		// 애니메이션 갱신
+		if (UMActionComponent* CharacterActionComponent = OwningCharacter->GetComponentByClass<UMActionComponent>())
+		{
+			CharacterActionComponent->UpdateAction(ActionComponent);
+		}
+	}
 }
 
 void AWeapon::OnRep_WeaponIndex()
 {
 	if (HasAuthority() == false)
 	{
-		if (FWeaponData* WeaponData = GetWeaponData())
+		if (const FWeaponData* WeaponData = GetItemData())
 		{
 			if (USkeletalMeshComponent* SkeletalMeshComponent = GetComponentByClass<USkeletalMeshComponent>())
 			{
@@ -99,7 +155,7 @@ void AWeapon::SetWeaponIndex(int32 InIndex)
 	WeaponIndex = InIndex;
 }
 
-FWeaponData* AWeapon::GetWeaponData()
+const FWeaponData* AWeapon::GetItemData() const
 {
 	if (IsValid(WeaponDataTable) && WeaponIndex != INDEX_NONE)
 	{
@@ -120,38 +176,31 @@ bool AWeapon::GetMuzzleTransform(FTransform& OutTransform)
 	return false;
 }
 
-bool AWeapon::BasicAttack()
+void AWeapon::IncreaseCombo()
 {
-	if (IsAttackable() == false || IsValid(GetOwner()) == false)
+	const FWeaponData* WeaponData = GetItemData();
+	if (/*IsAttackable() == false || IsValid(Owner) == false || */WeaponData == nullptr)
 	{
-		return false;
+		return;
 	}
 
-	if (FWeaponData* WeaponData = GetWeaponData())
+	// 임시작업
+	// 무기가 장착 중에는 지속되는 어빌리티,  어트리뷰트(이동 속도, 공격 속도 등) 영향을 줄 이펙트를 만들어야 함
+	if (WeaponData->AttackSpeed > 0.f)
 	{
-		// 임시작업
-		// 무기가 장착 중에는 지속되는 어빌리티,  어트리뷰트(이동 속도, 공격 속도 등) 영향을 줄 이펙트를 만들어야 함
-		if (WeaponData->AttackSpeed > 0.f)
-		{
-			bAttackable = false;
-			GetWorldTimerManager().SetTimer(AttackTimerHandle, this, &AWeapon::OnAttackCoolDownFinished, WeaponData->AttackSpeed, false);
-		}
-
-		if (WeaponData->MoveSpeed == 0.f)
-		{
-			if (APawn* Pawn = Cast<APawn>(GetOwner()))
-			{
-				if (AController* Controller = Pawn->GetController())
-				{
-					Controller->StopMovement();
-				}
-			}
-		}
-
-		return true;
+		GetWorldTimerManager().SetTimer(AttackTimerHandle, this, &AWeapon::OnAttackCoolDownFinished, WeaponData->AttackSpeed, false);
 	}
 
-	return false;
+	bAttackable = false;
+	Combo = IsComboableWeapon() && IsComboable() ? Combo + 1 : 0;
+
+	OnComboChangedEvent.Broadcast(Combo);
+}
+
+void AWeapon::FinishBasicAttack()
+{
+	// Finish와 OnAttackCoolDownFinished의 차이는?
+	Combo = INDEX_NONE;
 }
 
 void AWeapon::OnAttackCoolDownFinished()
@@ -162,4 +211,29 @@ void AWeapon::OnAttackCoolDownFinished()
 bool AWeapon::IsAttackable() const
 {
 	return bAttackable;
+}
+
+bool AWeapon::IsAttacking() const
+{
+	return true;
+}
+
+bool AWeapon::IsComboableWeapon() const
+{
+	if (const FWeaponData* WeaponData = GetItemData())
+	{
+		return WeaponData->Combo != INDEX_NONE;
+	}
+
+	return false;
+}
+
+bool AWeapon::IsComboable() const
+{
+	if (const FWeaponData* WeaponData = GetItemData())
+	{
+		return Combo + 1 < WeaponData->Combo;
+	}
+
+	return false;
 }
