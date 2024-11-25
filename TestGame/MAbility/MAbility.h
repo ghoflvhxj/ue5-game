@@ -206,4 +206,21 @@ protected:
 	float Foward = 0.f;
 	float Strafe = 0.f;
 };
+
+UCLASS()
+class UGameplayAbility_CameraShake : public UGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UGameplayAbility_CameraShake();
+
+public:
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+	virtual bool CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags = nullptr) override;
+	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
+protected:
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<UCameraShakeBase> CameraShakeClass = nullptr;
+	TArray<TWeakObjectPtr<APlayerController>> TargetPlayers;
 };

@@ -522,3 +522,64 @@ void UGameplayAbility_KnockBack::KnockBack(AActor* OverlappedActor, AActor* Othe
 		}
 	}
 }
+
+UGameplayAbility_CameraShake::UGameplayAbility_CameraShake()
+{
+	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
+	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
+
+	FAbilityTriggerData TriggerData;
+	TriggerData.TriggerTag = FGameplayTag::RequestGameplayTag("Character.Event.Damaged");
+	AbilityTriggers.Add(TriggerData);
+}
+
+void UGameplayAbility_CameraShake::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+
+	if (CommitAbility(Handle, ActorInfo, ActivationInfo))
+	{
+		for (TWeakObjectPtr<APlayerController> PlayerController : TargetPlayers)
+		{
+			if (PlayerController.IsValid())
+			{
+				PlayerController->ClientStartCameraShake(CameraShakeClass);
+			}
+		}
+	}
+	
+	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, false, false);
+}
+
+bool UGameplayAbility_CameraShake::CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags /*= nullptr*/)
+{
+	AMCharacter* Character = Cast<AMCharacter>(GetAvatarActorFromActorInfo());
+	if (IsValid(Character) == false)
+	{
+		return false;
+	}
+
+	if (AGameStateBase* GameState = UGameplayStatics::GetGameState(Character))
+	{
+		for (APlayerState* PlayerState : GameState->PlayerArray)
+		{
+			if (APlayerController * PlayerController = PlayerState->GetPlayerController())
+			{
+				if (PlayerController->GetViewTarget() == Character)
+				{
+					TargetPlayers.Add(PlayerController);
+				}
+			}
+		}
+	}
+
+	return Super::CommitAbility(Handle, ActorInfo, ActivationInfo, OptionalRelevantTags);
+}
+
+void UGameplayAbility_CameraShake::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+{
+	Super::EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, bReplicateEndAbility, bWasCancelled);
+
+	TargetPlayers.Empty();
+}
