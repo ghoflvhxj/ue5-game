@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Animation/AnimNotifies/AnimNotifyState.h"
 
 #include "MAnimNotify.generated.h"
 
@@ -41,4 +42,43 @@ public:
 	virtual AActor* GetContextObject(USkeletalMeshComponent* MeshComp) override;
 	virtual FTransform GetSocketTransform(USkeletalMeshComponent* MeshComp) override;
 };
+
+UCLASS()
+class TESTGAME_API UMAnimNotifyState_WeaponActive : public UAnimNotifyState
+{
+	GENERATED_BODY()
+
+public:
+	virtual void NotifyBegin(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, float TotalDuration, const FAnimNotifyEventReference& EventReference) override;
+	virtual void NotifyEnd(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference) override;
+};
+
+UCLASS()
+class TESTGAME_API UMAnimNotifyState_TagModifier : public UAnimNotifyState
+{
+	GENERATED_BODY()
+
+public:
+	virtual void NotifyBegin(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, float TotalDuration, const FAnimNotifyEventReference& EventReference) override;
+	virtual void NotifyEnd(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference) override;
+
+protected:
+	UPROPERTY(EditAnywhere)
+	FGameplayTagContainer RemoveTags;
+	UPROPERTY(EditAnywhere)
+	FGameplayTagContainer AddTags;
+	UPROPERTY(EditAnywhere)
+	bool bRestore = true;
+};
+
+UCLASS()
+class TESTGAME_API UMAnimNotifyState_AddMovemntInput : public UAnimNotifyState
+{
+	GENERATED_BODY()
+
+public:
+	virtual void NotifyTick(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, float FrameDeltaTime, const FAnimNotifyEventReference& EventReference) override;
+protected:
+	UPROPERTY(EditAnywhere)
+	float Scale = 1.f;
 };

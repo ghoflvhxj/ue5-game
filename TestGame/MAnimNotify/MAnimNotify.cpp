@@ -144,3 +144,58 @@ FTransform UMAnimNotify_SpawnBullet::GetSocketTransform(USkeletalMeshComponent* 
 
 	return Super::GetSocketTransform(MeshComp);
 }
+
+void UMAnimNotifyState_WeaponActive::NotifyBegin(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, float TotalDuration, const FAnimNotifyEventReference& EventReference)
+{
+	Super::NotifyBegin(MeshComp, Animation, TotalDuration, EventReference);
+
+	if (AMCharacter* Character = Cast<AMCharacter>(MeshComp->GetOwner()))
+	{
+		if (AActor* Weapon = Character->GetEquipItem<AActor>())
+		{
+			Weapon->SetActorEnableCollision(true);
+		}
+	}
+}
+
+void UMAnimNotifyState_WeaponActive::NotifyEnd(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference)
+{
+	Super::NotifyEnd(MeshComp, Animation, EventReference);
+
+	if (AMCharacter* Character = Cast<AMCharacter>(MeshComp->GetOwner()))
+	{
+		if (AActor* Weapon = Character->GetEquipItem<AActor>())
+		{
+			Weapon->SetActorEnableCollision(false);
+		}
+	}
+}
+
+void UMAnimNotifyState_TagModifier::NotifyBegin(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, float TotalDuration, const FAnimNotifyEventReference& EventReference)
+{
+	if (AActor* Actor = MeshComp->GetOwner())
+	{
+		UAbilitySystemBlueprintLibrary::AddLooseGameplayTags(Actor, AddTags, false);
+		UAbilitySystemBlueprintLibrary::RemoveLooseGameplayTags(Actor, RemoveTags, false);
+	}
+}
+
+void UMAnimNotifyState_TagModifier::NotifyEnd(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference)
+{
+	if (bRestore)
+	{
+		if (AActor* Actor = MeshComp->GetOwner())
+		{
+			UAbilitySystemBlueprintLibrary::RemoveLooseGameplayTags(Actor, AddTags, false);
+			UAbilitySystemBlueprintLibrary::AddLooseGameplayTags(Actor, RemoveTags, false);
+		}
+	}
+}
+
+void UMAnimNotifyState_AddMovemntInput::NotifyTick(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, float FrameDeltaTime, const FAnimNotifyEventReference& EventReference)
+{
+	if (ACharacter* Character = Cast<ACharacter>(MeshComp->GetOwner()))
+	{
+		Character->AddMovementInput(Character->GetActorForwardVector(), Scale);
+	}
+}
