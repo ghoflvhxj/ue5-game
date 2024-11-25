@@ -583,3 +583,51 @@ void UGameplayAbility_CameraShake::EndAbility(const FGameplayAbilitySpecHandle H
 
 	TargetPlayers.Empty();
 }
+
+UGameplayAbility_ComboAttack::UGameplayAbility_ComboAttack()
+UGameplayAbility_Combo::UGameplayAbility_Combo()
+{
+	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
+	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
+
+	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Action.BasicAttack.Combo"));
+	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("ActionType.Dynamic"));
+
+	ActivationOwnedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Attack"));
+	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Dead"));
+}
+
+void UGameplayAbility_Combo::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+
+	if (CommitAbility(Handle, ActorInfo, ActivationInfo) == false)
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+
+	if (AMCharacter* Character = Cast<AMCharacter>(GetAvatarActorFromActorInfo()))
+	{
+		if (AWeapon* Weapon = Character->GetEquipItem<AWeapon>())
+		{
+			Weapon->IncreaseCombo();
+		}
+	}
+
+	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+}
+
+bool UGameplayAbility_Combo::CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags /*= nullptr*/)
+{
+	if (AMCharacter* Character = Cast<AMCharacter>(GetAvatarActorFromActorInfo()))
+	{
+		if (AWeapon* Weapon = Character->GetEquipItem<AWeapon>())
+		{
+			return Super::CommitAbility(Handle, ActorInfo, ActivationInfo, OptionalRelevantTags);
+		}
+	}
+
+	return false;
+}

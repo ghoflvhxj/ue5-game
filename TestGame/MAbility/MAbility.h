@@ -110,11 +110,18 @@ protected:
 	float WeaponAttackSpeed = 1.f;
 };
 
-//UCLASS()
-//class TESTGAME_API UGameplayAbility_BasicAttack : public UGameplayAbility_CharacterAction
-//{
-//	GENERATED_BODY()
-//};
+UCLASS()
+class TESTGAME_API UGameplayAbility_Combo : public UGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UGameplayAbility_Combo();
+
+public:
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+	virtual bool CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags = nullptr) override;
+};
 UCLASS()
 class UGameplayAbility_CollideDamage : public UGameplayAbility
 {
