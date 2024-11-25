@@ -67,43 +67,41 @@ UGameplayAbility_MoveToMouse::UGameplayAbility_MoveToMouse()
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalOnly;
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
 
-	FAbilityTriggerData TriggerData;
-	TriggerData.TriggerTag = FGameplayTag::RequestGameplayTag(FName("Controller.MouseRightClick"));
-	AbilityTriggers.Add(TriggerData);
-
-	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag(FName("Character.Action.Move")));
-	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag(FName("Character.State.Dead")));
-	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag(FName("Character.Action.BasicAttack")));
+	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag(FName("Action.Move")));
+	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag(FName("Character.Dead")));
+	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag(FName("Action.BasicAttack")));
 }
 
 void UGameplayAbility_MoveToMouse::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
-	UAbilityTask_WaitGameplayEvent* WaitTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, FGameplayTag::RequestGameplayTag(FName("Controller.MouseRightClick")));
-
-	UE_LOG(LogAbility, Warning, TEXT("MoveToMouse Ability %s"), *GetName())
-
-	if (IsValid(WaitTask))
+	if (CommitAbility(Handle, ActorInfo, ActivationInfo) == false)
 	{
-		WaitTask->EventReceived.AddDynamic(this, &UGameplayAbility_MoveToMouse::MoveToMouse);
-		WaitTask->ReadyForActivation();
+		EndAbility(Handle, ActorInfo, ActivationInfo, false, true);
+		return;
 	}
+
+	if (APlayerController* Controller = UGameplayStatics::GetPlayerController(GetAvatarActorFromActorInfo(), 0))
+	{
+		FHitResult HitResult;
+		Controller->GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
+
+		if (HitResult.bBlockingHit)
+		{
+			UAIBlueprintHelperLibrary::SimpleMoveToLocation(Controller, HitResult.Location);
+			DrawDebugSphere(GetWorld(), HitResult.Location, 100.f, 32, FColor::Green);
+		}
+	}
+
+	EndAbility(Handle, ActorInfo, ActivationInfo, false, false);
 }
 
 void UGameplayAbility_MoveToMouse::CancelAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateCancelAbility)
 {
 	Super::CancelAbility(Handle, ActorInfo, ActivationInfo, bReplicateCancelAbility);
 
-	UE_CLOG(GetAvatarActorFromActorInfo()->IsNetMode(NM_Client), LogAbility, Warning, TEXT("%s"), *FString(__FUNCTION__));
-
-	APawn* Pawn = Cast<APawn>(GetAvatarActorFromActorInfo());
-	if (IsValid(Pawn) == false)
-	{
-		return;
-	}
-
-	if (AMPlayerControllerInGame* Controller = Cast<AMPlayerControllerInGame>(Pawn->GetController()))
+	if (APlayerController* Controller = UGameplayStatics::GetPlayerController(GetAvatarActorFromActorInfo(), 0))
 	{
 		Controller->StopMovement();
 	}
