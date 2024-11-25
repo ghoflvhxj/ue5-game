@@ -320,13 +320,46 @@ void UGameplayAbility_CollideDamage::ActivateAbility(const FGameplayAbilitySpecH
 	}
 }
 
+void UGameplayAbility_CollideDamage::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+{
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+
+	if (AActor* AbilityOwer = GetAvatarActorFromActorInfo())
+	{
+		if (AbilityOwer->OnActorBeginOverlap.IsAlreadyBound(this, &UGameplayAbility_CollideDamage::OnCollide))
+		{
+			AbilityOwer->OnActorBeginOverlap.RemoveDynamic(this, &UGameplayAbility_CollideDamage::OnCollide);
+		}
+	}
+}
+
 void UGameplayAbility_CollideDamage::OnCollide(AActor* OverlappedActor, AActor* OtherActor)
 {
-	if (ACharacter* Character = Cast<ACharacter>(OtherActor))
+	if (IsValid(OtherActor) == false)
 	{
-		if (Character->IsPlayerControlled())
+		return;
+	}
+
+	ACharacter* MyCharacter = nullptr;
+	AActor* Owner = GetAvatarActorFromActorInfo();
+	while (IsValid(Owner))
+	{
+		if (Owner->IsA<ACharacter>())
 		{
-			ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, MakeOutgoingGameplayEffectSpec(UGameplayEffect_CollideDamage::StaticClass()), UAbilitySystemBlueprintLibrary::AbilityTargetDataFromActor(OtherActor));
+			MyCharacter = Cast<ACharacter>(Owner);
+			break;
+		}
+		Owner = Owner->GetOwner();
+	}
+
+	if (IsValid(MyCharacter))
+	{
+		if (AMCharacter* OtherCharacter = Cast<AMCharacter>(OtherActor))
+		{
+			if (OtherCharacter->IsDead() == false && OtherCharacter->IsPlayerControlled() != MyCharacter->IsPlayerControlled())
+			{
+				ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, MakeOutgoingGameplayEffectSpec(UGameplayEffect_CollideDamage::StaticClass()), UAbilitySystemBlueprintLibrary::AbilityTargetDataFromActor(OtherActor));
+			}
 		}
 	}
 }
