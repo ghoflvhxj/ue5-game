@@ -12,14 +12,19 @@ void UMActionComponent::BeginPlay()
 
 UAnimMontage* UMActionComponent::GetActionMontage(FGameplayTag ActionGameplayTag)
 {
-	return ActionMap.Contains(ActionGameplayTag) ? ActionMap[ActionGameplayTag] : nullptr;
+	return GetAnimAsset<UAnimMontage>(ActionGameplayTag);
+}
+
+UAnimSequence* UMActionComponent::GetActionSequence(FGameplayTag ActionGameplayTag)
+{
+	return GetAnimAsset<UAnimSequence>(ActionGameplayTag);
 }
 
 void UMActionComponent::UpdateAction(UMActionComponent* InActionComponent)
 {
-	if (IsValid(InActionComponent) && IsNetSimulating() == false && IsValid(InActionComponent->ActionData))
+	if (IsValid(InActionComponent) && IsValid(InActionComponent->ActionData))
 	{
-		Multicast_UpdateAction(InActionComponent->ActionData->ActionInfos);
+		AddActions(InActionComponent->ActionData->ActionInfos);
 	}
 }
 
@@ -38,15 +43,10 @@ void UMActionComponent::UpdateActionData(UMActionDataAsset* IntActionDataAsset)
 	}
 }
 
-void UMActionComponent::Multicast_UpdateAction_Implementation(const TArray<FMActionInfo>& InActionInfos)
-{
-	AddActions(InActionInfos);
-}
-
 void UMActionComponent::AddActions(const TArray<FMActionInfo>& InActionInfos)
 {
 	for (const FMActionInfo& ActionInfo : InActionInfos)
 	{
-		ActionMap.FindOrAdd(ActionInfo.ActionTag) = Cast<UAnimMontage>(ActionInfo.ActionMontage);
+		ActionMap.FindOrAdd(ActionInfo.ActionTag) = ActionInfo.ActionMontage;
 	}
 }

@@ -42,16 +42,25 @@ public:
 	virtual void BeginPlay() override;
 
 public:
+	UFUNCTION(BlueprintPure)
 	UAnimMontage* GetActionMontage(FGameplayTag ActionGameplayTag);
+	UFUNCTION(BlueprintPure)
+	UAnimSequence* GetActionSequence(FGameplayTag ActionGameplayTag);
+protected:
+	template <class T>
+	T* GetAnimAsset(FGameplayTag ActionGameplayTag)
+	{
+		return ActionMap.Contains(ActionGameplayTag) ? Cast<T>(ActionMap[ActionGameplayTag].Get()) : nullptr;
+	}
+
+public:
 	void UpdateAction(UMActionComponent* InActionComponent);
 	void UpdateActionData(UMActionDataAsset* IntActionDataAsset);
 private:
-	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_UpdateAction(const TArray<FMActionInfo>& InActionInfos);
 	void AddActions(const TArray<FMActionInfo>& InActionInfos);
 
 protected:
 	UPROPERTY(EditDefaultsOnly)
 	UMActionDataAsset* ActionData;
-	TMap<FGameplayTag, UAnimMontage*> ActionMap;
+	TMap<FGameplayTag, TObjectPtr<UAnimationAsset>> ActionMap;
 };
