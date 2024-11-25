@@ -461,3 +461,64 @@ void UGameplayAbility_DamageImmune::SetMaterialParam(TFunction<void(UMaterialIns
 		}
 	}
 }
+
+UGameplayAbility_KnockBack::UGameplayAbility_KnockBack()
+{
+	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
+	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
+}
+
+void UGameplayAbility_KnockBack::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+
+	if (CommitAbility(Handle, ActorInfo, ActivationInfo))
+	{
+		if (AActor* AbilityOwer = GetAvatarActorFromActorInfo())
+		{
+			AbilityOwer->OnActorBeginOverlap.AddDynamic(this, &UGameplayAbility_KnockBack::KnockBack);
+		}
+	}
+}
+
+void UGameplayAbility_KnockBack::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+{
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+
+	if (AActor* AbilityOwer = GetAvatarActorFromActorInfo())
+	{
+		if (AbilityOwer->OnActorBeginOverlap.IsAlreadyBound(this, &UGameplayAbility_KnockBack::KnockBack))
+		{
+			AbilityOwer->OnActorBeginOverlap.RemoveDynamic(this, &UGameplayAbility_KnockBack::KnockBack);
+		}
+	}
+}
+
+void UGameplayAbility_KnockBack::KnockBack(AActor* OverlappedActor, AActor* OtherActor)
+{
+	AActor* Owner = GetAvatarActorFromActorInfo();
+	if (IsValid(Owner) == false)
+	{
+		return;
+	}
+
+	if (OtherActor == Owner)
+	{
+		return;
+	}
+
+	if (ACharacter* Character = Cast<ACharacter>(OtherActor))
+	{
+		if (Character->IsPlayerControlled())
+		{
+			return;
+		}
+
+		if (UCharacterMovementComponent* MovementComponent = Character->GetCharacterMovement())
+		{
+			MovementComponent->AddRadialImpulse(Owner->GetActorLocation(), Radius, Strength, ERadialImpulseFalloff::RIF_Linear, false);
+			//MovementComponent->AddImpulse(FVector(1000000.0, 0.0, 0.0));
+		}
+	}
+}

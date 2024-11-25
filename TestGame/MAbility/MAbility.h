@@ -162,3 +162,48 @@ public:
 protected:
 	FTimerHandle TimerHandle;
 };
+
+UCLASS()
+class UGameplayAbility_KnockBack : public UGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UGameplayAbility_KnockBack();
+
+public:
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
+
+protected:
+	UFUNCTION()
+	void KnockBack(AActor* OverlappedActor, AActor* OtherActor);
+protected:
+	UPROPERTY(BlueprintReadWrite)
+	float Radius = 100.f;
+	UPROPERTY(BlueprintReadWrite)
+	float Strength = 0.f;
+};
+
+UCLASS()
+class UGameplayAbility_Move : public UGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UGameplayAbility_Move();
+
+public:
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+	//virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
+
+public:
+	UFUNCTION(BlueprintCallable)
+	void SetForward(float InFoward) { Foward = InFoward; }
+	UFUNCTION(BlueprintCallable)
+	void SetStrafe(float InStrafe) { Strafe = InStrafe; }
+protected:
+	float Foward = 0.f;
+	float Strafe = 0.f;
+};
+};
