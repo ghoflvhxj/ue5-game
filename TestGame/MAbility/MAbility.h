@@ -89,16 +89,23 @@ class TESTGAME_API UGameplayAbility_BasicAttack : public UGameplayAbility
 public:
 	UGameplayAbility_BasicAttack();
 
-protected:
+public:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 	virtual void CancelAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateCancelAbility) override;
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
 	virtual bool CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags = nullptr) override;
+	virtual void OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
+	virtual void OnRemoveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
+public:
+	void SetCombo(int32 InComboIndex);
+	void FinishAttack();
+	UFUNCTION()
+	void OnMontageFinished();
 
 protected:
-	class UAbilityTask_WaitGameplayEvent* WaitTask;
-	//TWeakObjectPtr<class UAbilityTask_PlayMontageAndWait> PlayMontageTask;
-	//class UAbilityTask_PlayMontageAndWait* PlayMontageTask;
+	FDelegateHandle ComboDelegateHandle;
+	FTimerHandle TimerHandle;
+	class UAbilityTask_PlayMontageAndWait* PlayMontageTask = nullptr;
 
 	float WeaponAttackSpeed = 1.f;
 };
