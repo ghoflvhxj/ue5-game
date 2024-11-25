@@ -17,6 +17,7 @@ public:
 	virtual void OnSpawn(AActor* InActor, USkeletalMeshComponent* MeshComp) {}
 	virtual void OnSpawnFinished(AActor* InActor, USkeletalMeshComponent* MeshComp) {}
 	virtual bool GetSpawnParam(USkeletalMeshComponent* MeshComp, FActorSpawnParameters& OutSpawnTransform);
+	virtual AActor* GetContextObject(USkeletalMeshComponent* MeshComp);
 	virtual FTransform GetSocketTransform(USkeletalMeshComponent* MeshComp);
 
 protected:
@@ -31,11 +32,13 @@ protected:
 UCLASS()
 class TESTGAME_API UMAnimNotify_SpawnBullet : public UMAnimNotify_SpawnActor
 {
-GENERATED_BODY()
+	GENERATED_BODY()
 
 public:
 	virtual void OnSpawn(AActor* InActor, USkeletalMeshComponent* MeshComp) override;
 	virtual void OnSpawnFinished(AActor* InActor, USkeletalMeshComponent* MeshComp) override;
 	virtual bool GetSpawnParam(USkeletalMeshComponent* MeshComp, FActorSpawnParameters& OutSpawnTransform) override;
+	virtual AActor* GetContextObject(USkeletalMeshComponent* MeshComp) override;
 	virtual FTransform GetSocketTransform(USkeletalMeshComponent* MeshComp) override;
+};
 };

@@ -1,6 +1,7 @@
 #include "MAnimNotify.h"
 #include "TestGame/Bullet/Bullet.h"
 #include "TestGame/MCharacter/MCharacter.h"
+#include "AbilitySystemBlueprintLibrary.h"
 
 DECLARE_LOG_CATEGORY_CLASS(LogNotify, Log, Log)
 
@@ -16,10 +17,11 @@ void UMAnimNotify_SpawnActor::Notify(USkeletalMeshComponent* MeshComp, UAnimSequ
 		SpawnTransform.SetRotation(FRotator::ZeroRotator.Quaternion());
 		SpawnTransform.AddToTranslation(SpawnOffset);
 
-		FActorSpawnParameters SpawnParam;
-		GetSpawnParam(MeshComp, SpawnParam);
+		//FActorSpawnParameters SpawnParam;
+		//GetSpawnParam(MeshComp, SpawnParam);
+		UObject* ContextObject = GetContextObject(MeshComp);
 
-		if (AActor* NewActor = UGameplayStatics::BeginDeferredActorSpawnFromClass(World, ActorClass, SpawnTransform, ESpawnActorCollisionHandlingMethod::AlwaysSpawn))
+		if (AActor* NewActor = UGameplayStatics::BeginDeferredActorSpawnFromClass(ContextObject == nullptr ? World : ContextObject, ActorClass, SpawnTransform, ESpawnActorCollisionHandlingMethod::AlwaysSpawn))
 		{
 			OnSpawn(NewActor, MeshComp);
 			UGameplayStatics::FinishSpawningActor(NewActor, SpawnTransform);
@@ -37,6 +39,11 @@ bool UMAnimNotify_SpawnActor::GetSpawnParam(USkeletalMeshComponent* MeshComp, FA
 	}
 
 	return false;
+}
+
+AActor* UMAnimNotify_SpawnActor::GetContextObject(USkeletalMeshComponent* MeshComp)
+{
+	return nullptr;
 }
 
 FTransform UMAnimNotify_SpawnActor::GetSocketTransform(USkeletalMeshComponent* MeshComp)
@@ -66,9 +73,10 @@ void UMAnimNotify_SpawnBullet::OnSpawn(AActor* InActor, USkeletalMeshComponent* 
 	{
 		if (IsValid(Owner))
 		{
+			Bullet->SetOwner(Owner);
 			if (UAbilitySystemComponent* AbilitySystemComponent = Owner->GetComponentByClass<UAbilitySystemComponent>())
 			{
-				Bullet->GiveEffects(AbilitySystemComponent);
+				//Bullet->GiveEffects(AbilitySystemComponent);
 			}
 		}
 	}
@@ -104,12 +112,22 @@ bool UMAnimNotify_SpawnBullet::GetSpawnParam(USkeletalMeshComponent* MeshComp, F
 	{
 		if (AMCharacter* Character = Cast<AMCharacter>(MeshComp->GetOwner()))
 		{
-			OutSpawnTransform.Owner = Character->GetWeapon<AActor>();
+			OutSpawnTransform.Owner = Character->GetEquipItem<AActor>();
 			return true;
 		}
 	}
 
 	return false;
+}
+
+AActor* UMAnimNotify_SpawnBullet::GetContextObject(USkeletalMeshComponent* MeshComp)
+{
+	if (IsValid(MeshComp))
+	{
+		return MeshComp->GetOwner();
+	}
+
+	return nullptr;
 }
 
 FTransform UMAnimNotify_SpawnBullet::GetSocketTransform(USkeletalMeshComponent* MeshComp)
