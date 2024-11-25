@@ -21,6 +21,8 @@ public:
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
 	virtual void RestartPlayer(AController* NewPlayer) override;
 	virtual bool PlayerCanRestart_Implementation(APlayerController* Player) override;
+	virtual bool ReadyToEndMatch_Implementation() override;
+
 
 public:
 	void OnActorDestruct(ADestructableActor* InDestructableActor);

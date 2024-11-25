@@ -2,6 +2,7 @@
 #include "MGameStateInGame.h"
 #include "GameFramework/PlayerState.h"
 #include "Engine/DataTable.h"
+#include "TestGame/MSpawner/MonsterSpawner.h"
 
 DECLARE_LOG_CATEGORY_CLASS(LogRound, Log, Log);
 
@@ -13,6 +14,16 @@ AMGameStateInGame::AMGameStateInGame()
 void AMGameStateInGame::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (HasAuthority())
+	{
+		MonsterSpawner = GetWorld()->SpawnActor<AMonsterSpawner>(MonsterSpawnerClass);
+
+		if (AMonsterSpawner* Spawner = GetMonsterSpawner())
+		{
+			Spawner->OnBossSpawnedEvent.AddUObject(this, &AMGameStateInGame::Multicast_BossSpawned);
+		}
+	}
 }
 
 void AMGameStateInGame::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -26,15 +37,15 @@ void AMGameStateInGame::HandleMatchHasStarted()
 
 	if (HasAuthority() && IsValid(RoundComponent))
 	{
-		RoundComponent->NextRound();
+		RoundComponent->TryNextRound(nullptr);
 	}
 }
 
-void AMGameStateInGame::OnRep_MatchState()
+void AMGameStateInGame::HandleMatchHasEnded()
 {
-	Super::OnRep_MatchState();
+	Super::HandleMatchHasEnded();
 
-	OnMatchStateChanegdEvent.Broadcast(GetMatchState());
+	OnMatchEndEvent.Broadcast();
 }
 
 void AMGameStateInGame::AddDeadPlayer(APlayerState* DeadPlayerState)
@@ -74,87 +85,134 @@ void AMGameStateInGame::Multicast_GameOver_Implementation()
 	GameOverDynamicDelegate.Broadcast();
 }
 
+void AMGameStateInGame::Multicast_BossSpawned_Implementation(AActor* Boss)
+{
+	OnBossSpawnedEvent.Broadcast(Boss);
+}
+
+URoundComponent::URoundComponent()
+{
+	SetIsReplicatedByDefault(true);
+	PrimaryComponentTick.bCanEverTick = false;
+}
+
 void URoundComponent::BeginPlay()
 {
 	Super::BeginPlay();
-
-	if (AGameStateBase* GameState = Cast<AGameStateBase>(GetOwner()))
-	{
-		//FGame
-	}
 }
 
 void URoundComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME_CONDITION(URoundComponent, RoundInfo, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(URoundComponent, Round, COND_InitialOnly);
 }
 
-bool URoundComponent::IsRoundStarted()
+bool URoundComponent::IsLastRound() const
 {
-	return CurrentRoundName != NAME_None;
+	if (IsValid(RoundTable))
+	{
+		TArray<FRoundInfo*> AllRoundInfo;
+		RoundTable->GetAllRows(TEXT("RoundTable"), AllRoundInfo);
+
+		return AllRoundInfo.Last()->Round == Round;
+	}
+
+	return false;
+}
+
+FRoundInfo URoundComponent::GetRoundInfo(int32 InRound) const
+{
+	if (IsValid(RoundTable))
+	{
+		if (FRoundInfo* FoundRoundInfo = RoundTable->FindRow<FRoundInfo>(FName(FString::FromInt(InRound)), TEXT("RoundTable")))
+		{
+			return *FoundRoundInfo;
+		}
+	}
+
+	return FRoundInfo();
 }
 
 void URoundComponent::TryNextRound(AActor* Rounder)
 {
-	if (IsValid(Rounder) == false)
+	if (IsLastRound() && IsLastWave())
 	{
+		bAllRoundFinished = true;
 		return;
 	}
 
-	if (Rounder->GetClass()->ImplementsInterface(URoundInterface::StaticClass()))
-	{
-		if (IRoundInterface::Execute_IsClear(Rounder))
-		{
-			false;
-		}
-	}
+	++Round;
+	Wave = 1;
 
-	NextRound();
+	StartWave();
 }
 
-void URoundComponent::NextRound()
+void URoundComponent::StartWave()
 {
-	if (IsValid(RoundTable) == false)
+	UWorld* World = GetWorld();
+	if (IsValid(World) == false)
 	{
 		return;
 	}
 
-	TArray<FName> RoundRowNames = RoundTable->GetRowNames();
-
-	if (bool bIsLastRound = CurrentRoundName == RoundRowNames.Last())
+	// 인위적(치트 등)으로 다음 웨이브가 실행됬다면, 타이머는 해제시킴
+	if (NextWaveTimerHandle.IsValid())
 	{
-		return;
+		World->GetTimerManager().ClearTimer(NextWaveTimerHandle);
 	}
 
-	FName NextRoundName = NAME_None;
-	if (CurrentRoundName == NAME_None)
+	Multicast_Wave(Round, Wave);
+
+	if (IsLastWave() == false)
 	{
-		NextRoundName = RoundTable->GetRowNames()[0];
-	}
-	else
-	{
-		int32 RoundIndex = 0;
-		if (RoundRowNames.Find(CurrentRoundName, RoundIndex) && RoundRowNames.IsValidIndex(RoundIndex + 1))
+		const FRoundInfo& RoundInfo = GetRoundInfo(Round);
+		if (RoundInfo.IsValid())
 		{
-			NextRoundName = RoundRowNames[RoundIndex + 1];
+			World->GetTimerManager().SetTimer(NextWaveTimerHandle, FTimerDelegate::CreateWeakLambda(this, [this]() {
+				StartWave();
+			}), RoundInfo.WaveIntervalBase, false);
 		}
-	}
 
-	if (FRoundInfo* NextRoundInfo = RoundTable->FindRow<FRoundInfo>(NextRoundName, nullptr))
-	{
-		Multicast_RoundInfo(*NextRoundInfo);
-		CurrentRoundName = NextRoundName;
+		++Wave;
 	}
-
-	UE_LOG(LogRound, Log, TEXT("%s CurrentRound:%s"), *FString(__FUNCTION__), *CurrentRoundName.ToString());
 }
 
-void URoundComponent::Multicast_RoundInfo_Implementation(const FRoundInfo& InRoundInfo)
+bool URoundComponent::IsLastWave() const
 {
-	RoundInfo = InRoundInfo;
-	OnRoundChangedEvent.Broadcast(RoundInfo);
+	return IsLastWave(Wave);
+}
 
+bool URoundComponent::IsLastWave(int InWave) const
+{
+	const FRoundInfo& RoundInfo = GetRoundInfo(Round);
+	if (RoundInfo.IsValid())
+	{
+		return InWave == RoundInfo.TotalWave;
+	}
+
+	return false;
+}
+
+bool URoundComponent::IsFinished() const
+{
+	return bAllRoundFinished;
+}
+
+void URoundComponent::Multicast_Wave_Implementation(int32 InRound, int32 InWave)
+{
+	const FRoundInfo& RoundInfo = GetRoundInfo(InRound);
+	if (RoundInfo.IsValid() == false)
+	{
+		return;
+	}
+
+	if (IsNetSimulating())
+	{
+		Round = InRound;
+		Wave = InWave;
+	}
+
+	OnWaveChangedEvent.Broadcast(Round, RoundInfo, Wave);
 	UE_LOG(LogRound, Log, TEXT("RoundInfo Updated Round:%d"), RoundInfo.Round);
 }

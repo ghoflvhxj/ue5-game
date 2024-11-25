@@ -1,6 +1,5 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
-
 #include "MGameModeInGame.h"
 #include "OnlineSubsystem.h"
 #include "Gameframework/PlayerState.h"
@@ -27,7 +26,10 @@ void AMGameModeInGame::SetPlayerDefaults(APawn* PlayerPawn)
 	{
 		PlayerCharacter->AddVitalityChangedDelegate(this, [this, PlayerCharacter](uint8 OldValue, uint8 NewValue) {
 			AMGameStateInGame* GameStateInGame = GetGameState<AMGameStateInGame>();
-			ensure(IsValid(GameStateInGame));
+			if (IsValid(GameStateInGame) == false)
+			{
+				return;
+			}
 
 			APlayerState* PlayerState = PlayerCharacter->GetPlayerState();
 			if (IsValid(PlayerState) == false)
@@ -37,26 +39,28 @@ void AMGameModeInGame::SetPlayerDefaults(APawn* PlayerPawn)
 
 			switch (NewValue)
 			{
-			case (uint8)ECharacterVitalityState::Die:
-			{
-				APlayerController* PlayerController = PlayerState->GetPlayerController();
-				GameStateInGame->AddDeadPlayer(PlayerState);
-				if (PlayerCanRestart(PlayerController))
+				case (uint8)ECharacterVitalityState::Die:
 				{
-					FTimerHandle DummyHandle;
-					PlayerCharacter->GetWorldTimerManager().SetTimer(DummyHandle, FTimerDelegate::CreateWeakLambda(this, [this, PlayerController]() {
-						PlayerController->UnPossess();
-						RestartPlayer(PlayerController);
-					}), 5.f, false);
+					APlayerController* PlayerController = PlayerState->GetPlayerController();
+					GameStateInGame->AddDeadPlayer(PlayerState);
+					if (PlayerCanRestart(PlayerController))
+					{
+						FTimerHandle DummyHandle;
+						PlayerCharacter->GetWorldTimerManager().SetTimer(DummyHandle, FTimerDelegate::CreateWeakLambda(this, [this, PlayerController]() {
+							PlayerController->UnPossess();
+							RestartPlayer(PlayerController);
+							}), 5.f, false);
+					}
+					else
+					{
+						GameStateInGame->Multicast_GameOver();
+					}
 				}
-				else
+				break;
+				case (uint8)ECharacterVitalityState::Alive:
 				{
-					GameStateInGame->Multicast_GameOver();
-				}
-			}
-			break;
-			case (uint8)ECharacterVitalityState::Alive:
 
+				}
 				break;
 			}
 		});
@@ -67,13 +71,26 @@ void AMGameModeInGame::RestartPlayer(AController* NewPlayer)
 {
 	Super::RestartPlayer(NewPlayer);
 
-	AMGameStateInGame* GameStateInGame = GetGameState<AMGameStateInGame>();
-	ensure(IsValid(GameStateInGame));
+	if (IsValid(NewPlayer))
+	{
+		if (AMGameStateInGame* GameStateInGame = GetGameState<AMGameStateInGame>())
+		{
+			GameStateInGame->RevivePlayer(NewPlayer->GetPlayerState<APlayerState>());
+		}
+	}
+}
 
-	APlayerController* PlayerController = Cast<APlayerController>(NewPlayer);
-	ensure(IsValid(PlayerController));
+bool AMGameModeInGame::ReadyToEndMatch_Implementation()
+{
+	if (AMGameStateInGame* GameStateInGame = GetGameState<AMGameStateInGame>())
+	{
+		if (URoundComponent* RoundComponent = GameStateInGame->GetComponentByClass<URoundComponent>())
+		{
+			return RoundComponent->IsFinished();
+		}
+	}
 
-	GameStateInGame->RevivePlayer(PlayerController->GetPlayerState<APlayerState>());
+	return false;
 }
 
 void AMGameModeInGame::OnActorDestruct(ADestructableActor* InDestructableActor)
@@ -96,7 +113,10 @@ void AMGameModeInGame::OnActorDestruct(ADestructableActor* InDestructableActor)
 
 void AMGameModeInGame::OnPawnKilled(APawn* Killer, APawn* Killed)
 {
-	if (IsValid(Killed) && Killed->IsPlayerControlled() == false)
+	bool bMonsterKilled = IsValid(Killed) && Killed->IsPlayerControlled() == false;
+
+
+	if (bMonsterKilled)
 	{
 		FTransform Transform = Killed->GetActorTransform();
 		Transform.SetScale3D(FVector::OneVector);
@@ -127,18 +147,10 @@ ADropItem* AMGameModeInGame::SpawnDropItem(int32 InItemIndex, FTransform& InTran
 
 bool AMGameModeInGame::PlayerCanRestart_Implementation(APlayerController* Player)
 {
-	if (Super::PlayerCanRestart_Implementation(Player) == false)
+	if (AMGameStateInGame* GameStateInGame = GetGameState<AMGameStateInGame>())
 	{
-		return false;
+		return GameStateInGame->IsRevivalable() && Super::PlayerCanRestart_Implementation(Player);
 	}
 
-	AMGameStateInGame* GameStateInGame = GetGameState<AMGameStateInGame>();
-	ensure(IsValid(GameStateInGame));
-
-	if (GameStateInGame->IsRevivalable() == false)
-	{
-		return false;
-	}
-
-	return true;
+	return Super::PlayerCanRestart_Implementation(Player);
 }

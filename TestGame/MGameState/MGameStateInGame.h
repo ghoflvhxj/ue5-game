@@ -8,14 +8,7 @@
 #include "MGameStateInGame.generated.h"
 
 class APlayerState;
-
-UENUM()
-enum class EClearType : uint8
-{
-	None,
-	AllMonsterDead,
-	Timer
-};
+class AMonsterSpawner;
 
 USTRUCT(BlueprintType)
 struct FRoundInfo : public FTableRowBase
@@ -23,13 +16,24 @@ struct FRoundInfo : public FTableRowBase
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	int32 Round;
+	int32 Round = INDEX_NONE;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	EClearType ClearType;
+	int32 TotalWave = 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float WaveIntervalBase = 10.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TMap<int32, float> WaveInterval;
+
+public:
+	bool IsValid() const { return Round != INDEX_NONE; }
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnRoundStartedDynamicDelegate);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnGameOverDynamicDelegate);
+DECLARE_EVENT(AMGameStateInGame, FOnMatchEndEvent);
 
 UCLASS()
 class TESTGAME_API AMGameStateInGame : public AGameState
@@ -43,9 +47,9 @@ public:
 	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const override;
 	virtual void HandleMatchHasStarted() override;
-	virtual void OnRep_MatchState() override;
-	DECLARE_EVENT_OneParam(AMGameStateInGame, FOnMatchStateChangedEvent, FName);
-	FOnMatchStateChangedEvent OnMatchStateChanegdEvent;
+	virtual void HandleMatchHasEnded() override;
+public:
+	FOnMatchEndEvent OnMatchEndEvent;
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -70,6 +74,19 @@ public:
 	void Multicast_GameOver();
 public:
 	FOnGameOverDynamicDelegate GameOverDynamicDelegate;
+
+public:
+	DECLARE_EVENT_OneParam(AMGameStateInGame, FOnBossSpawnedEvent, AActor* /*BossMonster*/)
+	FOnBossSpawnedEvent OnBossSpawnedEvent;
+public:
+	AMonsterSpawner* GetMonsterSpawner() { return Cast<AMonsterSpawner>(MonsterSpawner.Get()); }
+	UFUNCTION(Reliable, NetMulticast)
+	void Multicast_BossSpawned(AActor* Boss);
+protected:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	TSubclassOf<AMonsterSpawner> MonsterSpawnerClass = nullptr;
+	UPROPERTY(BlueprintReadOnly)
+	TWeakObjectPtr<AActor> MonsterSpawner = nullptr;
 };
 
 UCLASS(Blueprintable)
@@ -78,28 +95,41 @@ class TESTGAME_API URoundComponent : public UActorComponent
 	GENERATED_BODY()
 
 public:
+	URoundComponent();
+
+public:
 	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-	// 라운드
 public:
-	bool IsRoundStarted();
+	bool IsLastRound() const;
+
+	// 웨이브
+public:
+	bool IsLastWave() const;
+	bool IsLastWave(int InWave) const;
+	bool IsFinished() const;
 	UFUNCTION(BlueprintPure)
-	const FRoundInfo& GetRoundInfo() { return RoundInfo; }
+	FRoundInfo GetRoundInfo(int32 InRound) const;
 public:
 	void TryNextRound(AActor* Rounder);
-	void NextRound();
+	UFUNCTION(BlueprintCallable)
+	void StartWave();
 	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_RoundInfo(const FRoundInfo& InRoundInfo);
+	void Multicast_Wave(int32 InRound, int32 InWave);
 public:
-	DECLARE_EVENT_OneParam(URoundComponent, FOnRoundChangedEvent, const FRoundInfo&);
-	FOnRoundChangedEvent OnRoundChangedEvent;
+	DECLARE_EVENT_ThreeParams(URoundComponent, FOnRoundChangedEvent, int /*Round*/, const FRoundInfo&, int /*Wave*/);
+	FOnRoundChangedEvent OnWaveChangedEvent;
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class UDataTable* RoundTable;
+	FName CurrentWaveName = NAME_None;
 	UPROPERTY(Replicated)
-	FRoundInfo RoundInfo;
-	FName CurrentRoundName = NAME_None;
+	int32 Round = 0;
+	UPROPERTY()
+	int32 Wave = 0;
+	FTimerHandle NextWaveTimerHandle;
+	bool bAllRoundFinished = false;
 };
 
 UINTERFACE()
