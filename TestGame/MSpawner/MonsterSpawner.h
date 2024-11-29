@@ -113,6 +113,10 @@ public:
 	UPROPERTY(EditAnywhere)
 	float MaxRadius = 1500.f;
 
+protected:
+	UPROPERTY(BlueprintReadOnly)
+	AActor* BossMonster = nullptr;
+
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(EditAnywhere)
 	int32 SpawnPositionNum = 0;

@@ -97,7 +97,8 @@ void AMonsterSpawner::SpawnUsingRoundInfo(int32 InRound, const FRoundInfo& InRou
 
 			if (SpawnInfo.GradeTag == BossTag)
 			{
-				OnBossSpawnedEvent.Broadcast(SpawnedActors.Last().Get());
+				BossMonster = SpawnedActors.Last().Get();
+				OnBossSpawnedEvent.Broadcast(BossMonster);
 			}
 		}
 	}
@@ -199,6 +200,7 @@ FTransform AMonsterSpawner::GetSpawnTransform()
 }
 
 #if WITH_EDITOR
+
 void AMonsterSpawner::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
