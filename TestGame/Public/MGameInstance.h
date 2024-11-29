@@ -4,51 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
+
 #include "MGameInstance.generated.h"
 
-UENUM()
-enum class EItemType : uint8
-{
-	None,
-	Common,
-	Weapon,
-	Money,
-};
-
-USTRUCT(BlueprintType)
-struct FItemBaseInfo : public FTableRowBase
-{
-	GENERATED_BODY()
-
-public:
-	UStreamableRenderAsset* GetMesh()
-	{
-		if (IsValid(DropMesh))
-		{
-			return DropMesh;
-		}
-
-		return StaticDropMesh;
-	}
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	int32 Index = INDEX_NONE;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	EItemType ItemType = EItemType::None;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FString Description = TEXT("");
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	class UPaperSprite* Icon = nullptr;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	USkeletalMesh* DropMesh = nullptr;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	UStaticMesh* StaticDropMesh = nullptr;
-};
+struct FItemBaseInfo;
 
 UCLASS(Blueprintable)
 class TESTGAME_API UMGameInstance : public UGameInstance

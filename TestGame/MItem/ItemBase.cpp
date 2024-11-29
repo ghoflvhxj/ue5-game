@@ -1,5 +1,6 @@
 #include "ItemBase.h"
 #include "MGameInstance.h"
+#include "Net/UnrealNetwork.h"
 
 DECLARE_LOG_CATEGORY_CLASS(LogItem, Log, Log);
 
