@@ -23,6 +23,7 @@
 #include "GameplayEffectExtension.h"
 #include "OnlineSubsystem.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "EnhancedInputComponent.h"
 
 // 임시
 #include "BehaviorTree/BehaviorTreeComponent.h"
@@ -33,16 +34,12 @@ AMCharacter::AMCharacter()
  	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
-	SearchComponent = CreateDefaultSubobject<USphereComponent>(TEXT("SearchComponent"));
-	SearchComponent->SetupAttachment(GetRootComponent());
-
 	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
 	AbilitySystemComponent->SetIsReplicated(true);
 
 	BattleComponent = CreateDefaultSubobject<UMBattleComponent>(TEXT("BattleComponent"));
 
 	StateComponent = CreateDefaultSubobject<UStateComponent>(TEXT("StateComponent"));
-
 }
 
 // Called when the game starts or when spawned
@@ -95,10 +92,10 @@ void AMCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (bRotateToTargetAngle)
-	{
-		RotateToTargetAngle();
-	}
+	//if (bRotateToTargetAngle)
+	//{
+	//	RotateToTargetAngle();
+	//}
 
 	if (InteractTargets.Num() > 0 && IsPlayerControlled())
 	{
@@ -133,7 +130,32 @@ void AMCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponen
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-	//PlayerInputComponent->BindAction(FName(TEXT("MouseLeftClick")), EInputEvent::IE_Released, this, &AMCharacter::MoveToMouseLocation);
+	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent))
+	{
+		//if (PlayerGameplayAbilitiesDataAsset)
+		{
+			//const TSet<FGameplayInputAbilityInfo>& InputAbilities = PlayerGameplayAbilitiesDataAsset->GetInputAbilities();
+			//const TSet<FGameplayInputAbilityInfo>& InputAbilities;
+			//for (const auto& It : InputAbilities)
+			//{
+				//if (It.IsValid())
+				//{
+					//const UInputAction* InputAction = It.InputAction;
+					//const int32 InputID = It.InputID;
+
+					if (InputAction)
+					{
+						EnhancedInputComponent->BindAction(InputAction, ETriggerEvent::Started, this, &AMCharacter::OnAbilityInputPressed, 0);
+						EnhancedInputComponent->BindAction(InputAction, ETriggerEvent::Completed, this, &AMCharacter::OnAbilityInputReleased, 0);
+					}
+
+
+					EnhancedInputComponent->BindAction(InputAction2, ETriggerEvent::Triggered, this, &AMCharacter::BasicAttack);
+					EnhancedInputComponent->BindAction(InputAction2, ETriggerEvent::Completed, this, &AMCharacter::FinishBasicAttack);
+				//}
+			//}
+		}
+	}
 }
 
 void AMCharacter::NotifyActorBeginOverlap(AActor* OtherActor)
@@ -185,13 +207,55 @@ void AMCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifet
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION(AMCharacter, TargetAngle, COND_SimulatedOnly);
-	DOREPLIFETIME_CONDITION(AMCharacter, bRotateToTargetAngle, COND_SimulatedOnly);
-	DOREPLIFETIME(AMCharacter, Weapon);
+	//DOREPLIFETIME_CONDITION(AMCharacter, bRotateToTargetAngle, COND_SimulatedOnly);
+	DOREPLIFETIME(AMCharacter, Item);
 }
 
 UAbilitySystemComponent* AMCharacter::GetAbilitySystemComponent() const
 {
 	return AbilitySystemComponent;
+}
+
+void AMCharacter::OnAbilityInputPressed(int32 InInputID)
+{
+	if (InInputID == 1)
+	{
+		BasicAttack();
+	}
+
+	if (AbilitySystemComponent)
+	{
+		AbilitySystemComponent->AbilityLocalInputPressed(InInputID);
+	}
+}
+
+void AMCharacter::OnAbilityInputReleased(int32 InInputID)
+{
+	if (InInputID == 1)
+	{
+		FinishBasicAttack();
+	}
+
+	if (AbilitySystemComponent)
+	{
+		AbilitySystemComponent->AbilityLocalInputReleased(InInputID);
+	}
+}
+
+void AMCharacter::AddAbilities(UMAbilityDataAsset* AbilityDataAsset)
+{
+	if (IsValid(AbilityDataAsset))
+	{
+		AbilityDataAsset->GiveAbilities(AbilitySystemComponent, AblitiyHandles);
+	}
+}
+
+void AMCharacter::RemoveAbilities(UMAbilityDataAsset* AbilityDataAsset)
+{
+	if (IsValid(AbilityDataAsset))
+	{
+		AbilityDataAsset->ClearAbilities(AbilitySystemComponent, AblitiyHandles);
+	}
 }
 
 void AMCharacter::OnMoveSpeedChanged(const FOnAttributeChangeData& AttributeChangeData)
@@ -207,9 +271,16 @@ void AMCharacter::OnHealthChanged(const FOnAttributeChangeData& AttributeChangeD
 		return;
 	}
 
+	
+	APawn* DamageInstigator = nullptr;
+	if (AttributeChangeData.GEModData)
+	{
+		DamageInstigator = Cast<APawn>(AttributeChangeData.GEModData->EffectSpec.GetEffectContext().GetInstigator());
+	}
+
 	if (AttributeChangeData.NewValue < AttributeChangeData.OldValue)
 	{
-		OnDamaged();
+		OnDamaged(DamageInstigator);
 	}
 
 	if (AttributeChangeData.NewValue <= 0.f)
@@ -225,7 +296,7 @@ void AMCharacter::OnHealthChanged(const FOnAttributeChangeData& AttributeChangeD
 			{
 				if (AttributeChangeData.GEModData)
 				{
-					GameMode->OnPawnKilled(Cast<APawn>(AttributeChangeData.GEModData->EffectSpec.GetEffectContext().GetInstigator()), this);
+					GameMode->OnPawnKilled(DamageInstigator, this);
 				}
 			}
 
@@ -257,7 +328,7 @@ void AMCharacter::OnHealthChanged(const FOnAttributeChangeData& AttributeChangeD
 
 		if (AbilitySystemComponent)
 		{
-			AbilitySystemComponent->AddLooseGameplayTag(FGameplayTag::RequestGameplayTag("Character.State.Dead"));
+			AbilitySystemComponent->AddLooseGameplayTag(FGameplayTag::RequestGameplayTag("Character.Dead"));
 		}
 	}
 
@@ -267,22 +338,40 @@ void AMCharacter::OnHealthChanged(const FOnAttributeChangeData& AttributeChangeD
 	}
 }
 
-void AMCharacter::OnDamaged()
+void AMCharacter::OnDamaged(AActor* DamageInstigator)
 {
 	if (IsValid(AbilitySystemComponent))
 	{
 		FGameplayEventData GameplayEventData;
 		GameplayEventData.EventTag = FGameplayTag::RequestGameplayTag(FName("Character.Event.Damaged"));
-		GameplayEventData.Instigator = this;
+		GameplayEventData.Instigator = DamageInstigator;
 		GameplayEventData.Target = this;
 
 		UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, FGameplayTag::RequestGameplayTag("Character.Event.Damaged"), GameplayEventData);
 	}
-}
 
-UPrimitiveComponent* AMCharacter::GetComponentForAttackSearch()
-{
-	return SearchComponent;
+	if (IsNetMode(NM_DedicatedServer) == false)
+	{
+		Opacity = 0.3f;
+		ActionNumber = 0;
+
+		GetWorldTimerManager().SetTimer(Handle, FTimerDelegate::CreateWeakLambda(this, [this]() {
+
+			Opacity = (FMath::Cos((2.f * PI) * (ActionNumber / 10.f)) + 3.f) * 2.f / 10.f;
+
+			SetMaterialParam([this](UMaterialInstanceDynamic* DynamicMaterialInstance) {
+				DynamicMaterialInstance->SetScalarParameterValue("Opacity", Opacity);
+				DynamicMaterialInstance->SetVectorParameterValue("Emissive", FVector4((30 - ActionNumber) / 30.f, 0.f, 0.f, 0.f));
+			});
+
+			++ActionNumber;
+
+			if (ActionNumber == 30)
+			{
+				GetWorldTimerManager().ClearTimer(Handle);
+			}
+		}), 0.1f, true);
+	}
 }
 
 void AMCharacter::TestFunction1()
@@ -335,7 +424,7 @@ bool AMCharacter::IsSameTeam(AActor* OtherCharacter) const
 
 bool AMCharacter::GetWeaponMuzzleTransform(FTransform& OutTransform)
 {
-	if (IsValid(Weapon))
+	if (AWeapon* Weapon = GetEquipItem<AWeapon>())
 	{
 		return Weapon->GetMuzzleTransform(OutTransform);
 	}
@@ -348,218 +437,239 @@ bool AMCharacter::IsWeaponEquipped() const
 	return true;
 }
 
-void AMCharacter::EquipWeapon(AWeapon* InWeapon)
+void AMCharacter::EquipItem(AActor* InItem)
 {
-	if (Weapon == InWeapon)
+	if (Item != InItem)
 	{
-		return;
-	}
-
-	AWeapon* OldWeapon = Weapon;
-
-	if (IsValid(Weapon))
-	{
-		Weapon->SetActorHiddenInGame(true);
-	}
-
-	if (HasAuthority())
-	{
-		Weapon = InWeapon;
-		OnRep_Weapon(OldWeapon);
-	}
-	
-	if (HasAuthority() == false && InWeapon->HasAuthority())
-	{
-		if (IsValid(WeaponCached))
-		{
-			WeaponCached->SetActorHiddenInGame(true);
-			WeaponCached->SetLifeSpan(0.1f);
-		}
-		
-		WeaponCached = InWeapon;
-	}
-
-	if (IsValid(InWeapon))
-	{
-		InWeapon->OnEquipped(this);
-	}
-
-	if (OnWeaponChangedEvent.IsBound())
-	{
-		OnWeaponChangedEvent.Broadcast(OldWeapon, InWeapon);
+		AActor* OldWeapon = Item;
+		Item = InItem;
+		OnWeaponChangedEvent.Broadcast(OldWeapon, InItem);
 	}
 }
 
-void AMCharacter::OnRep_Weapon(AWeapon* OldWeapon)
+bool AMCharacter::GetWeaponData(FWeaponData& OutWeaponData)
 {
-	if (IsLocallyControlled() && IsValid(WeaponCached))
+	if (AWeapon* Weapon = GetEquipItem<AWeapon>())
 	{
-		WeaponCached->SetActorHiddenInGame(true);
-		WeaponCached->SetLifeSpan(0.1f);
-		WeaponCached = nullptr;
+		OutWeaponData = *Weapon->GetItemData();
+		return true;
 	}
 
-	if (IsValid(Weapon))
+	return false;
+}
+
+void AMCharacter::OnRep_Weapon(AActor* OldWeapon)
+{
+	//if (IsLocallyControlled() && IsValid(WeaponCached))
+	//{
+	//	WeaponCached->SetActorHiddenInGame(true);
+	//	WeaponCached->SetLifeSpan(0.1f);
+	//	WeaponCached = nullptr;
+	//}
+
+	if (IsValid(Item))
 	{
 		if (UMActionComponent* ActionComponent = GetComponentByClass<UMActionComponent>())
 		{
-			ActionComponent->UpdateAction(Weapon->ActionComponent);
+			ActionComponent->UpdateAction(Item->GetComponentByClass<UMActionComponent>());
 		}
 	}
 
-	if (OnWeaponChangedEvent.IsBound())
-	{
-		OnWeaponChangedEvent.Broadcast(OldWeapon, Weapon);
-	}
+	OnWeaponChangedEvent.Broadcast(OldWeapon, Item);
 }
 
-void AMCharacter::TryBasicAttack()
+void AMCharacter::BasicAttack()
 {
-	if (IsAttackable() == false)
+	AWeapon* Weapon = GetEquipItem<AWeapon>();
+	if (IsValid(Weapon) == false)
 	{
 		return;
 	}
 
-	// IsAttackable이 true면 공격 속도 시간이 지났으니, 기존 공격 어빌리티를 취소하고 새로 어빌리티 추가
-	TArray<FGameplayAbilitySpecHandle> ActiveAbilities;
-	if (IsValid(AbilitySystemComponent))
+	// 공격 방향으로 회전
+	// 공격 시의 마우스 위치 시각화
+	float NewTargetAngle = GetActorRotation().Yaw;
+	if (APlayerController* PlayerController = GetController<APlayerController>())
 	{
-		AbilitySystemComponent->FindAllAbilitiesWithTags(ActiveAbilities, FGameplayTagContainer(FGameplayTag::RequestGameplayTag("Character.Action.BasicAttack")));
-		for (const FGameplayAbilitySpecHandle& AbilitySpecHandle : ActiveAbilities)
+		FVector MouseWorldLocation;
+		FVector MouseWorldDirection;
+		FCollisionObjectQueryParams CollsionParam;
+		CollsionParam.AddObjectTypesToQuery(ECC_WorldStatic);
+		CollsionParam.AddObjectTypesToQuery(ECC_WorldDynamic);
+
+		if (PlayerController->DeprojectMousePositionToWorld(MouseWorldLocation, MouseWorldDirection))
 		{
-			AbilitySystemComponent->CancelAbilityHandle(AbilitySpecHandle);
+			TArray<FHitResult> HitResults;
+			if (GetWorld()->LineTraceMultiByObjectType(HitResults, MouseWorldLocation, MouseWorldLocation + MouseWorldDirection * 10000.f, CollsionParam))
+			{
+				//DrawDebugSphere(GetWorld(), HitResults[0].Location, 100.f, 32, FColor::Red);
+				NewTargetAngle = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), HitResults[0].Location).Yaw;
+			}
 		}
 	}
 
-	FGameplayEventData GameplayEventData;
-	GameplayEventData.EventTag = FGameplayTag::RequestGameplayTag(FName("Character.Action.BasicAttack"));
-	GameplayEventData.Instigator = this;
-	GameplayEventData.Target = this;
-
-	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, FGameplayTag::RequestGameplayTag("Controller.MouseLeftClick"), GameplayEventData);
-}
-
-void AMCharacter::StartBasicAttack()
-{
-	if (IsAttackable() == false)
+	if (Weapon->IsAttackable())
 	{
-		return;
+		if (const FWeaponData* WeaponData = Weapon->GetItemData())
+		{
+			switch (WeaponData->WeaponRotateType)
+			{
+				case EWeaponRotateType::None:
+				{
+					// 회전하지 않음
+				}
+				break;
+				case EWeaponRotateType::Instantly:
+				{
+					if (IsNetMode(NM_DedicatedServer) == false)
+					{
+						Server_SetTargetAngle(NewTargetAngle, true);
+					}
+					SetActorRotation(FRotator(0.f, NewTargetAngle, 0.f));
+				}
+				break;
+				case EWeaponRotateType::Smoothly:
+				{
+					float CurrentYaw = GetActorRotation().Yaw;
+					float DeltaYaw = FMath::UnwindDegrees(NewTargetAngle - CurrentYaw);
+					float InterpSpeed = 5.f;
+
+					SetActorRotation(FRotator(0.f, FMath::FInterpTo(CurrentYaw, CurrentYaw + DeltaYaw, GetWorld()->GetDeltaSeconds(), InterpSpeed), 0.f));
+					Server_SetTargetAngle(GetActorRotation().Yaw, true);
+				}
+				break;
+			}
+
+			if (WeaponData->MoveSpeed == 0.f && IsValid(Controller))
+			{
+				Controller->StopMovement();
+			}
+
+			if (WeaponData->bBlockMovementRotate)
+			{
+				if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+				{
+					Movement->bOrientRotationToMovement = false;
+				}
+			}
+		}
 	}
 
-	UpdateTargetAngle();
-	SetRotateToTargetAngle(true);
-
-	Weapon->BasicAttack();
+	if (Weapon->IsCoolDown() == false)
+	{
+		if (Weapon->IsAttackable())
+		{
+			if (AbilitySystemComponent)
+			{
+				AbilitySystemComponent->AbilityLocalInputPressed(1);
+				AbilitySystemComponent->AbilityLocalInputReleased(2);
+			}
+		}
+		else
+		{
+			FinishBasicAttack();
+		}
+	}
 }
 
 void AMCharacter::FinishBasicAttack()
 {
-
-}
-
-bool AMCharacter::IsAttackable()
-{
-	return IsValid(Weapon) && Weapon->IsAttackable();
-}
-
-void AMCharacter::UpdateTargetAngle()
-{
-	if (IsLocallyControlled())
+	AWeapon* Weapon = GetEquipItem<AWeapon>();
+	if (IsValid(Weapon) == false)
 	{
-		float NewTargetAngle = 0.f;
-		// 공격 시의 마우스 위치 시각화
-		if (APlayerController* PlayerController = GetController<APlayerController>())
-		{
-			FVector MouseWorldLocation;
-			FVector MouseWorldDirection;
-			FCollisionObjectQueryParams CollsionParam;
-			CollsionParam.AddObjectTypesToQuery(ECC_WorldStatic);
-			CollsionParam.AddObjectTypesToQuery(ECC_WorldDynamic);
-
-			if (PlayerController->DeprojectMousePositionToWorld(MouseWorldLocation, MouseWorldDirection))
-			{
-				TArray<FHitResult> HitResults;
-				if (GetWorld()->LineTraceMultiByObjectType(HitResults, MouseWorldLocation, MouseWorldLocation + MouseWorldDirection * 10000.f, CollsionParam))
-				{
-					DrawDebugSphere(GetWorld(), HitResults[0].Location, 100.f, 32, FColor::Red);
-
-					NewTargetAngle = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), HitResults[0].Location).Yaw;
-				}
-			}
-		}
-
-		TargetAngle = NewTargetAngle;
-		Server_UpdateTargetAngle(TargetAngle);
+		return;
 	}
+
+	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+	{
+		Movement->bOrientRotationToMovement = true;
+	}
+
+	if (AbilitySystemComponent)
+	{
+		AbilitySystemComponent->AbilityLocalInputReleased(1);
+		AbilitySystemComponent->AbilityLocalInputPressed(2);
+	}
+
+	SetRotateToTargetAngle(false);
 }
 
-void AMCharacter::Server_UpdateTargetAngle_Implementation(float InTargetAngle)
+void AMCharacter::TurnToWeaponAim()
+{
+
+}
+
+void AMCharacter::Server_SetTargetAngle_Implementation(float InTargetAngle, bool bInstantly)
 {
 	TargetAngle = InTargetAngle;
+	if (bInstantly)
+	{
+		SetActorRotation(FRotator(0.f, InTargetAngle, 0.f));
+	}
 }
 
 void AMCharacter::SetRotateToTargetAngle(bool bNewValue)
 {
-	bRotateToTargetAngle = bNewValue;
-	Server_SetRotateToTargetAngle(bRotateToTargetAngle);
+	//bRotateToTargetAngle = bNewValue;
+	//Server_SetRotateToTargetAngle(bRotateToTargetAngle);
 
-	if (GetLocalRole() == ROLE_AutonomousProxy)
-	{
-		UpdateTargetAngle();
-	}
+	//if (GetLocalRole() == ROLE_AutonomousProxy)
+	//{
+	//	UpdateTargetAngle();
+	//}
 }
 
 void AMCharacter::Server_SetRotateToTargetAngle_Implementation(bool bNewValue)
 {
-	bRotateToTargetAngle = bNewValue;
+	//bRotateToTargetAngle = bNewValue;
 }
 
 void AMCharacter::OnRep_TargetAngle()
 {
-	UE_LOG(LogTemp, Warning, TEXT("TargetAngle OnRep"));
-	RotateToTargetAngle();
+	//UE_LOG(LogTemp, Warning, TEXT("TargetAngle OnRep"));
+	//RotateToTargetAngle();
 }
 
 void AMCharacter::RotateToTargetAngle()
 {
-	if (IsValid(Weapon) && Weapon->GetWeaponData() != nullptr)
-	{
-		switch (Weapon->GetWeaponData()->WeaponRotateType)
-		{
-			default:
-			case EWeaponRotateType::Instantly:
-			{
-				FRotator Rotator;
-				Rotator.Yaw = TargetAngle;
-				SetActorRotation(Rotator);
-			}
-			break;
-			case EWeaponRotateType::Smoothly:
-			{	
-				FRotator CurrentRot = GetActorRotation();
-				if (CurrentRot.Yaw != TargetAngle)
-				{
-					FVector XDirectVector = { 1.0, 0.0, 0.0 };
-					FRotator Rotator;
-					Rotator.Yaw = TargetAngle >= 0.f ? TargetAngle : TargetAngle + 360.f;
-					float RotScale = GetActorForwardVector().Cross(Rotator.Vector()).Z >= 0.f ? -1.f : 1.f;
+	//if (IsValid(Weapon) && Weapon->GetEquipItemData() != nullptr)
+	//{
+	//	switch (Weapon->GetEquipItemData()->WeaponRotateType)
+	//	{
+	//		default:
+	//		case EWeaponRotateType::Instantly:
+	//		{
+	//			FRotator Rotator;
+	//			Rotator.Yaw = TargetAngle;
+	//			SetActorRotation(Rotator);
+	//		}
+	//		break;
+	//		case EWeaponRotateType::Smoothly:
+	//		{	
+	//			FRotator CurrentRot = GetActorRotation();
+	//			if (CurrentRot.Yaw != TargetAngle)
+	//			{
+	//				FVector XDirectVector = { 1.0, 0.0, 0.0 };
+	//				FRotator Rotator;
+	//				Rotator.Yaw = TargetAngle >= 0.f ? TargetAngle : TargetAngle + 360.f;
+	//				float RotScale = GetActorForwardVector().Cross(Rotator.Vector()).Z >= 0.f ? -1.f : 1.f;
 
-					FRotator AddRot = FRotator::ZeroRotator;
-					AddRot.Yaw = 360.f * GetWorld()->GetDeltaSeconds() * RotScale;
-					
-					AddActorWorldRotation(AddRot);
+	//				FRotator AddRot = FRotator::ZeroRotator;
+	//				AddRot.Yaw = 360.f * GetWorld()->GetDeltaSeconds() * RotScale;
+	//				
+	//				AddActorWorldRotation(AddRot);
 
-					if ((RotScale > 0.f && GetActorRotation().Yaw > TargetAngle) || (RotScale < 0.f && GetActorRotation().Yaw < TargetAngle))
-					{
-						Rotator = FRotator::ZeroRotator;
-						Rotator.Yaw = TargetAngle;
-						SetActorRotation(Rotator);
-					}
-				}
-			}
-			break;
-		}
-	}
+	//				if ((RotScale > 0.f && GetActorRotation().Yaw > TargetAngle) || (RotScale < 0.f && GetActorRotation().Yaw < TargetAngle))
+	//				{
+	//					Rotator = FRotator::ZeroRotator;
+	//					Rotator.Yaw = TargetAngle;
+	//					SetActorRotation(Rotator);
+	//				}
+	//			}
+	//		}
+	//		break;
+	//	}
+	//}
 }
 
 void AMCharacter::MoveToLocation()
@@ -568,8 +678,6 @@ void AMCharacter::MoveToLocation()
 	GameplayEventData.EventTag = FGameplayTag::RequestGameplayTag(FName("Character.Action.Move"));
 	GameplayEventData.Instigator = this;
 	GameplayEventData.Target = this;
-
-	UE_LOG(LogTemp, Warning, TEXT("ghoflvhxj Send Move Event"));
 	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, FGameplayTag::RequestGameplayTag(FName("Controller.MouseRightClick")), GameplayEventData);
 }
 

@@ -23,7 +23,7 @@ class AWeapon;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnAttackedDelegate);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDieDelegate);
-DECLARE_EVENT_TwoParams(AMCharacter, FOnWeaponChangedEvent, AWeapon*, AWeapon*);
+DECLARE_EVENT_TwoParams(AMCharacter, FOnWeaponChangedEvent, AActor*, AActor*);
 
 UCLASS()
 class TESTGAME_API AMCharacter : public ACharacter, public IAbilitySystemInterface
@@ -50,11 +50,20 @@ public:
 
 // GAS Ability
 public:
+	void OnAbilityInputPressed(int32 InInputID);
+	void OnAbilityInputReleased(int32 InInputID);
+	void AddAbilities(UMAbilityDataAsset* AbilityDataAsset);
+	void RemoveAbilities(UMAbilityDataAsset* AbilityDataAsset);
+protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	UMAbilityDataAsset* AbilitySetData;
-
 	UPROPERTY(BlueprintReadOnly)
 	TMap<FGameplayTag, FGameplayAbilitySpecHandle> AblitiyHandles;
+// 입력과 어빌리티 바인딩 테스트
+	UPROPERTY(EditAnywhere)
+	class UInputAction* InputAction = nullptr;
+	UPROPERTY(EditAnywhere)
+	class UInputAction* InputAction2 = nullptr;
 
 	//UFUNCTION(BlueprintPure)
 	//FGameplayAbilitySpecHandle GetAbiltiyTypeHandle(EAbilityType AbilityType);
@@ -66,7 +75,7 @@ public:
 public:
 	virtual void OnMoveSpeedChanged(const FOnAttributeChangeData& AttributeChangeData);
 	virtual void OnHealthChanged(const FOnAttributeChangeData& AttributeChangeData);
-	virtual void OnDamaged();
+	virtual void OnDamaged(AActor* DamageInstigator);
 protected:
 	UPROPERTY(BlueprintReadOnly)
 	UMAttributeSet* AttributeSet;
@@ -74,16 +83,11 @@ protected:
 // 컴포넌트
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	USphereComponent* SearchComponent;
-protected:
+	UAbilitySystemComponent* AbilitySystemComponent = nullptr;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	UAbilitySystemComponent* AbilitySystemComponent;
+	UMBattleComponent* BattleComponent = nullptr;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	UMBattleComponent* BattleComponent;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	UStateComponent* StateComponent;
-public:
-	UPrimitiveComponent* GetComponentForAttackSearch();
+	UStateComponent* StateComponent = nullptr;
 private:
 	template <class T>
 	void CompoentLogic(TFunction<void(T* Component)> Logic)
@@ -138,7 +142,10 @@ public:
 	UFUNCTION(BlueprintCallable)
 	bool IsSameTeam(AActor* OtherCharacter) const;
 
-// 무기
+// 장비
+	enum class EEquipType {
+		None, Weapon, Max
+	};
 public:
 	FOnWeaponChangedEvent OnWeaponChangedEvent;
 	FTimerDelegate TestDelegate;
@@ -148,43 +155,44 @@ public:
 	UFUNCTION(BlueprintPure)
 	bool IsWeaponEquipped() const;
 	UFUNCTION(BlueprintCallable)
-	void EquipWeapon(AWeapon* InWeapon);
+	void EquipItem(AActor* InItem);
+	UFUNCTION(BlueprintPure)
+	bool GetWeaponData(FWeaponData& OutWeaponData);
 	UFUNCTION()
-	void OnRep_Weapon(AWeapon* OldWeapon);
+	void OnRep_Weapon(AActor* OldWeapon);
 	template <class T>
-	T* GetWeapon()
+	T* GetEquipItem()
 	{
-		return Cast<T>(Weapon);
+		return Cast<T>(Item);
 	}
 protected:
 	UPROPERTY(ReplicatedUsing = OnRep_Weapon)
-	AWeapon* Weapon = nullptr;
-	AWeapon* WeaponCached = nullptr;
+	AActor* Item = nullptr;
+	AActor* WeaponCached = nullptr;
+	TArray<FGameplayAbilitySpecHandle> WeaponAbilitySpecHandles;
 
 // 공격
 public:
 	UFUNCTION(BlueprintCallable)
-	void TryBasicAttack();
-	void StartBasicAttack();
-	void FinishBasicAttack();
+	void BasicAttack();
 	UFUNCTION(BlueprintCallable)
-	bool IsAttackable();
+	void FinishBasicAttack();
+	void TurnToWeaponAim();
 
 // 타겟팅 -> 컴포넌트로 뺴기
 public:
-	void UpdateTargetAngle();
 	UFUNCTION(Server, Unreliable)
-	void Server_UpdateTargetAngle(float InTargetAngle);
+	void Server_SetTargetAngle(float InTargetAngle, bool bInstantly);
 	void SetRotateToTargetAngle(bool bNewValue);
 	UFUNCTION(Server, Unreliable)
 	void Server_SetRotateToTargetAngle(bool bNewValue);
-	float GetTargetAngle() { return TargetAngle; }
+	//float GetTargetAngle() { return TargetAngle; }
 	UFUNCTION()
 	void OnRep_TargetAngle();
 	UPROPERTY(ReplicatedUsing = OnRep_TargetAngle)
 	float TargetAngle = 0.f;
-	UPROPERTY(Replicated)
-	bool bRotateToTargetAngle = false;
+	//UPROPERTY(Replicated)
+	//bool bRotateToTargetAngle = false;
 private:
 	void RotateToTargetAngle();
 
@@ -200,6 +208,32 @@ private:
 	IInteractInterface* GetInteractInterface(AActor* Actor);
 private:
 	TArray<TWeakObjectPtr<AActor>> InteractTargets;
+
+
+// 매터리얼 헬퍼
+	FTimerHandle Handle;
+	float Opacity = 0.f;
+	int32 ActionNumber = 0;
+	void SetOpacity(float InOpacity)
+	{
+		SetMaterialParam([InOpacity](UMaterialInstanceDynamic* DynamicMaterialInstance) {
+			DynamicMaterialInstance->SetScalarParameterValue("Opacity", InOpacity);
+		});
+	}
+
+	void SetMaterialParam(TFunction<void(UMaterialInstanceDynamic*)> Func)
+	{
+		if (USkeletalMeshComponent* MeshComp = GetMesh())
+		{
+			for (int MaterialIndex = 0; MaterialIndex < MeshComp->GetNumMaterials(); ++MaterialIndex)
+			{
+				if (UMaterialInstanceDynamic* DynamicMaterialInstance = MeshComp->CreateDynamicMaterialInstance(MaterialIndex))
+				{
+					Func(DynamicMaterialInstance);
+				}
+			}
+		}
+	}
 
 public:
 // 리더보드
