@@ -63,22 +63,26 @@ FTransform UMAnimNotify_SpawnActor::GetSocketTransform(USkeletalMeshComponent* M
 
 void UMAnimNotify_SpawnBullet::OnSpawn(AActor* InActor, USkeletalMeshComponent* MeshComp)
 {
-	AActor* Owner = MeshComp->GetOwner();
-	if (IsValid(MeshComp) == false || IsValid(Owner) == false)
+	if (IsValid(MeshComp) == false)
 	{
 		return;
 	}
 
 	if (ABullet* Bullet = Cast<ABullet>(InActor))
 	{
-		if (IsValid(Owner))
+		if (AMCharacter* Character = Cast<AMCharacter>(MeshComp->GetOwner()))
 		{
-			Bullet->SetOwner(Owner);
-			if (UAbilitySystemComponent* AbilitySystemComponent = Owner->GetComponentByClass<UAbilitySystemComponent>())
-			{
-				//Bullet->GiveEffects(AbilitySystemComponent);
-			}
+			Bullet->SetOwner(Character->GetEquipItem<AWeapon>());
 		}
+	}
+
+	UParticleSystemComponent* ReturnComp = nullptr;
+
+	if (Particle)
+	{
+		FTransform SpawnTransform = GetSocketTransform(MeshComp);
+		SpawnTransform.SetScale3D(ParticleScale);
+		ReturnComp = UGameplayStatics::SpawnEmitterAtLocation(MeshComp->GetWorld(), Particle, SpawnTransform);
 	}
 }
 

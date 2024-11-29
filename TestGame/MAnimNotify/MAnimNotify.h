@@ -41,6 +41,12 @@ public:
 	virtual bool GetSpawnParam(USkeletalMeshComponent* MeshComp, FActorSpawnParameters& OutSpawnTransform) override;
 	virtual AActor* GetContextObject(USkeletalMeshComponent* MeshComp) override;
 	virtual FTransform GetSocketTransform(USkeletalMeshComponent* MeshComp) override;
+
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Particle")
+	TObjectPtr<UParticleSystem> Particle = nullptr;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Particle")
+	FVector ParticleScale = FVector::OneVector;
 };
 
 UCLASS()
