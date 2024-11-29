@@ -71,6 +71,9 @@ struct FWeaponData : public FTableRowBase
 	UMAbilityDataAsset* AbilitiesDataAsset = nullptr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TObjectPtr<UDataTable> Attributes = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 Combo = INDEX_NONE;
 };
 
@@ -84,10 +87,12 @@ public:
 
 public:
 	virtual void OnConstruction(const FTransform& Transform) override;
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	//virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 protected:
 	virtual void BeginPlay() override;
 
+public:
+	TSubclassOf<UAttributeSet> GetAttributeSet();
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class UMActionComponent* ActionComponent = nullptr;
@@ -116,15 +121,16 @@ public:
 	bool GetMuzzleTransform(FTransform& OutTransform);
 
 public:
-	virtual void IncreaseCombo();
+	virtual void OnAttacked();
 	virtual void FinishBasicAttack();
 	virtual void OnAttackCoolDownFinished();
 
 public:
 	bool IsAttackable() const;
+	bool IsCoolDown() const;
 	bool IsAttacking() const;
 protected:
-	bool bAttackable = true;
+	bool bCoolDown = false;
 
 public:
 	bool IsComboableWeapon() const;

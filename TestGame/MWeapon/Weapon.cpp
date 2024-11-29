@@ -5,6 +5,7 @@
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MCharacter/Component/ActionComponent.h"
 #include "TestGame/MAbility/MAbility.h"
+#include "TestGame/MAttribute/Mattribute.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "AbilitySystemBlueprintLibrary.h"
 
@@ -16,7 +17,7 @@ AWeapon::AWeapon()
 
 	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
 
-	bReplicates = true;
+	//bReplicates = true;
 }
 
 void AWeapon::OnConstruction(const FTransform& Transform)
@@ -25,22 +26,21 @@ void AWeapon::OnConstruction(const FTransform& Transform)
 
 	//UE_LOG(Log_Weapon, Warning, TEXT("Weapon Construct Index:%d"), WeaponIndex);
 
-	if (HasAuthority())
+	if (const FWeaponData* WeaponData = GetItemData())
 	{
-		if (const FWeaponData* WeaponData = GetItemData())
+		if (USkeletalMeshComponent* SkeletalMeshComponent = GetComponentByClass<USkeletalMeshComponent>())
 		{
-			if (USkeletalMeshComponent* SkeletalMeshComponent = GetComponentByClass<USkeletalMeshComponent>())
-			{
-				SkeletalMeshComponent->SetSkeletalMesh(WeaponData->Mesh);
+			SkeletalMeshComponent->SetSkeletalMesh(WeaponData->Mesh);
 
-				TArray<UShapeComponent*> ShapeComponents;
-				GetComponents(ShapeComponents);
-				for (UShapeComponent* ShapeComponent : ShapeComponents)
-				{
-					ShapeComponent->AttachToComponent(SkeletalMeshComponent, FAttachmentTransformRules(EAttachmentRule::SnapToTarget, false), TEXT("Root"));
-				}
+			TArray<UShapeComponent*> ShapeComponents;
+			GetComponents(ShapeComponents);
+			for (UShapeComponent* ShapeComponent : ShapeComponents)
+			{
+				ShapeComponent->AttachToComponent(SkeletalMeshComponent, FAttachmentTransformRules(EAttachmentRule::SnapToTarget, false), TEXT("Root"));
 			}
 		}
+
+		AbilitySystemComponent->InitStats(GetAttributeSet(), WeaponData->Attributes);
 	}
 }
 
@@ -63,7 +63,17 @@ void AWeapon::BeginPlay()
 		}
 	}
 
+	if (const FWeaponData* WeaponData = GetItemData())
+	{
+		AbilitySystemComponent->InitStats(GetAttributeSet(), WeaponData->Attributes);
+	}
+
 	SetActorEnableCollision(false);
+}
+
+TSubclassOf<UAttributeSet> AWeapon::GetAttributeSet()
+{
+	return UMWeaponAttributeSet::StaticClass();
 }
 
 void AWeapon::SetEquipActor(AActor* EquipActor)
@@ -176,7 +186,7 @@ bool AWeapon::GetMuzzleTransform(FTransform& OutTransform)
 	return false;
 }
 
-void AWeapon::IncreaseCombo()
+void AWeapon::OnAttacked()
 {
 	const FWeaponData* WeaponData = GetItemData();
 	if (/*IsAttackable() == false || IsValid(Owner) == false || */WeaponData == nullptr)
@@ -191,7 +201,7 @@ void AWeapon::IncreaseCombo()
 		GetWorldTimerManager().SetTimer(AttackTimerHandle, this, &AWeapon::OnAttackCoolDownFinished, WeaponData->AttackSpeed, false);
 	}
 
-	bAttackable = false;
+	bCoolDown = true;
 	Combo = IsComboableWeapon() && IsComboable() ? Combo + 1 : 0;
 
 	OnComboChangedEvent.Broadcast(Combo);
@@ -205,12 +215,33 @@ void AWeapon::FinishBasicAttack()
 
 void AWeapon::OnAttackCoolDownFinished()
 {
-	bAttackable = true;
+	bCoolDown = false;
 }
 
 bool AWeapon::IsAttackable() const
 {
-	return bAttackable;
+	const FWeaponData* WeaponData = GetItemData();
+
+	if (WeaponData == nullptr)
+	{
+		return false;
+	}
+
+	if (IsValid(AbilitySystemComponent))
+	{
+		if (WeaponData->WeaponType == EWeaponType::Gun)
+		{
+			bool bFound = false;
+			return static_cast<int>(AbilitySystemComponent->GetGameplayAttributeValue(UMWeaponAttributeSet::GetAmmoAttribute(), bFound)) > 0;
+		}
+	}
+
+	return true;
+}
+
+bool AWeapon::IsCoolDown() const
+{
+	return bCoolDown;
 }
 
 bool AWeapon::IsAttacking() const
