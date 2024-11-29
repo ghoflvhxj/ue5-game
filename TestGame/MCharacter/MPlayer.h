@@ -14,12 +14,7 @@ public:
 
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	UCameraComponent* CameraComponent;
+	UCameraComponent* CameraComponent = nullptr;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	USpringArmComponent* SpringArmComponent;
-
-	// 카메라
-public:
-	UFUNCTION(BlueprintCallable)
-	void Test(float MeshDeltaYaw);
+	USpringArmComponent* SpringArmComponent = nullptr;
 };
