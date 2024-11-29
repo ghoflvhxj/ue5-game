@@ -72,7 +72,7 @@ void AMHudInGame::BeginPlay()
 			RoundComponent->OnWaveChangedEvent.AddUObject(this, &AMHudInGame::UpdateRoundInfo);
 		}
 
-		GameStateInGame->OnBossSpawnedEvent.AddUObject(this, &AMHudInGame::BoundBoss);
+		GameStateInGame->OnBossMonsterSet.AddUObject(this, &AMHudInGame::BoundBoss);
 		GameStateInGame->OnMatchEndEvent.AddUObject(this, &AMHudInGame::ShowGameFinish);
 	}
 }
