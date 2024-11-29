@@ -78,7 +78,6 @@ protected:
 
 public:
 	bool IsAttackableTarget(AActor* Target);
-	bool SearchAttackableTargets();
 	bool PickTargets(TArray<AActor*>& InTargets, TArray<AActor*>& OutPickedTargets);
 protected:
 	TArray<AActor*> AttackTagets;

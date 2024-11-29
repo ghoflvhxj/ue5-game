@@ -63,44 +63,6 @@ bool UMBattleComponent::IsAttackableTarget(AActor* Target)
 	return false;
 }
 
-bool UMBattleComponent::SearchAttackableTargets()
-{
-	AttackTagets.Empty();
-
-	AMCharacter* MCharacter = Cast<AMCharacter>(GetOwner());
-	UPrimitiveComponent* ComponentForSearchTarget = nullptr;
-	if (MCharacter)
-	{
-		ComponentForSearchTarget = MCharacter->GetComponentForAttackSearch();
-	}
-
-	if (ComponentForSearchTarget == nullptr)
-	{
-		return false;
-	}
-
-	TArray<FOverlapResult> OverlapResults;
-	ComponentForSearchTarget->ComponentOverlapMulti(OverlapResults, GetWorld(), MCharacter->GetActorLocation(), FRotator::ZeroRotator,  ECC_Pawn);
-
-	if (OverlapResults.Num() == 0)
-	{
-		return false;
-	}
-
-	for (FOverlapResult& OverlapResult : OverlapResults)
-	{
-		if (OverlapResult.GetActor()->GetRootComponent() == OverlapResult.Component)
-		{
-			if (IsAttackableTarget(OverlapResult.GetActor()) && AttackTagets.Num() < AttackTargetCount)
-			{
-				AttackTagets.Add(OverlapResult.GetActor());
-			}
-		}
-	}
-
-	return true;
-}
-
 bool UMBattleComponent::PickTargets(TArray<AActor*>& InTargets, TArray<AActor*>& OutPickedTargets)
 {
 	OutPickedTargets = InTargets;
