@@ -38,11 +38,36 @@ void ABullet::BeginPlay()
 		ProjectileComponent->Deactivate();
 	}
 
-	if (IsValid(AbilitySystemComponent) && HasAuthority())
+	if (HasAuthority())
 	{
-		FGameplayAbilitySpec Spec(UGameplayAbility_CollideDamage::StaticClass());
-		AbilitySystemComponent->GiveAbilityAndActivateOnce(Spec);
+		if (IsValid(Owner))
+		{
+			if (UAbilitySystemComponent* OwnerAbilitySystemComponent = Owner->GetComponentByClass<UAbilitySystemComponent>())
+			{
+				Damage = OwnerAbilitySystemComponent->GetNumericAttribute(UMWeaponAttributeSet::GetAttackPowerAttribute());
+			}
+		}
+
+		if (IsValid(AbilitySystemComponent))
+		{
+			FGameplayAbilitySpec NewSpec(UGameplayAbility_CollideDamage::StaticClass());
+			FGameplayAbilitySpecHandle SpecHandle = AbilitySystemComponent->GiveAbility(NewSpec);
+			if (FGameplayAbilitySpec* Spec = AbilitySystemComponent->FindAbilitySpecFromHandle(SpecHandle))
+			{
+				for(UGameplayAbility* AbilityInstance : Spec->GetAbilityInstances())
+				{
+					if (UGameplayAbility_CollideDamage* CollideDamageAbility = Cast<UGameplayAbility_CollideDamage>(AbilityInstance))
+					{
+						CollideDamageAbility->SetDamage(Damage);
+					}
+				}
+
+			}
+
+			AbilitySystemComponent->TryActivateAbility(SpecHandle);
+		}
 	}
+
 
 	IgnoreActors.Add(GetInstigator());
 }
@@ -51,10 +76,10 @@ void ABullet::NotifyActorBeginOverlap(AActor* OtherActor)
 {
 	Super::NotifyActorBeginOverlap(OtherActor);
 
-	//if (IsReactable(OtherActor) == false)
-	//{
-	//	return;
-	//}
+	if (IsReactable(OtherActor) == false)
+	{
+		return;
+	}
 
 	//if (HasAuthority())
 	//{

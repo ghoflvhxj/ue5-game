@@ -24,14 +24,6 @@ public:
 	virtual void BeginPlay() override;
 	virtual void NotifyActorBeginOverlap(AActor* OtherActor) override;
 
-// GameplayAbilitySystem;
-public:
-	//UFUNCTION(BlueprintCallable)
-	//void GiveEffects(UAbilitySystemComponent* AbilitySystemComponent);
-protected:
-	//TWeakObjectPtr<UAbilitySystemComponent> OwnerASC = nullptr;
-	TArray<UGameplayEffect*> GameplayEffects;
-
 public:
 	void DestroyBullet();
 
@@ -53,8 +45,6 @@ public:
 	void StartProjectile(const FVector& NewDirection, float NewDamage);
 protected:
 	FVector Direction;
-
-protected:
 	float Damage = 0.f;
 	bool bPenerate = false;
 
