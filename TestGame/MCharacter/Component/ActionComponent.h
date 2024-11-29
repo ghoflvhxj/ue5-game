@@ -46,6 +46,8 @@ public:
 	UAnimMontage* GetActionMontage(FGameplayTag ActionGameplayTag);
 	UFUNCTION(BlueprintPure)
 	UAnimSequence* GetActionSequence(FGameplayTag ActionGameplayTag);
+	UFUNCTION(BlueprintPure)
+	UObject* GetAction(FGameplayTag ActionGameplayTag);
 protected:
 	template <class T>
 	T* GetAnimAsset(FGameplayTag ActionGameplayTag)

@@ -20,6 +20,11 @@ UAnimSequence* UMActionComponent::GetActionSequence(FGameplayTag ActionGameplayT
 	return GetAnimAsset<UAnimSequence>(ActionGameplayTag);
 }
 
+UObject* UMActionComponent::GetAction(FGameplayTag ActionGameplayTag)
+{
+	return GetAnimAsset<UObject>(ActionGameplayTag);
+}
+
 void UMActionComponent::UpdateAction(UMActionComponent* InActionComponent)
 {
 	if (IsValid(InActionComponent) && IsValid(InActionComponent->ActionData))
