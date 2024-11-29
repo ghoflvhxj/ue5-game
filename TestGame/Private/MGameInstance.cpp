@@ -1,5 +1,6 @@
 #include "MGameInstance.h"
 
+#include "TestGame/MItem/ItemBase.h"
 
 void UMGameInstance::Init()
 {

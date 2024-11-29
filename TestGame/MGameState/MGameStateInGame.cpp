@@ -1,5 +1,8 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 #include "MGameStateInGame.h"
+
+#include "Net/UnrealNetwork.h"
+
 #include "GameFramework/PlayerState.h"
 #include "Engine/DataTable.h"
 #include "TestGame/MSpawner/MonsterSpawner.h"
@@ -18,10 +21,12 @@ void AMGameStateInGame::BeginPlay()
 	if (HasAuthority())
 	{
 		MonsterSpawner = GetWorld()->SpawnActor<AMonsterSpawner>(MonsterSpawnerClass);
-
-		if (AMonsterSpawner* Spawner = GetMonsterSpawner())
+		if (MonsterSpawner.IsValid())
 		{
-			Spawner->OnBossSpawnedEvent.AddUObject(this, &AMGameStateInGame::Multicast_BossSpawned);
+			MonsterSpawner->OnBossSpawnedEvent.AddWeakLambda(this, [this](AActor* InBossMonster) {
+				BossMonster = InBossMonster;
+				OnRep_BossMonster();
+			});
 		}
 	}
 }
@@ -29,6 +34,8 @@ void AMGameStateInGame::BeginPlay()
 void AMGameStateInGame::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AMGameStateInGame, BossMonster);
 }
 
 void AMGameStateInGame::HandleMatchHasStarted()
@@ -83,11 +90,6 @@ bool AMGameStateInGame::RevivePlayer(APlayerState* PlayerState)
 void AMGameStateInGame::Multicast_GameOver_Implementation()
 {
 	GameOverDynamicDelegate.Broadcast();
-}
-
-void AMGameStateInGame::Multicast_BossSpawned_Implementation(AActor* Boss)
-{
-	OnBossSpawnedEvent.Broadcast(Boss);
 }
 
 URoundComponent::URoundComponent()

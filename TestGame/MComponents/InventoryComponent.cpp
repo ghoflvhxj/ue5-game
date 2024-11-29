@@ -1,4 +1,5 @@
 #include "InventoryComponent.h"
+#include "Net/UnrealNetwork.h"
 
 UMInventoryComponent::UMInventoryComponent()
 {

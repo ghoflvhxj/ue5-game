@@ -10,6 +10,7 @@
 #include "TestGame/MItem/DropItem.h"
 #include "TestGame/MCharacter/MCharacterEnum.h"
 #include "TestGame/MComponents/InventoryComponent.h"
+#include "CharacterLevelSubSystem.h"
 
 void AMGameModeInGame::BeginPlay()
 {
@@ -53,7 +54,7 @@ void AMGameModeInGame::SetPlayerDefaults(APawn* PlayerPawn)
 					}
 					else
 					{
-						GameStateInGame->Multicast_GameOver();
+						//GameStateInGame->Multicast_GameOver();
 					}
 				}
 				break;
@@ -115,6 +116,10 @@ void AMGameModeInGame::OnPawnKilled(APawn* Killer, APawn* Killed)
 {
 	bool bMonsterKilled = IsValid(Killed) && Killed->IsPlayerControlled() == false;
 
+	//if (IsValid(Killer) && Killer->IsPlayerControlled() && bMonsterKilled)
+	//{
+	//	GetWorld()->GetSubsystem<UCharacterLevelSubSystem>()->AddExperiance(Killer, 10);
+	//}
 
 	if (bMonsterKilled)
 	{

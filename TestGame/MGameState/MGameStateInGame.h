@@ -77,16 +77,19 @@ public:
 
 public:
 	DECLARE_EVENT_OneParam(AMGameStateInGame, FOnBossSpawnedEvent, AActor* /*BossMonster*/)
-	FOnBossSpawnedEvent OnBossSpawnedEvent;
+	FOnBossSpawnedEvent OnBossMonsterSet;
 public:
-	AMonsterSpawner* GetMonsterSpawner() { return Cast<AMonsterSpawner>(MonsterSpawner.Get()); }
-	UFUNCTION(Reliable, NetMulticast)
-	void Multicast_BossSpawned(AActor* Boss);
+	UFUNCTION()
+	void OnRep_BossMonster() { OnBossMonsterSet.Broadcast(BossMonster); }
+	AMonsterSpawner* GetMonsterSpawner() { return MonsterSpawner.Get(); }
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	TSubclassOf<AMonsterSpawner> MonsterSpawnerClass = nullptr;
 	UPROPERTY(BlueprintReadOnly)
-	TWeakObjectPtr<AActor> MonsterSpawner = nullptr;
+	TWeakObjectPtr<AMonsterSpawner> MonsterSpawner = nullptr;
+	UPROPERTY(ReplicatedUsing=OnRep_BossMonster)
+	AActor* BossMonster;
+
 };
 
 UCLASS(Blueprintable)

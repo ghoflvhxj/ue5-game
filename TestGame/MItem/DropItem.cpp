@@ -77,6 +77,11 @@ void ADropItem::BeginPlay()
 						Weapon->SetWeaponIndex(ItemBaseInfo->Index);
 						UGameplayStatics::FinishSpawningActor(Weapon, Interactor->GetActorTransform());
 						Weapon->SetEquipActor(Interactor);
+
+						if (IsNetMode(NM_Client))
+						{
+							SetLifeSpan(0.3f);
+						}
 					}
 				}
 				break;
