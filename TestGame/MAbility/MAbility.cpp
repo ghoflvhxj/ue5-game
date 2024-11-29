@@ -7,6 +7,8 @@
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "Abilities/Tasks/AbilityTask_Repeat.h"
+#include "GameFramework/GameStateBase.h"
+#include "GameFramework/PlayerState.h"
 #include "TestGame/MCharacter/Component/ActionComponent.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MWeapon/Weapon.h"
@@ -143,6 +145,7 @@ UGameplayAbility_BasicAttack::UGameplayAbility_BasicAttack()
 
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Action.BasicAttack"));
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("ActionType.Dynamic"));
+	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Reload"));
 
 	ActivationOwnedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Attack"));
 	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Dead"));
@@ -164,29 +167,43 @@ void UGameplayAbility_BasicAttack::ActivateAbility(const FGameplayAbilitySpecHan
 		BasicAttackSpeed = AbilitySystemComponent->GetNumericAttribute(UMAttributeSet::GetBasicAttackSpeedAttribute());
 	}
 
-	if (AActor* AbilityOwner = GetAvatarActorFromActorInfo())
+	AMCharacter* Character = Cast<AMCharacter>(GetAvatarActorFromActorInfo());
+
+	FGameplayTagContainer TagContainer;
+	TagContainer.AddTag(FGameplayTag::RequestGameplayTag("Character.Move.Block"));
+	UAbilitySystemBlueprintLibrary::AddLooseGameplayTags(Character, TagContainer);
+
+	TimerHandle = Character->GetWorldTimerManager().SetTimerForNextTick(FTimerDelegate::CreateWeakLambda(Character, [this, Character, TagContainer]() {
+		UAbilitySystemBlueprintLibrary::RemoveLooseGameplayTags(Character, TagContainer);
+	}));
+
+	CachedWeapon = Character->GetEquipItem<AWeapon>();
+	if (CachedWeapon && CachedWeapon->GetItemData()->WeaponType == EWeaponType::Gun)
 	{
-		FGameplayTagContainer TagContainer;
-		TagContainer.AddTag(FGameplayTag::RequestGameplayTag("Character.Move.Block"));
-		UAbilitySystemBlueprintLibrary::AddLooseGameplayTags(AbilityOwner, TagContainer);
+		FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(UGAmeplayEffect_AddMoveSpeed::StaticClass());
+		EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, FGameplayTag::RequestGameplayTag("Attribute.MoveSpeed"), -300.f);
+		ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, EffectSpecHandle);
+	}
 
-		FTimerHandle DummyHandle;
-		AbilityOwner->GetWorldTimerManager().SetTimerForNextTick(FTimerDelegate::CreateWeakLambda(this, [this, AbilityOwner, TagContainer]() {
-			UAbilitySystemBlueprintLibrary::RemoveLooseGameplayTags(AbilityOwner, TagContainer);
-		}));
-
-		if (UMActionComponent* ActionComponent = GetAvatarActorFromActorInfo()->GetComponentByClass<UMActionComponent>())
+	Character->OnWeaponChangedEvent.AddWeakLambda(this, [this, Handle, ActorInfo, ActivationInfo](AActor* Old, AActor* New) {
+		if (Old == CachedWeapon)
 		{
-			if (UAnimMontage* Montage = ActionComponent->GetActionMontage(AbilityTags.GetByIndex(0)))
-			{
-				PlayMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, "BasicAttack", Montage, BasicAttackSpeed, NAME_None, true, 1.f, 0.f);
-				PlayMontageTask->OnCompleted.AddDynamic(this, &UGameplayAbility_BasicAttack::OnMontageFinished);
+			EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		}
+	});
 
-				PlayMontageTask->ReadyForActivation();
-				return;
-			}
+	if (UMActionComponent* ActionComponent = Character->GetComponentByClass<UMActionComponent>())
+	{
+		if (UAnimMontage* Montage = ActionComponent->GetActionMontage(AbilityTags.GetByIndex(0)))
+		{
+			PlayMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, "BasicAttack", Montage, BasicAttackSpeed, NAME_None, true, 1.f, 0.f);
+			PlayMontageTask->OnCompleted.AddDynamic(this, &UGameplayAbility_BasicAttack::OnMontageFinished);
+
+			PlayMontageTask->ReadyForActivation();
+			return;
 		}
 	}
+
 
 	EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 }
@@ -195,22 +212,47 @@ void UGameplayAbility_BasicAttack::CancelAbility(const FGameplayAbilitySpecHandl
 {
 	Super::CancelAbility(Handle, ActorInfo, ActivationInfo, bReplicateCancelAbility);
 
-	UE_LOG(LogAbility, Warning, TEXT("%s"), *FString(__FUNCTION__));
+	if (CachedWeapon)
+	{
+		CachedWeapon->FinishBasicAttack();
+
+		if (const FWeaponData* WeaponData = CachedWeapon->GetItemData())
+		{
+			if (WeaponData->WeaponType == EWeaponType::Gun)
+			{
+				FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(UGAmeplayEffect_AddMoveSpeed::StaticClass());
+				EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, FGameplayTag::RequestGameplayTag("Attribute.MoveSpeed"), 300.f);
+				ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, EffectSpecHandle);
+			}
+		}
+	}
+
+	CachedWeapon = nullptr;
+	//UE_LOG(LogAbility, Warning, TEXT("%s"), *FString(__FUNCTION__));
 }
 
 void UGameplayAbility_BasicAttack::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 
-	if (AMCharacter* Character = Cast<AMCharacter>(GetAvatarActorFromActorInfo()))
+	if (CachedWeapon)
 	{
-		if (AWeapon* Weapon = Character->GetEquipItem<AWeapon>())
+		CachedWeapon->FinishBasicAttack();
+
+		if (const FWeaponData* WeaponData = CachedWeapon->GetItemData())
 		{
-			Weapon->FinishBasicAttack();
+			if (WeaponData->WeaponType == EWeaponType::Gun)
+			{
+				FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(UGAmeplayEffect_AddMoveSpeed::StaticClass());
+				EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, FGameplayTag::RequestGameplayTag("Attribute.MoveSpeed"), 300.f);
+				ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, EffectSpecHandle);
+			}
 		}
 	}
 
-	UE_LOG(LogAbility, Warning, TEXT("%s"), *FString(__FUNCTION__));
+	CachedWeapon = nullptr;
+
+	//UE_LOG(LogAbility, Warning, TEXT("%s"), *FString(__FUNCTION__));
 }
 
 bool UGameplayAbility_BasicAttack::CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags /* = nullptr */)
@@ -219,7 +261,7 @@ bool UGameplayAbility_BasicAttack::CommitAbility(const FGameplayAbilitySpecHandl
 	{
 		if (AWeapon* Weapon = Character->GetEquipItem<AWeapon>())
 		{
-			return Super::CommitAbility(Handle, ActorInfo, ActivationInfo, OptionalRelevantTags);
+			return Weapon->IsAttackable() && Super::CommitAbility(Handle, ActorInfo, ActivationInfo, OptionalRelevantTags);
 		}
 	}
 
@@ -305,31 +347,99 @@ UGameplayAbility_Skill::UGameplayAbility_Skill()
 	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
+
+	FAbilityTriggerData TriggerData;
+	TriggerData.TriggerTag = FGameplayTag::RequestGameplayTag("Controller.MouseLeftClick");
+	AbilityTriggers.Add(TriggerData);
+
+	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Skill"));
+	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag(FName("Character.Dead")));
+	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Move"));
 }
 
-void UGameplayAbility_CollideDamage::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+bool UGameplayAbility_Skill::CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags /*= nullptr*/)
 {
-	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
-
-	if (CommitAbility(Handle, ActorInfo, ActivationInfo))
+	if (Super::CommitAbility(Handle, ActorInfo, ActivationInfo, OptionalRelevantTags))
 	{
-		if (AActor* AbilityOwer = GetAvatarActorFromActorInfo())
+		if (FSkillTableRow* SkillInfo = GetSkillInfo())
 		{
-			AbilityOwer->OnActorBeginOverlap.AddDynamic(this, &UGameplayAbility_CollideDamage::OnCollide);
+			for (const FBuffInfo& BuffInfo : SkillInfo->BuffInfos)
+			{
+				if (IsValid(BuffInfo.EffectClass) == false)
+				{
+					continue;
+				}
+
+				FGameplayEffectSpecHandle SpecHandle = MakeOutgoingGameplayEffectSpec(BuffInfo.EffectClass);
+
+				TArray<FGameplayTag> GameplayTags;
+				BuffInfo.TagToValue.GenerateKeyArray(GameplayTags);
+
+				SpecHandle.Data->SetByCallerTagMagnitudes = SpecHandle.Data->SetByCallerTagMagnitudes.FilterByPredicate([&GameplayTags](TPair<FGameplayTag, float> Element) {
+					return GameplayTags.Contains(Element.Key);
+				});
+
+				for (const TPair<FGameplayTag, float>& TagToValuePair : BuffInfo.TagToValue)
+				{
+					UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(SpecHandle, TagToValuePair.Key, TagToValuePair.Value);
+				}
+
+				if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
+				{
+					ActiveEffectHandles.Add(AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get()));
+				}
+			}	
+		}
+		return true;
+	}
+
+	return false;
+}
+
+float UGameplayAbility_Skill::GetSkillParam(FGameplayTag GameplayTag)
+{
+	if (FSkillTableRow * SkillTableRow = GetSkillInfo())
+	{
+		if (SkillTableRow->Params.Contains(GameplayTag))
+		{
+			return SkillTableRow->Params[GameplayTag];
 		}
 	}
 
+	return 0.f;
+}
+
+FSkillTableRow UGameplayAbility_Skill::BP_GetSkillInfo()
+{
+	if (FSkillTableRow* SkillTableRow = GetSkillInfo())
+	{
+		return *SkillTableRow;
+	}
+
+	return FSkillTableRow();
+}
+
+FSkillTableRow* UGameplayAbility_Skill::GetSkillInfo()
+{
+	if (IsValid(SkillTable))
+	{
+		return SkillTable->FindRow<FSkillTableRow>(*FString::Printf(TEXT("%d"), SkillIndex), TEXT("SkillTable"));
+	}
+
+	return nullptr;
+}
+
 UGameplayAbility_CollideDamage::UGameplayAbility_CollideDamage()
 {
-	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
-	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::ServerInitiated;
+	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateNo;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::ServerOnly;
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
 }
 
 void UGameplayAbility_CollideDamage::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
-
+	 
 	if (CommitAbility(Handle, ActorInfo, ActivationInfo) == false)
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, false, true);
@@ -338,6 +448,20 @@ void UGameplayAbility_CollideDamage::ActivateAbility(const FGameplayAbilitySpecH
 	if (AActor* AbilityOwer = GetAvatarActorFromActorInfo())
 	{
 		AbilityOwer->OnActorBeginOverlap.AddDynamic(this, &UGameplayAbility_CollideDamage::OnCollide);
+	}
+
+	if (UAbilitySystemComponent* AbilityComponent = GetAbilitySystemComponentFromActorInfo())
+	{
+		bool bFound = false;
+		float NewDamage = AbilityComponent->GetGameplayAttributeValue(UMWeaponAttributeSet::GetAttackPowerAttribute(), bFound);
+		if (bFound)
+		{
+			Damage = NewDamage;
+			AbilityComponent->GetGameplayAttributeValueChangeDelegate(UMWeaponAttributeSet::GetAttackPowerAttribute()).AddWeakLambda(this, [this](const FOnAttributeChangeData& AttributeChangeData) {
+				Damage = AttributeChangeData.NewValue;
+			});
+		}
+
 	}
 }
 
@@ -373,32 +497,40 @@ void UGameplayAbility_CollideDamage::OnCollide(AActor* OverlappedActor, AActor* 
 		Owner = Owner->GetOwner();
 	}
 
-	if (IsValid(MyCharacter))
+	if (IsValid(MyCharacter) && HasAuthority(&CurrentActivationInfo))
 	{
+		//UE_LOG(LogTemp, Warning, TEXT("OnCollide %s"), *OtherActor->GetActorLabel());
+
 		if (AMCharacter* OtherCharacter = Cast<AMCharacter>(OtherActor))
 		{
 			if (OtherCharacter->IsDead() == false && OtherCharacter->IsPlayerControlled() != MyCharacter->IsPlayerControlled())
 			{
-				ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, MakeOutgoingGameplayEffectSpec(UGameplayEffect_CollideDamage::StaticClass()), UAbilitySystemBlueprintLibrary::AbilityTargetDataFromActor(OtherActor));
+				FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(UGameplayEffect_Damage::StaticClass());
+				EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, FGameplayTag::RequestGameplayTag("Attribute.Damage"), -Damage);
+
+				ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, EffectSpecHandle, UAbilitySystemBlueprintLibrary::AbilityTargetDataFromActor(OtherActor));
 			}
 		}
 	}
 }
 
-UGameplayEffect_CollideDamage::UGameplayEffect_CollideDamage()
+UGameplayEffect_Damage::UGameplayEffect_Damage()
 {
 	FGameplayModifierInfo ModifierInfo;
 	ModifierInfo.Attribute = UMAttributeSet::GetHealthAttribute();
 	ModifierInfo.ModifierOp = EGameplayModOp::Additive;
-	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(FScalableFloat(-10.f));
+
+	FSetByCallerFloat SetByCaller;
+	SetByCaller.DataTag = FGameplayTag::RequestGameplayTag("Attribute.Damage");
+	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
 	ModifierInfo.TargetTags.IgnoreTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Ability.DamageImmune"));
 	Modifiers.Add(ModifierInfo);
 }
 
 UGameplayAbility_DamageImmune::UGameplayAbility_DamageImmune()
 {
-	//ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
-	//NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
+	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateNo;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::ServerOnly;
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
 
 	FAbilityTriggerData TriggerData;
@@ -414,17 +546,14 @@ void UGameplayAbility_DamageImmune::ActivateAbility(const FGameplayAbilitySpecHa
 
 	if (CommitAbility(Handle, ActorInfo, ActivationInfo))
 	{
+		if (TriggerEventData != nullptr)
+		{
+			CachedInstigator = TriggerEventData->Instigator.Get();
+		}
+
+		// 태스크에 1000횟수를 넣어도, 어빌리티가 3초 뒤에 끝나기 때문에, 0.1초가 30번 하면 태스크도 끝남
 		if (UWorld* World = GetWorld())
 		{
-			// 태스크에 1000횟수를 넣어도, 어빌리티가 3초 뒤에 끝나기 때문에, 0.1초가 30번 하면 태스크도 끝남
-			UAbilityTask_Repeat* RepeatTask = UAbilityTask_Repeat::RepeatAction(this, 0.1, 1000);
-			RepeatTask->OnPerformAction.AddDynamic(this, &UGameplayAbility_DamageImmune::UpdateOpacityAndEmissive);
-			RepeatTask->ReadyForActivation();
-
-			Opacity = 0.3f;
-			SetOpacity(Opacity);
-
-			// GameplayEffect를 따로 만들지 않고 타이머로 구현
 			World->GetTimerManager().SetTimer(TimerHandle, FTimerDelegate::CreateWeakLambda(this, [this]() {
 				EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 			}), 3.f, false);
@@ -438,55 +567,33 @@ void UGameplayAbility_DamageImmune::EndAbility(const FGameplayAbilitySpecHandle 
 
 	if (AActor* Actor = GetAvatarActorFromActorInfo())
 	{
-		Actor->ClearComponentOverlaps();
-		SetMaterialParam([this](UMaterialInstanceDynamic* DynamicMaterialInstance) {
-			DynamicMaterialInstance->SetScalarParameterValue("Opacity", 1.f);
-			DynamicMaterialInstance->SetVectorParameterValue("Emissive", FVector4(0.f, 0.f, 0.f, 0.f));
-		});
-	}
-}
+		//UE_LOG(LogTemp, Warning, TEXT("DamageImmune::EndAbility Clearoverlap "));
 
-void UGameplayAbility_DamageImmune::UpdateOpacityAndEmissive(int32 ActionNumber)
-{
-	if (UWorld* World = GetWorld())
-	{
-		Opacity = (FMath::Cos((2.f * PI) * (ActionNumber / 10.f)) + 3.f) * 2.f / 10.f;
-
-		SetMaterialParam([this, ActionNumber](UMaterialInstanceDynamic* DynamicMaterialInstance) {
-			DynamicMaterialInstance->SetScalarParameterValue("Opacity", Opacity);
-			DynamicMaterialInstance->SetVectorParameterValue("Emissive", FVector4((30 - ActionNumber) / 30.f, 0.f, 0.f, 0.f));
-		});
-	}
-}
-
-void UGameplayAbility_DamageImmune::SetOpacity(float InOpacity)
-{
-	SetMaterialParam([InOpacity](UMaterialInstanceDynamic* DynamicMaterialInstance) {
-		DynamicMaterialInstance->SetScalarParameterValue("Opacity", InOpacity);
-	});
-}
-
-void UGameplayAbility_DamageImmune::SetMaterialParam(TFunction<void(UMaterialInstanceDynamic*)> Func)
-{
-	if (ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo()))
-	{
-		if (USkeletalMeshComponent* MeshComp = Character->GetMesh())
+		//Actor->ClearComponentOverlaps();
+		if (CachedInstigator.IsValid())
 		{
-			for (int MaterialIndex = 0; MaterialIndex < MeshComp->GetNumMaterials(); ++MaterialIndex)
+			TArray<UPrimitiveComponent*> PrimitiveComponents;
+			Actor->GetComponents(PrimitiveComponents);
+			for (UPrimitiveComponent* const PrimComp : PrimitiveComponents)
 			{
-				if (UMaterialInstanceDynamic* DynamicMaterialInstance = MeshComp->CreateDynamicMaterialInstance(MaterialIndex))
+				TArray<FOverlapInfo> OverlapInfos = PrimComp->GetOverlapInfos();
+				for (FOverlapInfo& OverlapInfo : OverlapInfos)
 				{
-					Func(DynamicMaterialInstance);
+					if (OverlapInfo.OverlapInfo.GetActor() == CachedInstigator)
+					{
+						PrimComp->EndComponentOverlap(OverlapInfo);
+					}
 				}
 			}
 		}
+		Actor->UpdateOverlaps();
 	}
 }
 
 UGameplayAbility_KnockBack::UGameplayAbility_KnockBack()
 {
-	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
-	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
+	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateNo;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::ServerOnly;
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
 }
 
@@ -498,7 +605,7 @@ void UGameplayAbility_KnockBack::ActivateAbility(const FGameplayAbilitySpecHandl
 	{
 		if (AActor* AbilityOwer = GetAvatarActorFromActorInfo())
 		{
-			AbilityOwer->OnActorBeginOverlap.AddDynamic(this, &UGameplayAbility_KnockBack::KnockBack);
+			AbilityOwer->OnActorBeginOverlap.AddDynamic(this, &UGameplayAbility_KnockBack::KnockBack); 
 		}
 	}
 }
@@ -538,8 +645,8 @@ void UGameplayAbility_KnockBack::KnockBack(AActor* OverlappedActor, AActor* Othe
 
 		if (UCharacterMovementComponent* MovementComponent = Character->GetCharacterMovement())
 		{
+			MovementComponent->StopMovementImmediately();
 			MovementComponent->AddRadialImpulse(Owner->GetActorLocation(), Radius, Strength, ERadialImpulseFalloff::RIF_Linear, false);
-			//MovementComponent->AddImpulse(FVector(1000000.0, 0.0, 0.0));
 		}
 	}
 }
@@ -547,7 +654,7 @@ void UGameplayAbility_KnockBack::KnockBack(AActor* OverlappedActor, AActor* Othe
 UGameplayAbility_CameraShake::UGameplayAbility_CameraShake()
 {
 	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
-	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalOnly;
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
 
 	FAbilityTriggerData TriggerData;
@@ -666,15 +773,20 @@ void UGameplayAbility_Combo::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 
 	if (CommitAbility(Handle, ActorInfo, ActivationInfo) == false)
 	{
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-		return;
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true); 
+		return; 
 	}
 
 	if (AMCharacter* Character = Cast<AMCharacter>(GetAvatarActorFromActorInfo()))
 	{
 		if (AWeapon* Weapon = Character->GetEquipItem<AWeapon>())
 		{
-			Weapon->IncreaseCombo();
+			FGameplayAbilityTargetDataHandle TargetDataHandle = UAbilitySystemBlueprintLibrary::AbilityTargetDataFromActor(Weapon);
+			FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(UGameplayEffect_ConsumeAmmo::StaticClass());
+			EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, FGameplayTag::RequestGameplayTag("Attribute.ConsumeMagazine"), -1);
+			ApplyGameplayEffectSpecToTarget(Handle, ActorInfo, ActivationInfo, EffectSpecHandle, TargetDataHandle);
+
+			Weapon->OnAttacked();
 		}
 	}
 
@@ -687,11 +799,19 @@ bool UGameplayAbility_Combo::CommitAbility(const FGameplayAbilitySpecHandle Hand
 	{
 		if (AWeapon* Weapon = Character->GetEquipItem<AWeapon>())
 		{
-			return Super::CommitAbility(Handle, ActorInfo, ActivationInfo, OptionalRelevantTags);
+			if (Weapon->IsAttackable())
+			{
+				return true;
+			}
+			else if(UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
+			{
+				AbilitySystemComponent->TryActivateAbilityByClass(UGameplayAbility_BasicAttackStop::StaticClass(), true);
+				return false;
+			}
 		}
 	}
 
-	return false;
+	return Super::CommitAbility(Handle, ActorInfo, ActivationInfo, OptionalRelevantTags);
 }
 
 UGameplayAbility_BasicAttackStop::UGameplayAbility_BasicAttackStop()
@@ -700,8 +820,9 @@ UGameplayAbility_BasicAttackStop::UGameplayAbility_BasicAttackStop()
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
 
-	ActivationOwnedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Attack"));
+	ActivationOwnedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Attack.Finish"));
 	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Dead"));
+	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Attack.Finish"));
 }
 
 void UGameplayAbility_BasicAttackStop::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
@@ -731,5 +852,139 @@ void UGameplayAbility_BasicAttackStop::ActivateAbility(const FGameplayAbilitySpe
 		}
 	}
 
+	if (UMActionComponent* ActionComponent = GetAvatarActorFromActorInfo()->GetComponentByClass<UMActionComponent>())
+	{
+		UAnimInstance* AnimInstance = CurrentActorInfo->GetAnimInstance();
+		if (UAnimMontage* Montage = ActionComponent->GetActionMontage(FGameplayTag::RequestGameplayTag("Action.BasicAttack")))
+		{
+			if (AnimInstance->Montage_IsPlaying(Montage))
+			{
+				AnimInstance->OnMontageEnded.AddDynamic(this, &UGameplayAbility_BasicAttackStop::OnMontageEnd);
+				return;
+			}
+		}
+	}
+
 	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+}
+
+void UGameplayAbility_BasicAttackStop::OnMontageEnd(UAnimMontage* Montage, bool bInterrupted)
+{
+	if (UMActionComponent* ActionComponent = GetAvatarActorFromActorInfo()->GetComponentByClass<UMActionComponent>())
+	{
+		UAnimInstance* AnimInstance = CurrentActorInfo->GetAnimInstance();
+		if (UAnimMontage* AttackMontage = ActionComponent->GetActionMontage(FGameplayTag::RequestGameplayTag("Action.BasicAttack")))
+		{
+			if (AttackMontage == Montage)
+			{
+				EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+			}
+		}
+
+		AnimInstance->OnMontageEnded.RemoveDynamic(this, &UGameplayAbility_BasicAttackStop::OnMontageEnd);
+	}
+}
+
+UGameplayEffect_ConsumeAmmo::UGameplayEffect_ConsumeAmmo()
+{
+	FGameplayModifierInfo ModifierInfo;
+	ModifierInfo.Attribute = UMWeaponAttributeSet::GetAmmoAttribute();
+	ModifierInfo.ModifierOp = EGameplayModOp::Additive;
+
+	FSetByCallerFloat SetByCaller;
+	SetByCaller.DataTag = FGameplayTag::RequestGameplayTag("Attribute.ConsumeAmmo");
+	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
+	Modifiers.Add(ModifierInfo);
+}
+
+UGameplayEffect_Reload::UGameplayEffect_Reload()
+{
+	FGameplayModifierInfo ModifierInfo;
+	FSetByCallerFloat SetByCaller;
+
+	// 탄약 충전
+	ModifierInfo.Attribute = UMWeaponAttributeSet::GetAmmoAttribute();
+	ModifierInfo.ModifierOp = EGameplayModOp::Additive;
+	SetByCaller.DataTag = FGameplayTag::RequestGameplayTag("Attribute.Ammo");
+	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
+	Modifiers.Add(ModifierInfo);
+
+	// 전체 탄약 감소
+	ModifierInfo.Attribute = UMWeaponAttributeSet::GetTotalAmmoAttribute();
+	ModifierInfo.ModifierOp = EGameplayModOp::Additive;
+	SetByCaller.DataTag = FGameplayTag::RequestGameplayTag("Attribute.TotalAmmo");
+	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
+	Modifiers.Add(ModifierInfo);
+}
+
+UGameplayAbility_Reload::UGameplayAbility_Reload()
+{
+	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
+	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
+
+	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Reload"));
+	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.BasicAttack"));
+	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Dead"));
+}
+
+void UGameplayAbility_Reload::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+
+	if (CommitAbility(Handle, ActorInfo, ActivationInfo) == false)
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+
+	float ReloadSpeed = 1.f;
+
+	if (AActor* AbilityOwner = GetAvatarActorFromActorInfo())
+	{
+		if (UMActionComponent* ActionComponent = GetAvatarActorFromActorInfo()->GetComponentByClass<UMActionComponent>())
+		{
+			if (UAnimMontage* Montage = ActionComponent->GetActionMontage(AbilityTags.GetByIndex(0)))
+			{
+				UAbilityTask_PlayMontageAndWait* PlayMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, "BasicAttack", Montage, ReloadSpeed, NAME_None, true, 1.f, 0.f);
+				PlayMontageTask->OnCompleted.AddDynamic(this, &UGameplayAbility_Reload::OnMontageFinished);
+				PlayMontageTask->OnBlendOut.AddDynamic(this, &UGameplayAbility_Reload::OnMontageFinished);
+
+				PlayMontageTask->ReadyForActivation();
+				return;
+			}
+		}
+	}
+}
+
+void UGameplayAbility_Reload::OnMontageFinished()
+{
+	if (AMCharacter* Character = Cast<AMCharacter>(GetAvatarActorFromActorInfo()))
+	{
+		if (AWeapon* Weapon = Character->GetEquipItem<AWeapon>())
+		{
+			UE_CLOG(Character->IsNetMode(NM_DedicatedServer), LogTemp, Warning, TEXT("Server Reload"));
+			UE_CLOG(Character->IsNetMode(NM_Client), LogTemp, Warning, TEXT("Client Reload"));
+			FGameplayAbilityTargetDataHandle TargetDataHandle = UAbilitySystemBlueprintLibrary::AbilityTargetDataFromActor(Weapon);
+			FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(UGameplayEffect_Reload::StaticClass());
+			EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, FGameplayTag::RequestGameplayTag("Attribute.Ammo"), 30.f);
+			EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, FGameplayTag::RequestGameplayTag("Attribute.TotalAmmo"), -30.f);
+			ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, EffectSpecHandle, TargetDataHandle);
+		}
+	}
+
+	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+}
+
+UGAmeplayEffect_AddMoveSpeed::UGAmeplayEffect_AddMoveSpeed()
+{
+	FGameplayModifierInfo ModifierInfo;
+	FSetByCallerFloat SetByCaller;
+
+	// 탄약 충전
+	ModifierInfo.Attribute = UMAttributeSet::GetMoveSpeedAttribute();
+	ModifierInfo.ModifierOp = EGameplayModOp::Additive;
+	SetByCaller.DataTag = FGameplayTag::RequestGameplayTag("Attribute.MoveSpeed");
+	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
+	Modifiers.Add(ModifierInfo);
 }

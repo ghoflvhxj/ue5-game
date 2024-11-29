@@ -40,7 +40,13 @@ public:
 	FGameplayAttributeData MoveSpeed;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated)
+	FGameplayAttributeData AttackMoveSpeed;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated)
 	FGameplayAttributeData BasicAttackSpeed;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FGameplayAttributeData KnockBackPower;
 
 	UFUNCTION()
 	void OnRep_Health(const FGameplayAttributeData& OldValue);
@@ -50,5 +56,50 @@ public:
 	GAMEPLAYATTRIBUTE_VALUE_SETTER(Health);
 	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, AttackPower);
 	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, MoveSpeed);
+	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, AttackMoveSpeed);
 	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, BasicAttackSpeed);
+};
+
+UCLASS(Blueprintable)
+class UMWeaponAttributeSet : public UAttributeSet
+{
+	GENERATED_BODY()
+
+public:
+	void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
+
+public:
+	UFUNCTION()
+	void OnRep_Health();
+
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FGameplayAttributeData AttackPower;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FGameplayAttributeData AttackSpeed;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FGameplayAttributeData KnockBackPower;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated)
+	FGameplayAttributeData Ammo;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FGameplayAttributeData MagazineAmmo;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FGameplayAttributeData TotalAmmo;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FGameplayAttributeData ConsumeAmmo;
+
+	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMWeaponAttributeSet, AttackPower);
+	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMWeaponAttributeSet, AttackSpeed);
+	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMWeaponAttributeSet, KnockBackPower);
+	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMWeaponAttributeSet, Ammo);
+	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMWeaponAttributeSet, MagazineAmmo);
+	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMWeaponAttributeSet, TotalAmmo);
+	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMWeaponAttributeSet, ConsumeAmmo);
 };

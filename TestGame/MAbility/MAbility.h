@@ -6,6 +6,7 @@
 #include "GameplayTagContainer.h"
 #include "Engine/DataAsset.h"
 #include "GameplayAbilities/Public/AbilitySystemComponent.h"
+#include "SkillSubsystem.h"
 #include "MAbility.generated.h"
 
 class UGameplayAbility;
@@ -108,6 +109,8 @@ protected:
 	class UAbilityTask_PlayMontageAndWait* PlayMontageTask = nullptr;
 
 	float WeaponAttackSpeed = 1.f;
+
+	class AWeapon* CachedWeapon = nullptr;
 };
 
 UCLASS()
@@ -133,7 +136,43 @@ public:
 
 public:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+
+public:
+	UFUNCTION()
+	void OnMontageEnd(UAnimMontage* Montage, bool bInterrupted);
 };
+
+
+struct FSkillTableRow;
+
+UCLASS()
+class UGameplayAbility_Skill : public UGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UGameplayAbility_Skill();
+
+public:
+	virtual bool CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags = nullptr) override;
+
+public:
+	UFUNCTION(BlueprintPure)
+	float GetSkillParam(FGameplayTag GameplayTag);
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "GetSkillInfo"))
+	FSkillTableRow BP_GetSkillInfo();
+	FSkillTableRow* GetSkillInfo();
+protected:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UDataTable* SkillTable = nullptr;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	int32 SkillIndex = INDEX_NONE;
+
+protected:
+	UPROPERTY(BlueprintReadOnly)
+	TArray<FActiveGameplayEffectHandle> ActiveEffectHandles;
+};
+
 UCLASS()
 class UGameplayAbility_CollideDamage : public UGameplayAbility
 {
@@ -149,15 +188,21 @@ public:
 protected:
 	UFUNCTION()
 	void OnCollide(AActor* OverlappedActor, AActor* OtherActor);
+
+public:
+	UFUNCTION(BlueprintCallable)
+	void SetDamage(float InDamage) { Damage = InDamage; }
+protected:
+	float Damage = 0.f;
 };
 
 UCLASS()
-class UGameplayEffect_CollideDamage : public UGameplayEffect
+class UGameplayEffect_Damage : public UGameplayEffect
 {
 	GENERATED_BODY()
 
 public:
-	UGameplayEffect_CollideDamage();
+	UGameplayEffect_Damage();
 };
 
 UCLASS()
@@ -172,14 +217,9 @@ public:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
 
-public:
-	UFUNCTION()
-	void UpdateOpacityAndEmissive(int32 ActionNumber);
-	void SetOpacity(float InOpacity);
-	void SetMaterialParam(TFunction<void(UMaterialInstanceDynamic*)> Func);
-	float Opacity = 0.f;
 protected:
 	FTimerHandle TimerHandle;
+	TWeakObjectPtr<const AActor> CachedInstigator = nullptr;
 };
 
 UCLASS()
@@ -251,4 +291,49 @@ protected:
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<UCameraShakeBase> CameraShakeClass = nullptr;
 	TArray<TWeakObjectPtr<APlayerController>> TargetPlayers;
+};
+
+UCLASS()
+class UGameplayAbility_Reload : public UGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UGameplayAbility_Reload();
+
+public:
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+
+public:
+	UFUNCTION()
+	void OnMontageFinished();
+};
+
+/* 사격 후 탄약 감소 */
+UCLASS()
+class UGameplayEffect_ConsumeAmmo : public UGameplayEffect
+{
+	GENERATED_BODY()
+
+public:
+	UGameplayEffect_ConsumeAmmo();
+};
+
+/* 리로드 */
+UCLASS()
+class UGameplayEffect_Reload : public UGameplayEffect
+{
+	GENERATED_BODY()
+
+public:
+	UGameplayEffect_Reload();
+};
+
+UCLASS()
+class UGAmeplayEffect_AddMoveSpeed : public UGameplayEffect
+{
+	GENERATED_BODY()
+
+public:
+	UGAmeplayEffect_AddMoveSpeed();
 };

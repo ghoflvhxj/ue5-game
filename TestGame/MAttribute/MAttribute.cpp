@@ -30,6 +30,7 @@ void UMAttributeSet::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty> 
 	DOREPLIFETIME(UMAttributeSet, AttackPower);
 	DOREPLIFETIME(UMAttributeSet, SkillPower);
 	DOREPLIFETIME(UMAttributeSet, MoveSpeed);
+	DOREPLIFETIME(UMAttributeSet, AttackMoveSpeed);
 	DOREPLIFETIME(UMAttributeSet, BasicAttackSpeed);
 }
 
@@ -42,3 +43,10 @@ void UMAttributeSet::OnRep_Health(const FGameplayAttributeData& OldValue)
 //{
 //	OnAttributeChangedDelegate.AddDynamic(Object, Functor);
 //}
+
+void UMWeaponAttributeSet::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(UMWeaponAttributeSet, Ammo);
+}
