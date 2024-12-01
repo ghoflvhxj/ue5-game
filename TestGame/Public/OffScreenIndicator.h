@@ -40,6 +40,8 @@ protected:
 	float Angle = 0.f;
 	UPROPERTY(BlueprintReadOnly)
 	float Distance = 0.f;
+	bool bOffScreen = false;
+	FTimerHandle TimerHandle;
 
 public:
 	UFUNCTION(BlueprintCallable)
