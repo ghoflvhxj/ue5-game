@@ -10,6 +10,8 @@
 #include "MAbility.generated.h"
 
 class UGameplayAbility;
+class AWeapon;
+class AMCharacter;
 struct FGameplayTag;
 
 USTRUCT(BlueprintType)
@@ -49,8 +51,6 @@ public:
 	void ClearAbilities(UAbilitySystemComponent* AbilitySystemComponent, TMap<FGameplayTag, FGameplayAbilitySpecHandle>& Handles) const;
 };
 
-class AMCharacter;
-
 USTRUCT(BlueprintType)
 struct TESTGAME_API FTableRow_MCharacterToAbilitySet : public FTableRowBase
 {
@@ -83,7 +83,25 @@ public:
 };
 
 UCLASS()
-class TESTGAME_API UGameplayAbility_BasicAttack : public UGameplayAbility
+class TESTGAME_API UGameplayAbility_WeaponBase : public UGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	virtual bool CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags = nullptr) override;\
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+	virtual void CancelAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateCancelAbility) override;
+	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
+public:
+	void ClearCachedData();
+	
+protected:
+	TWeakObjectPtr<AMCharacter> CachedCharacter = nullptr;
+	TWeakObjectPtr<AWeapon> CachedWeapon = nullptr;
+};
+
+UCLASS()
+class TESTGAME_API UGameplayAbility_BasicAttack : public UGameplayAbility_WeaponBase
 {
 	GENERATED_BODY()
 
@@ -91,10 +109,10 @@ public:
 	UGameplayAbility_BasicAttack();
 
 public:
+	virtual bool CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags = nullptr) override;
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 	virtual void CancelAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateCancelAbility) override;
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
-	virtual bool CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags = nullptr) override;
 	virtual void OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
 	virtual void OnRemoveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
 public:
@@ -109,12 +127,10 @@ protected:
 	class UAbilityTask_PlayMontageAndWait* PlayMontageTask = nullptr;
 
 	float WeaponAttackSpeed = 1.f;
-
-	class AWeapon* CachedWeapon = nullptr;
 };
 
 UCLASS()
-class TESTGAME_API UGameplayAbility_Combo : public UGameplayAbility
+class TESTGAME_API UGameplayAbility_Combo : public UGameplayAbility_WeaponBase
 {
 	GENERATED_BODY()
 
@@ -127,7 +143,7 @@ public:
 };
 
 UCLASS()
-class TESTGAME_API UGameplayAbility_BasicAttackStop : public UGameplayAbility
+class TESTGAME_API UGameplayAbility_BasicAttackStop : public UGameplayAbility_WeaponBase
 {
 	GENERATED_BODY()
 
@@ -294,7 +310,7 @@ protected:
 };
 
 UCLASS()
-class UGameplayAbility_Reload : public UGameplayAbility
+class UGameplayAbility_Reload : public UGameplayAbility_WeaponBase
 {
 	GENERATED_BODY()
 

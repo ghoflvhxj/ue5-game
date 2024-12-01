@@ -544,14 +544,6 @@ void AMCharacter::BasicAttack()
 			{
 				Controller->StopMovement();
 			}
-
-			if (WeaponData->bBlockMovementRotate)
-			{
-				if (UCharacterMovementComponent* Movement = GetCharacterMovement())
-				{
-					Movement->bOrientRotationToMovement = false;
-				}
-			}
 		}
 	}
 
