@@ -98,6 +98,7 @@ public:
 protected:
 	TWeakObjectPtr<AMCharacter> CachedCharacter = nullptr;
 	TWeakObjectPtr<AWeapon> CachedWeapon = nullptr;
+	FDelegateHandle WeaponChangedDelegateHandle;
 };
 
 UCLASS()

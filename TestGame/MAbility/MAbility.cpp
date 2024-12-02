@@ -1009,12 +1009,19 @@ void UGameplayAbility_WeaponBase::ActivateAbility(const FGameplayAbilitySpecHand
 
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
-	CachedCharacter->OnWeaponChangedEvent.AddWeakLambda(this, [this, Handle, ActorInfo, ActivationInfo](AActor* Old, AActor* New) {
-		if (Old == CachedWeapon)
-		{
-			EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-		}
+	if (CachedCharacter->OnWeaponChangedEvent.IsBoundToObject(this) == false)
+	{
+		WeaponChangedDelegateHandle = CachedCharacter->OnWeaponChangedEvent.AddWeakLambda(this, [this, Handle, ActorInfo, ActivationInfo](AActor* Old, AActor* New) {
+			if (Old == CachedWeapon)
+			{
+				EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+				if (CachedCharacter->OnWeaponChangedEvent.Remove(WeaponChangedDelegateHandle))
+				{
+					WeaponChangedDelegateHandle.Reset();
+				}
+			}
 		});
+	}
 }
 
 void UGameplayAbility_WeaponBase::CancelAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateCancelAbility)
