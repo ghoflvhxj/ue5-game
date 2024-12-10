@@ -90,44 +90,14 @@ class TESTGAME_API UGameplayAbility_WeaponBase : public UGameplayAbility
 public:
 	virtual bool CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags = nullptr) override;\
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
-	virtual void CancelAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateCancelAbility) override;
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
 public:
 	void ClearCachedData();
 	
 protected:
-	TWeakObjectPtr<AMCharacter> CachedCharacter = nullptr;
-	TWeakObjectPtr<AWeapon> CachedWeapon = nullptr;
+	TWeakObjectPtr<AMCharacter> Character = nullptr;
+	TWeakObjectPtr<AWeapon> Weapon = nullptr;
 	FDelegateHandle WeaponChangedDelegateHandle;
-};
-
-UCLASS()
-class TESTGAME_API UGameplayAbility_BasicAttack : public UGameplayAbility_WeaponBase
-{
-	GENERATED_BODY()
-
-public:
-	UGameplayAbility_BasicAttack();
-
-public:
-	virtual bool CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags = nullptr) override;
-	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
-	virtual void CancelAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateCancelAbility) override;
-	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
-	virtual void OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
-	virtual void OnRemoveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
-public:
-	void SetCombo(int32 InComboIndex);
-	void FinishAttack();
-	UFUNCTION()
-	void OnMontageFinished();
-
-protected:
-	FDelegateHandle ComboDelegateHandle;
-	FTimerHandle TimerHandle;
-	class UAbilityTask_PlayMontageAndWait* PlayMontageTask = nullptr;
-
-	float WeaponAttackSpeed = 1.f;
 };
 
 UCLASS()
@@ -171,6 +141,7 @@ public:
 	UGameplayAbility_Skill();
 
 public:
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 	virtual bool CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags = nullptr) override;
 
 public:
@@ -184,6 +155,10 @@ protected:
 	UDataTable* SkillTable = nullptr;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	int32 SkillIndex = INDEX_NONE;
+
+protected:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	bool bEndInstantly = true;
 
 protected:
 	UPROPERTY(BlueprintReadOnly)
@@ -347,10 +322,26 @@ public:
 };
 
 UCLASS()
-class UGAmeplayEffect_AddMoveSpeed : public UGameplayEffect
+class UGameplayEffect_AddMoveSpeed : public UGameplayEffect
 {
 	GENERATED_BODY()
 
 public:
-	UGAmeplayEffect_AddMoveSpeed();
+	UGameplayEffect_AddMoveSpeed();
+};
+
+UCLASS()
+class UGameplayAbility_Dash : public UGameplayAbility_Skill
+{
+	GENERATED_BODY()
+
+public:
+	UGameplayAbility_Dash();
+
+public:
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+
+public:
+	UFUNCTION()
+	void OnMontageFinished();
 };
