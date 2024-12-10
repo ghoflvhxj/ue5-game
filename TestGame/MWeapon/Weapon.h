@@ -106,6 +106,10 @@ public:
 	void SetEquipActor(AActor* EquipActor);
 	void OnEquipmentChanged(AActor* OldWeapon, AActor* NewWeapon);
 
+	// WeaponIndex
+public:
+	void SetWeaponIndex(int32 ItemIndex);
+	const FWeaponData* GetItemData() const;
 public:
 	UFUNCTION()
 	void OnRep_WeaponIndex();
@@ -114,24 +118,19 @@ protected:
 	int32 WeaponIndex = INDEX_NONE;
 
 public:
-	void SetWeaponIndex(int32 ItemIndex);
-	const FWeaponData* GetItemData() const;
-
-public:
 	bool GetMuzzleTransform(FTransform& OutTransform);
 
+	// 공격 모드(약, 강, 대쉬약, 대쉬강 등등)
 public:
-	virtual void OnAttacked();
-	virtual void FinishBasicAttack();
-	virtual void OnAttackCoolDownFinished();
-
-public:
-	bool IsAttackable() const;
-	bool IsCoolDown() const;
-	bool IsAttacking() const;
+	void SetAttackMode(FGameplayTag InAttackMode);
 protected:
-	bool bCoolDown = false;
+	FGameplayTag AttackMode;
 
+	// 콤보
+public:
+	virtual void NextCombo();
+	virtual void ResetCombo();
+	virtual void OnAttackCoolDownFinished();
 public:
 	bool IsComboableWeapon() const;
 	bool IsComboable() const;
@@ -141,7 +140,29 @@ public:
 	FOnComboChangedEvent OnComboChangedEvent;
 protected:
 	mutable int32 Combo = INDEX_NONE;
+	mutable FGameplayTag ComboActionTag;
 
+public:
+	bool IsAttackable() const;
+	bool IsCoolDown() const;
+	bool IsAttacking() const;
+protected:
+	bool bCoolDown = false;
 
 	FTimerHandle AttackTimerHandle;
+};
+
+UCLASS()
+class TESTGAME_API ADelegator : public AActor
+{
+	GENERATED_BODY()
+
+public:
+	ADelegator();
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UAbilitySystemComponent* AbilitySystemComponent = nullptr;
+
+public:
+	virtual void OnConstruction(const FTransform& Transform) override;
 };

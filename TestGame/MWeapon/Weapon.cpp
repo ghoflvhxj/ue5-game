@@ -160,6 +160,11 @@ void AWeapon::OnRep_WeaponIndex()
 	}
 }
 
+void AWeapon::SetAttackMode(FGameplayTag InAttackModeTag)
+{
+	AttackMode = InAttackModeTag;
+}
+
 void AWeapon::SetWeaponIndex(int32 InIndex)
 {
 	WeaponIndex = InIndex;
@@ -186,31 +191,45 @@ bool AWeapon::GetMuzzleTransform(FTransform& OutTransform)
 	return false;
 }
 
-void AWeapon::OnAttacked()
+void AWeapon::NextCombo()
 {
 	const FWeaponData* WeaponData = GetItemData();
-	if (/*IsAttackable() == false || IsValid(Owner) == false || */WeaponData == nullptr)
+	AMCharacter* Character = Cast<AMCharacter>(GetOwner());
+	if (WeaponData == nullptr || IsValid(Character) == false)
 	{
 		return;
 	}
 
-	// 임시작업
-	// 무기가 장착 중에는 지속되는 어빌리티,  어트리뷰트(이동 속도, 공격 속도 등) 영향을 줄 이펙트를 만들어야 함
+	// 임시작업, 공격속도 어트리뷰트를 가져오도록 변경해야 함
 	if (WeaponData->AttackSpeed > 0.f)
 	{
 		GetWorldTimerManager().SetTimer(AttackTimerHandle, this, &AWeapon::OnAttackCoolDownFinished, WeaponData->AttackSpeed, false);
+	}
+
+	if (WeaponData->WeaponType == EWeaponType::Sword)
+	{
+		if (AttackMode == FGameplayTag::RequestGameplayTag("Action.BasicAttack"))
+		{
+			Character->LookMouse(-1.f);
+		}
+		else if (AttackMode == FGameplayTag::RequestGameplayTag("Action.Attack.DashLight"))
+		{
+
+		}
 	}
 
 	bCoolDown = true;
 	Combo = IsComboableWeapon() && IsComboable() ? Combo + 1 : 0;
 
 	OnComboChangedEvent.Broadcast(Combo);
+
+	UE_LOG(LogTemp, Warning, TEXT("Combo:%d"), Combo);
 }
 
-void AWeapon::FinishBasicAttack()
+void AWeapon::ResetCombo()
 {
-	// Finish와 OnAttackCoolDownFinished의 차이는?
 	Combo = INDEX_NONE;
+	OnComboChangedEvent.Broadcast(Combo);
 }
 
 void AWeapon::OnAttackCoolDownFinished()
@@ -267,4 +286,23 @@ bool AWeapon::IsComboable() const
 	}
 
 	return false;
+}
+
+ADelegator::ADelegator()
+{
+	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
+}
+
+void ADelegator::OnConstruction(const FTransform& Transform)
+{
+	Super::OnConstruction(Transform);
+
+	if (AWeapon* Weapon = Cast<AWeapon>(GetOwner()))
+	{
+		if (const FWeaponData* WeaponData = Weapon->GetItemData())
+		{
+			AbilitySystemComponent->InitStats(UMWeaponAttributeSet::StaticClass(), WeaponData->Attributes);
+		}
+	}
+
 }
