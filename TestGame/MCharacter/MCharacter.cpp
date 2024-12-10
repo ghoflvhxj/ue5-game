@@ -1,22 +1,6 @@
 #include "MCharacter.h"
 
-#include "TestGame/TestGame.h"
-
-#include "Component/MBattleComponent.h"
-#include "Component/StateMachineComponent.h"
-#include "Component/ActionComponent.h"
-#include "TestGame/MGameMode/MGameModeInGame.h"
-#include "TestGame/MCharacter/Component/InteractorComponent.h"
-
 #include "AttributeSet.h"
-#include "TestGame/MAttribute/MAttribute.h"
-#include "TestGame/MAbility/MAbility.h"
-
-#include "CharacterState/MCharacterState.h"
-#include "TestGame/Mcharacter/MCharacterEnum.h"
-
-#include "TestGame/MWeapon/Weapon.h"
-
 #include "NavigationSystem.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "AbilitySystemBlueprintLibrary.h"
@@ -24,9 +8,21 @@
 #include "OnlineSubsystem.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "EnhancedInputComponent.h"
-
 // 임시
 #include "BehaviorTree/BehaviorTreeComponent.h"
+
+#include "TestGame/TestGame.h"
+#include "Component/MBattleComponent.h"
+#include "Component/StateMachineComponent.h"
+#include "Component/ActionComponent.h"
+#include "TestGame/MGameMode/MGameModeInGame.h"
+#include "TestGame/MCharacter/Component/InteractorComponent.h"
+#include "TestGame/MAttribute/MAttribute.h"
+#include "TestGame/MAbility/MAbility.h"
+#include "TestGame/Mcharacter/MCharacterEnum.h"
+#include "TestGame/MWeapon/Weapon.h"
+#include "TestGame/MPlayerController/MPlayerController.h"
+#include "CharacterState/MCharacterState.h"
 
 // Sets default values
 AMCharacter::AMCharacter()
@@ -485,65 +481,31 @@ void AMCharacter::BasicAttack()
 	{
 		return;
 	}
-
-	// 공격 방향으로 회전
-	// 공격 시의 마우스 위치 시각화
-	float NewTargetAngle = GetActorRotation().Yaw;
-	if (APlayerController* PlayerController = GetController<APlayerController>())
+	const FWeaponData* WeaponData = Weapon->GetItemData();
+	if (WeaponData == nullptr)
 	{
-		FVector MouseWorldLocation;
-		FVector MouseWorldDirection;
-		FCollisionObjectQueryParams CollsionParam;
-		CollsionParam.AddObjectTypesToQuery(ECC_WorldStatic);
-		CollsionParam.AddObjectTypesToQuery(ECC_WorldDynamic);
-
-		if (PlayerController->DeprojectMousePositionToWorld(MouseWorldLocation, MouseWorldDirection))
-		{
-			TArray<FHitResult> HitResults;
-			if (GetWorld()->LineTraceMultiByObjectType(HitResults, MouseWorldLocation, MouseWorldLocation + MouseWorldDirection * 10000.f, CollsionParam))
-			{
-				//DrawDebugSphere(GetWorld(), HitResults[0].Location, 100.f, 32, FColor::Red);
-				NewTargetAngle = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), HitResults[0].Location).Yaw;
-			}
-		}
+		return;
 	}
 
-	if (Weapon->IsAttackable())
+	if (Weapon->IsAttackable() && WeaponData->WeaponType == EWeaponType::Gun)
 	{
-		if (const FWeaponData* WeaponData = Weapon->GetItemData())
+		switch (WeaponData->WeaponRotateType)
 		{
-			switch (WeaponData->WeaponRotateType)
+			case EWeaponRotateType::None:
 			{
-				case EWeaponRotateType::None:
-				{
-					// 회전하지 않음
-				}
-				break;
-				case EWeaponRotateType::Instantly:
-				{
-					if (IsNetMode(NM_DedicatedServer) == false)
-					{
-						Server_SetTargetAngle(NewTargetAngle, true);
-					}
-					SetActorRotation(FRotator(0.f, NewTargetAngle, 0.f));
-				}
-				break;
-				case EWeaponRotateType::Smoothly:
-				{
-					float CurrentYaw = GetActorRotation().Yaw;
-					float DeltaYaw = FMath::UnwindDegrees(NewTargetAngle - CurrentYaw);
-					float InterpSpeed = 5.f;
-
-					SetActorRotation(FRotator(0.f, FMath::FInterpTo(CurrentYaw, CurrentYaw + DeltaYaw, GetWorld()->GetDeltaSeconds(), InterpSpeed), 0.f));
-					Server_SetTargetAngle(GetActorRotation().Yaw, true);
-				}
-				break;
+				// 회전하지 않음
 			}
-
-			if (WeaponData->MoveSpeed == 0.f && IsValid(Controller))
+			break;
+			case EWeaponRotateType::Instantly:
 			{
-				Controller->StopMovement();
+				LookMouse(-1.f);
 			}
+			break;
+			case EWeaponRotateType::Smoothly:
+			{
+				LookMouse(5.f);
+			}
+			break;
 		}
 	}
 
@@ -586,9 +548,26 @@ void AMCharacter::FinishBasicAttack()
 	SetRotateToTargetAngle(false);
 }
 
-void AMCharacter::TurnToWeaponAim()
+void AMCharacter::LookMouse(float TurnSpeed)
 {
+	AMPlayerControllerInGame* PlayerController = Cast<AMPlayerControllerInGame>(GetController());
+	if (IsValid(PlayerController) == false)
+	{
+		return;
+	}
 
+	float Angle = PlayerController->GetAngleToMouse(GetActorLocation());
+	float CurrentAngle = GetActorRotation().Yaw;
+	float DeltaAngle = FMath::UnwindDegrees(Angle - CurrentAngle);
+
+	float ResultAngle = TurnSpeed < 0.f ? Angle : FMath::FInterpTo(CurrentAngle, CurrentAngle + DeltaAngle, GetWorld()->GetDeltaSeconds(), TurnSpeed);
+
+	if (GetLocalRole() == ENetRole::ROLE_AutonomousProxy)
+	{
+		Server_SetTargetAngle(ResultAngle, true);
+	}
+
+	SetActorRotation(FRotator(0.f, ResultAngle, 0.f));
 }
 
 void AMCharacter::Server_SetTargetAngle_Implementation(float InTargetAngle, bool bInstantly)

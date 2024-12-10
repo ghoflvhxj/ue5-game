@@ -177,10 +177,10 @@ public:
 	void BasicAttack();
 	UFUNCTION(BlueprintCallable)
 	void FinishBasicAttack();
-	void TurnToWeaponAim();
 
 // 타겟팅 -> 컴포넌트로 뺴기
 public:
+	void LookMouse(float TurnSpeed = 1.f);
 	UFUNCTION(Server, Unreliable)
 	void Server_SetTargetAngle(float InTargetAngle, bool bInstantly);
 	void SetRotateToTargetAngle(bool bNewValue);

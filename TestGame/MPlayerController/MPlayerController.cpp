@@ -1,18 +1,15 @@
 #include "MPlayerController.h"
 #include "NavigationSystem.h"
-#include "Blueprint/AIBlueprintHelperLibrary.h"
-#include "TestGame/MCharacter/MCharacter.h"
+#include "AIController.h"
+#include "Kismet/KismetMathLibrary.h"
 
-AMPlayerControllerInGame::AMPlayerControllerInGame()
-{
-	PrimaryActorTick.bCanEverTick = true;
-}
+#include "TestGame/MCharacter/MCharacter.h"
+#include "TestGame/MHud/MHud.h"
 
 void AMPlayerControllerInGame::BeginPlay()
 {
 	Super::BeginPlay();
 
-	AddInputMappingContext();
 	if (IsNetMode(NM_Standalone))
 	{
 		OnRep_PlayerState();
@@ -29,31 +26,40 @@ void AMPlayerControllerInGame::OnRep_PlayerState()
 	}
 }
 
-FVector AMPlayerControllerInGame::GetMouseWorldPosition()
+float AMPlayerControllerInGame::GetAngleToMouse(const FVector& InLocation)
 {
-	UNavigationSystemV1* NavigationSystem = UNavigationSystemV1::GetNavigationSystem(this);
+	FVector MouseWorldLocation;
+	FVector MouseWorldDirection;
+	FCollisionObjectQueryParams CollsionParam;
+	CollsionParam.AddObjectTypesToQuery(ECC_WorldStatic);
+	CollsionParam.AddObjectTypesToQuery(ECC_WorldDynamic);
 
-	if (IsValid(NavigationSystem) == false)
+	if (DeprojectMousePositionToWorld(MouseWorldLocation, MouseWorldDirection))
 	{
-		return FVector::ZeroVector;
+		TArray<FHitResult> HitResults;
+		if (GetWorld()->LineTraceMultiByObjectType(HitResults, MouseWorldLocation, MouseWorldLocation + MouseWorldDirection * 10000.f, CollsionParam))
+		{
+			return UKismetMathLibrary::FindLookAtRotation(InLocation, HitResults[0].Location).Yaw;
+		}
 	}
 
-	FHitResult HitResult;
-	GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
-
-	return HitResult.bBlockingHit ? HitResult.Location : FVector::ZeroVector;
+	return 0.f;
 }
 
-
-void AMPlayerControllerInGame::Server_PawnMoveToLocation_Implementation(const FVector& Location)
-{
-	UAIBlueprintHelperLibrary::SimpleMoveToLocation(this, Location);
-}
-
-void AMPlayerControllerInGame::AddInputMappingContext_Implementation()
-{
-	UE_LOG(LogTemp, Warning, TEXT("%s"), *FString(__FUNCTION__));
-}
+//FVector AMPlayerControllerInGame::GetMouseWorldPosition()
+//{
+//	UNavigationSystemV1* NavigationSystem = UNavigationSystemV1::GetNavigationSystem(this);
+//
+//	if (IsValid(NavigationSystem) == false)
+//	{
+//		return FVector::ZeroVector;
+//	}
+//
+//	FHitResult HitResult;
+//	GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
+//
+//	return HitResult.bBlockingHit ? HitResult.Location : FVector::ZeroVector;
+//}
 
 //void AMPlayerControllerTitle::BeginPlay()
 //{
