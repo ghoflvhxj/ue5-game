@@ -32,20 +32,25 @@ void AItemBase::OnRep_ItemIndex()
 	UE_LOG(LogItem, Log, TEXT("%s OnRep_ItemIndex: %d"), HasAuthority() && IsNetMode(NM_Client) == false ? TEXT("Server") : TEXT("Client"), ItemIndex);
 }
 
-FItemBaseInfo* AItemBase::GetItemBaseInfo()
+const FItemBaseInfo& AItemBase::GetItemTableRowImplement()
+{
+	return *GetItemTableRow();
+}
+
+FItemBaseInfo* AItemBase::GetItemTableRow()
 {
 #if WITH_EDITOR
-	if (IsValid(ItemDataTable))
+	if (IsValid(ItemTable))
 	{
 		FName ItemRowName = NAME_None;
-		ItemDataTable->ForeachRow<FItemBaseInfo>(TEXT("ItemTable"), [this, &ItemRowName](const FName & Key, const FItemBaseInfo & Value) {
+		ItemTable->ForeachRow<FItemBaseInfo>(TEXT("ItemTable"), [this, &ItemRowName](const FName & Key, const FItemBaseInfo & Value) {
 			if (Value.Index == ItemIndex)
 			{
 				ItemRowName = Key;
 			}
 		});
 
-		return ItemDataTable->FindRow<FItemBaseInfo>(ItemRowName, TEXT("ItemTable"));
+		return ItemTable->FindRow<FItemBaseInfo>(ItemRowName, TEXT("ItemTable"));
 	}
 #endif
 
@@ -54,5 +59,10 @@ FItemBaseInfo* AItemBase::GetItemBaseInfo()
 		return GameInstance->GetItemBaseInfo(ItemIndex);
 	}
 
+	return nullptr;
+}
+
+FGameItemData* AItemBase::GetItemData()
+{
 	return nullptr;
 }

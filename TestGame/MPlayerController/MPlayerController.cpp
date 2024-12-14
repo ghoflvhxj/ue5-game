@@ -5,6 +5,14 @@
 
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MHud/MHud.h"
+#include "TestGame/MItem/DropItem.h" // 피킹 테스트를 위한 임시 Include
+
+DECLARE_LOG_CATEGORY_CLASS(LogPick, Log, Log);
+
+AMPlayerControllerInGame::AMPlayerControllerInGame()
+{
+	PickComponent = CreateDefaultSubobject<UPickComponent>(TEXT("PickComponent"));
+}
 
 void AMPlayerControllerInGame::BeginPlay()
 {
@@ -13,6 +21,24 @@ void AMPlayerControllerInGame::BeginPlay()
 	if (IsNetMode(NM_Standalone))
 	{
 		OnRep_PlayerState();
+	}
+
+	AMHudInGame* HudInGame = GetHUD<AMHudInGame>();
+	if (IsValid(PickComponent) && IsValid(HudInGame))
+	{
+		PickComponent->GetPickChangedEvent().AddUObject(HudInGame, &AMHudInGame::TogglePickInfo);
+		PickComponent->GetPickDataChangedEvent().AddUObject(HudInGame, &AMHudInGame::UdpatePickInfo);
+	}
+}
+
+void AMPlayerControllerInGame::PlayerTick(float DeltaTime)
+{
+	Super::PlayerTick(DeltaTime);
+
+	AActor* NewPicking = CurrentClickablePrimitive.IsValid() ? CurrentClickablePrimitive->GetOwner() : nullptr;
+	if (IsValid(PickComponent))
+	{
+		PickComponent->SetPickingActor(NewPicking);
 	}
 }
 
@@ -46,22 +72,69 @@ float AMPlayerControllerInGame::GetAngleToMouse(const FVector& InLocation)
 	return 0.f;
 }
 
-//FVector AMPlayerControllerInGame::GetMouseWorldPosition()
-//{
-//	UNavigationSystemV1* NavigationSystem = UNavigationSystemV1::GetNavigationSystem(this);
-//
-//	if (IsValid(NavigationSystem) == false)
-//	{
-//		return FVector::ZeroVector;
-//	}
-//
-//	FHitResult HitResult;
-//	GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
-//
-//	return HitResult.bBlockingHit ? HitResult.Location : FVector::ZeroVector;
-//}
+UPickComponent::UPickComponent()
+{
+	PrimaryComponentTick.bCanEverTick = true;
+	SetIsReplicatedByDefault(false);
+}
 
-//void AMPlayerControllerTitle::BeginPlay()
-//{
-//	//PlayerCameraManager->SetManualCameraFade(1.f, )
-//}
+void UPickComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	if (PickingActor.IsValid() == false)
+	{
+		SetComponentTickEnabled(false);
+		return;
+	}
+
+	if (APlayerController* PlayerController = GetOwner<APlayerController>())
+	{
+		FPickData PickData;
+		PickData.WorldLocation = PickingActor->GetActorLocation();
+		PickData.ScreenLocation = FVector2D::ZeroVector;
+		if (PlayerController->ProjectWorldLocationToScreen(PickData.WorldLocation, PickData.ScreenLocation))
+		{
+			OnPickDataChangedEvent.Broadcast(PickData);
+		}
+	}
+}
+
+bool UPickComponent::IsPicking(AActor* InActor)
+{
+	return PickingActor.IsValid() && InActor == PickingActor;
+}
+
+bool UPickComponent::IsPickable(AActor* InActor)
+{
+	if (IsValid(InActor))
+	{
+		if (InActor->IsA<ADropItem>() == false)
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+void UPickComponent::SetPickingActor(AActor* InActor)
+{
+	if (IsPickable(InActor) == false)
+	{
+		InActor = nullptr;
+	}
+
+	if (InActor == PickingActor)
+	{
+		return;
+	}
+
+	AActor* Old = PickingActor.Get();
+	PickingActor = InActor;
+	OnPickChangedEvent.Broadcast(Old, PickingActor.Get());
+
+	SetComponentTickEnabled(PickingActor.IsValid());
+
+	UE_LOG(LogTemp, Warning, TEXT("NEwPicking Valid:%d"), (int)IsValid(InActor));
+}

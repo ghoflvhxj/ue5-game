@@ -4,8 +4,11 @@
 
 #include "EngineMinimal.h"
 #include "GameFramework/Actor.h"
+#include "GameplayTags.h"
 
 #include "ItemBase.generated.h"
+
+class UGameplayEffect;
 
 UENUM()
 enum class EItemType : uint8
@@ -17,40 +20,73 @@ enum class EItemType : uint8
 };
 
 USTRUCT(BlueprintType)
-struct FItemBaseInfo : public FTableRowBase
+struct FGameplayEffectParam
 {
 	GENERATED_BODY()
 
-public:
-	UStreamableRenderAsset* GetMesh()
-	{
-		if (IsValid(DropMesh))
-		{
-			return DropMesh;
-		}
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TMap<FGameplayTag, float> ParamTagToValueMap;
+};
 
-		return StaticDropMesh;
-	}
+USTRUCT(BlueprintType)
+struct FGameItemData
+{
+	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	int32 Index = INDEX_NONE;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TMap<TSubclassOf<UGameplayEffect>, FGameplayEffectParam> GameplayEffects;
+};
+
+USTRUCT(BlueprintType)
+struct FGameItemInfo
+{
+	GENERATED_BODY()
+
+	//UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	//int32 Index = INDEX_NONE;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	EItemType ItemType = EItemType::None;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FString Description = TEXT("");
+	FText Name;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FText Description;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class UPaperSprite* Icon = nullptr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	USkeletalMesh* DropMesh = nullptr;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	UStaticMesh* StaticDropMesh = nullptr;
+	FSoftObjectPath DropMesh = nullptr;
 };
 
+
+USTRUCT(BlueprintType)
+struct FItemBaseInfo : public FTableRowBase
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 Index = INDEX_NONE;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FGameItemInfo GameItemInfo;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FGameItemData GameItemData;
+
+public:
+	UStreamableRenderAsset* GetMesh() const
+	{
+		if (GameItemInfo.DropMesh.IsValid())
+		{
+			return Cast<UStreamableRenderAsset>(GameItemInfo.DropMesh.TryLoad());
+		}
+		return nullptr;
+	}
+};
 
 UCLASS()
 class TESTGAME_API AItemBase : public AActor
@@ -63,7 +99,6 @@ public:
 public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-	// 아이템 정보
 public:
 	UFUNCTION(BlueprintCallable)
 	void SetItemIndex(int32 InItemIndex);
@@ -72,13 +107,20 @@ public:
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_ItemIndex)
 	int32 ItemIndex = INDEX_NONE;
-protected:
-	FItemBaseInfo* GetItemBaseInfo();
+
+	// 아이템 정보
+public:
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "GetItemTableRow"))
+	const FItemBaseInfo& GetItemTableRowImplement();
+	FItemBaseInfo* GetItemTableRow();
+	// 아이템 데이터
+public:
+	FGameItemData* GetItemData();
 
 #if WITH_EDITORONLY_DATA
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	UDataTable* ItemDataTable = nullptr;
+	UDataTable* ItemTable = nullptr;
 #endif
 };
 
