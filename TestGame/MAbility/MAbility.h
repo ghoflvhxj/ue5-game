@@ -189,15 +189,6 @@ protected:
 };
 
 UCLASS()
-class UGameplayEffect_Damage : public UGameplayEffect
-{
-	GENERATED_BODY()
-
-public:
-	UGameplayEffect_Damage();
-};
-
-UCLASS()
 class UGameplayAbility_DamageImmune : public UGameplayAbility
 {
 	GENERATED_BODY()
@@ -299,35 +290,6 @@ public:
 public:
 	UFUNCTION()
 	void OnMontageFinished();
-};
-
-/* 사격 후 탄약 감소 */
-UCLASS()
-class UGameplayEffect_ConsumeAmmo : public UGameplayEffect
-{
-	GENERATED_BODY()
-
-public:
-	UGameplayEffect_ConsumeAmmo();
-};
-
-/* 리로드 */
-UCLASS()
-class UGameplayEffect_Reload : public UGameplayEffect
-{
-	GENERATED_BODY()
-
-public:
-	UGameplayEffect_Reload();
-};
-
-UCLASS()
-class UGameplayEffect_AddMoveSpeed : public UGameplayEffect
-{
-	GENERATED_BODY()
-
-public:
-	UGameplayEffect_AddMoveSpeed();
 };
 
 UCLASS()

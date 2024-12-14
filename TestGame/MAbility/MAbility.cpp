@@ -4,22 +4,20 @@
 
 #include "MAbility.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
+#include "AbilitySystemBlueprintLibrary.h"
+#include "GameFramework/Pawn.h"
+#include "GameFramework/GameStateBase.h"
+#include "GameFramework/PlayerState.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "Abilities/Tasks/AbilityTask_Repeat.h"
-#include "GameFramework/GameStateBase.h"
-#include "GameFramework/PlayerState.h"
+#include "NavigationSystem.h"
+
 #include "TestGame/MCharacter/Component/ActionComponent.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MWeapon/Weapon.h"
-#include "GameFramework/Pawn.h"
-#include "NavigationSystem.h"
-#include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "TestGame/MAttribute/MAttribute.h"
-#include "AbilitySystemBlueprintLibrary.h"
-
-// 임시
-#include "TestGame/MPlayerController/MPlayerController.h"
+#include "TestGame/MAbility/MEffect.h"
 
 DECLARE_LOG_CATEGORY_CLASS(LogAbility, Log, Log);
 
@@ -124,7 +122,7 @@ void UGameplayAbility_MoveToMouse::MoveToMouse(FGameplayEventData Payload)
 		return;
 	}
 	
-	if (AMPlayerControllerInGame* Controller = Cast<AMPlayerControllerInGame>(Pawn->GetController()))
+	if (APlayerController* Controller = Cast<APlayerController>(Pawn->GetController()))
 	{
 		FHitResult HitResult;
 		Controller->GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
@@ -171,7 +169,7 @@ void UGameplayAbility_Skill::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 			continue;
 		}
 
-		for (const TPair<FGameplayTag, float>& BuffParams : SpecHandle.Data->SetByCallerTagMagnitudes)
+		for (const TPair<FGameplayTag, float>& BuffParams : BuffInfo.TagToValue)
 		{
 			FGameplayTag BuffParamTag = BuffParams.Key;
 			if (BuffInfo.TagToValue.Contains(BuffParamTag) == false)
@@ -320,19 +318,6 @@ void UGameplayAbility_CollideDamage::OnCollide(AActor* OverlappedActor, AActor* 
 			}
 		}
 	}
-}
-
-UGameplayEffect_Damage::UGameplayEffect_Damage()
-{
-	FGameplayModifierInfo ModifierInfo;
-	ModifierInfo.Attribute = UMAttributeSet::GetHealthAttribute();
-	ModifierInfo.ModifierOp = EGameplayModOp::Additive;
-
-	FSetByCallerFloat SetByCaller;
-	SetByCaller.DataTag = FGameplayTag::RequestGameplayTag("Attribute.Damage");
-	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
-	ModifierInfo.TargetTags.IgnoreTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Ability.DamageImmune"));
-	Modifiers.Add(ModifierInfo);
 }
 
 UGameplayAbility_DamageImmune::UGameplayAbility_DamageImmune()
@@ -680,38 +665,6 @@ void UGameplayAbility_BasicAttackStop::OnMontageEnd(UAnimMontage* Montage, bool 
 	}
 }
 
-UGameplayEffect_ConsumeAmmo::UGameplayEffect_ConsumeAmmo()
-{
-	FGameplayModifierInfo ModifierInfo;
-	ModifierInfo.Attribute = UMWeaponAttributeSet::GetAmmoAttribute();
-	ModifierInfo.ModifierOp = EGameplayModOp::Additive;
-
-	FSetByCallerFloat SetByCaller;
-	SetByCaller.DataTag = FGameplayTag::RequestGameplayTag("Attribute.ConsumeAmmo");
-	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
-	Modifiers.Add(ModifierInfo);
-}
-
-UGameplayEffect_Reload::UGameplayEffect_Reload()
-{
-	FGameplayModifierInfo ModifierInfo;
-	FSetByCallerFloat SetByCaller;
-
-	// 탄약 충전
-	ModifierInfo.Attribute = UMWeaponAttributeSet::GetAmmoAttribute();
-	ModifierInfo.ModifierOp = EGameplayModOp::Additive;
-	SetByCaller.DataTag = FGameplayTag::RequestGameplayTag("Attribute.Ammo");
-	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
-	Modifiers.Add(ModifierInfo);
-
-	// 전체 탄약 감소
-	ModifierInfo.Attribute = UMWeaponAttributeSet::GetTotalAmmoAttribute();
-	ModifierInfo.ModifierOp = EGameplayModOp::Additive;
-	SetByCaller.DataTag = FGameplayTag::RequestGameplayTag("Attribute.TotalAmmo");
-	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
-	Modifiers.Add(ModifierInfo);
-}
-
 UGameplayAbility_Reload::UGameplayAbility_Reload()
 {
 	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
@@ -763,19 +716,6 @@ void UGameplayAbility_Reload::OnMontageFinished()
 	}
 
 	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
-}
-
-UGameplayEffect_AddMoveSpeed::UGameplayEffect_AddMoveSpeed()
-{
-	FGameplayModifierInfo ModifierInfo;
-	FSetByCallerFloat SetByCaller;
-
-	// 탄약 충전
-	ModifierInfo.Attribute = UMAttributeSet::GetMoveSpeedAttribute();
-	ModifierInfo.ModifierOp = EGameplayModOp::Additive;
-	SetByCaller.DataTag = FGameplayTag::RequestGameplayTag("Attribute.MoveSpeed");
-	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
-	Modifiers.Add(ModifierInfo);
 }
 
 bool UGameplayAbility_WeaponBase::CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags /*= nullptr*/)
