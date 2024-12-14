@@ -1,10 +1,9 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
 #pragma once
-
-DEFINE_LOG_CATEGORY(LogAttribute);
 
 #include "MAttribute.h"
 #include "Net/UnrealNetwork.h"
+
+DEFINE_LOG_CATEGORY(LogAttribute);
 
 void UMAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
 {
@@ -28,10 +27,8 @@ void UMAttributeSet::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty> 
 	DOREPLIFETIME(UMAttributeSet, MaxHealth);
 	DOREPLIFETIME(UMAttributeSet, Health);
 	DOREPLIFETIME(UMAttributeSet, AttackPower);
-	DOREPLIFETIME(UMAttributeSet, SkillPower);
 	DOREPLIFETIME(UMAttributeSet, MoveSpeed);
-	DOREPLIFETIME(UMAttributeSet, AttackMoveSpeed);
-	DOREPLIFETIME(UMAttributeSet, BasicAttackSpeed);
+	DOREPLIFETIME(UMAttributeSet, AttackSpeed);
 }
 
 void UMAttributeSet::OnRep_Health(const FGameplayAttributeData& OldValue)

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "Engine/DataAsset.h"
+#include "Engine/DataTable.h"
 #include "GameplayAbilities/Public/AbilitySystemComponent.h"
 #include "MAttribute.generated.h"
 
@@ -12,6 +13,19 @@ DECLARE_LOG_CATEGORY_EXTERN(LogAttribute, Log, All);
 
 class UGameplayAbility;
 struct FGameplayTag;
+
+USTRUCT(BlueprintType)
+struct FAttributeInfo : public FTableRowBase
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FGameplayAttribute Attribute;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FText Decription;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	class UPaperSprite* Icon = nullptr;
+};
 
 UCLASS(DefaultToInstanced, Blueprintable)
 class UMAttributeSet : public UAttributeSet
@@ -26,40 +40,34 @@ public:
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated)
 	FGameplayAttributeData MaxHealth;
+	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, MaxHealth);
 
+protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing = OnRep_Health)
 	FGameplayAttributeData Health;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated)
-	FGameplayAttributeData AttackPower;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated)
-	FGameplayAttributeData SkillPower;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing = OnRep_MoveSpeed)
-	FGameplayAttributeData MoveSpeed;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated)
-	FGameplayAttributeData AttackMoveSpeed;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated)
-	FGameplayAttributeData BasicAttackSpeed;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	FGameplayAttributeData KnockBackPower;
-
+public:
 	UFUNCTION()
 	void OnRep_Health(const FGameplayAttributeData& OldValue);
 	UFUNCTION()
 	void OnRep_MoveSpeed(const FGameplayAttributeData& OldValue);
-
-	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, MaxHealth);
-	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, Health);
+public:
 	GAMEPLAYATTRIBUTE_VALUE_SETTER(Health);
+	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, Health);
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated)
+	FGameplayAttributeData AttackPower;
 	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, AttackPower);
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing = OnRep_MoveSpeed)
+	FGameplayAttributeData MoveSpeed;
 	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, MoveSpeed);
-	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, AttackMoveSpeed);
-	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, BasicAttackSpeed);
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated)
+	FGameplayAttributeData AttackSpeed;
+	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, AttackSpeed);
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FGameplayAttributeData KnockBackPower;
 };
 
 UCLASS(Blueprintable)
