@@ -8,8 +8,10 @@
 class UUserWidget;
 class AWeapon;
 struct FRoundInfo;
+struct FRound;
 //struct FExperienceInfo;
 struct FOnAttributeChangeData;
+struct FPickData;
 
 UCLASS()
 class TESTGAME_API AMHud : public AHUD
@@ -73,10 +75,18 @@ public:
 	UFUNCTION(BlueprintImplementableEvent)
 	void UpdateWeaponInfo(AActor* OldWeapon, AActor* NewWeapon);
 
+public:
+	UFUNCTION(BlueprintImplementableEvent)
+	void TogglePickInfo(AActor* Old, AActor* New);
+	UFUNCTION(BlueprintImplementableEvent)
+	void UdpatePickInfo(const FPickData& InPickData);
+
 	// 라운드 정보 갱신
 public:
 	UFUNCTION(BlueprintImplementableEvent)
-	void UpdateRoundInfo(int32 Round, const FRoundInfo& InRoundInfo, int32 Wave);
+	void ShowGetRewardMessage();
+	UFUNCTION(BlueprintImplementableEvent)
+	void UpdateRoundInfo(const FRound& InRound);
 	UFUNCTION(BlueprintImplementableEvent)
 	void BoundBoss(AActor* Boss);
 

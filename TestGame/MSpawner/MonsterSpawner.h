@@ -6,6 +6,8 @@
 #include "GameplayTagContainer.h"
 #include "MonsterSpawner.generated.h"
 
+struct FRound;
+
 UENUM(BlueprintType)
 enum class ESpawnType : uint8
 {
@@ -75,7 +77,7 @@ public:
 
 public:
 	UFUNCTION()
-	virtual void SpawnUsingRoundInfo(int32 InRound, const FRoundInfo& InRoundInfo, int32 InWave) {}
+	virtual void SpawnUsingRoundInfo(const FRound& InRound) {}
 };
 
 UCLASS()
@@ -90,12 +92,15 @@ public:
 #endif
 
 public:
-	virtual void SpawnUsingRoundInfo(int32 InRound, const FRoundInfo& InRoundInfo, int32 InWave) override;
+	virtual void SpawnUsingRoundInfo(const FRound& InRound) override;
 	virtual void OnSpawned(AActor* SpawnedActor) override;
 	virtual FTransform GetSpawnTransform() override;
 public:
 	UFUNCTION()
 	void RemoveSpawnedActor(AActor* Actor, EEndPlayReason::Type EndPlayReason);
+
+protected:
+	URoundComponent* GetRoundComponent();
 
 public:
 	//bool IsClear_Implementation() override;

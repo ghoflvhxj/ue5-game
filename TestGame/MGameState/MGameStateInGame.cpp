@@ -2,12 +2,14 @@
 #include "MGameStateInGame.h"
 
 #include "Net/UnrealNetwork.h"
-
 #include "GameFramework/PlayerState.h"
 #include "Engine/DataTable.h"
+#include "Kismet/GameplayStatics.h"
+
 #include "TestGame/MSpawner/MonsterSpawner.h"
 
 DECLARE_LOG_CATEGORY_CLASS(LogRound, Log, Log);
+DECLARE_LOG_CATEGORY_CLASS(LogReward, Log, Log);
 
 AMGameStateInGame::AMGameStateInGame()
 {
@@ -44,7 +46,7 @@ void AMGameStateInGame::HandleMatchHasStarted()
 
 	if (HasAuthority() && IsValid(RoundComponent))
 	{
-		RoundComponent->TryNextRound(nullptr);
+		RoundComponent->TryNextRound(0.f);
 	}
 }
 
@@ -107,7 +109,7 @@ void URoundComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME_CONDITION(URoundComponent, Round, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(URoundComponent, RoundWaveData, COND_InitialOnly);
 }
 
 bool URoundComponent::IsLastRound() const
@@ -117,13 +119,13 @@ bool URoundComponent::IsLastRound() const
 		TArray<FRoundInfo*> AllRoundInfo;
 		RoundTable->GetAllRows(TEXT("RoundTable"), AllRoundInfo);
 
-		return AllRoundInfo.Last()->Round == Round;
+		return AllRoundInfo.Last()->Round == RoundWaveData.Round;
 	}
 
 	return false;
 }
 
-FRoundInfo URoundComponent::GetRoundInfo(int32 InRound) const
+FRoundInfo URoundComponent::GetRoundTableData(int32 InRound) const
 {
 	if (IsValid(RoundTable))
 	{
@@ -136,16 +138,38 @@ FRoundInfo URoundComponent::GetRoundInfo(int32 InRound) const
 	return FRoundInfo();
 }
 
-void URoundComponent::TryNextRound(AActor* Rounder)
+void URoundComponent::TryNextRound(float Delay)
 {
+	UWorld* World = GetWorld();
+	if (IsValid(World) == false)
+	{
+		return;
+	}
+
 	if (IsLastRound() && IsLastWave())
 	{
 		bAllRoundFinished = true;
 		return;
 	}
 
-	++Round;
-	Wave = 1;
+	if (Delay <= 0.f)
+	{
+		NextRound();
+	}
+	else
+	{
+		World->GetTimerManager().SetTimer(NextRoundTimerHandle, FTimerDelegate::CreateWeakLambda(this, [this]() {
+			NextRound();
+		}), Delay, false);
+
+		OnWaitNextRoundEvent.Broadcast();
+	}
+}
+
+void URoundComponent::NextRound()
+{
+	++RoundWaveData.Round;
+	RoundWaveData.Wave = 0;
 
 	StartWave();
 }
@@ -164,30 +188,28 @@ void URoundComponent::StartWave()
 		World->GetTimerManager().ClearTimer(NextWaveTimerHandle);
 	}
 
-	Multicast_Wave(Round, Wave);
-
-	if (IsLastWave() == false)
+	const FRoundInfo& RoundInfo = GetRoundTableData(RoundWaveData.Round);
+	if (RoundInfo.IsValid() && IsLastWave() == false)
 	{
-		const FRoundInfo& RoundInfo = GetRoundInfo(Round);
-		if (RoundInfo.IsValid())
-		{
-			World->GetTimerManager().SetTimer(NextWaveTimerHandle, FTimerDelegate::CreateWeakLambda(this, [this]() {
-				StartWave();
-			}), RoundInfo.WaveIntervalBase, false);
-		}
+		World->GetTimerManager().SetTimer(NextWaveTimerHandle, FTimerDelegate::CreateWeakLambda(this, [this]() {
+			StartWave();
+		}), RoundInfo.WaveIntervalBase, false);
 
-		++Wave;
+		++RoundWaveData.Wave;
+		RoundWaveData.NextWaveTime = World->GetGameState()->GetServerWorldTimeSeconds() + RoundInfo.WaveIntervalBase;
+
+		Multicast_Wave(RoundWaveData);
 	}
 }
 
 bool URoundComponent::IsLastWave() const
 {
-	return IsLastWave(Wave);
+	return IsLastWaveFor(RoundWaveData.Wave);
 }
 
-bool URoundComponent::IsLastWave(int InWave) const
+bool URoundComponent::IsLastWaveFor(int InWave) const
 {
-	const FRoundInfo& RoundInfo = GetRoundInfo(Round);
+	const FRoundInfo& RoundInfo = GetRoundTableData(RoundWaveData.Round);
 	if (RoundInfo.IsValid())
 	{
 		return InWave == RoundInfo.TotalWave;
@@ -201,9 +223,9 @@ bool URoundComponent::IsFinished() const
 	return bAllRoundFinished;
 }
 
-void URoundComponent::Multicast_Wave_Implementation(int32 InRound, int32 InWave)
+void URoundComponent::Multicast_Wave_Implementation(const FRound& InRound)
 {
-	const FRoundInfo& RoundInfo = GetRoundInfo(InRound);
+	const FRoundInfo& RoundInfo = GetRoundTableData(InRound.Round);
 	if (RoundInfo.IsValid() == false)
 	{
 		return;
@@ -211,10 +233,57 @@ void URoundComponent::Multicast_Wave_Implementation(int32 InRound, int32 InWave)
 
 	if (IsNetSimulating())
 	{
-		Round = InRound;
-		Wave = InWave;
+		RoundWaveData = InRound;
 	}
 
-	OnWaveChangedEvent.Broadcast(Round, RoundInfo, Wave);
-	UE_LOG(LogRound, Log, TEXT("RoundInfo Updated Round:%d"), RoundInfo.Round);
+	if (RoundWaveData.Wave == 1)
+	{
+		OnRoundChangedEvent.Broadcast(RoundWaveData);
+	}
+
+	OnRoundAndWaveChangedEvent.Broadcast(RoundWaveData);
+	UE_LOG(LogRound, Log, TEXT("Wave Updated %d-%d"), RoundWaveData.Round, RoundWaveData.Wave);
+}
+
+void ARoundReward::BeginPlay()
+{
+	Super::BeginPlay();
+	if (AGameStateBase* GameState = UGameplayStatics::GetGameState(this))
+	{
+		if (URoundComponent* RoundComponent = GameState->GetComponentByClass<URoundComponent>())
+		{
+			if (HasAuthority())
+			{
+				RoundComponent->GetWaitNextRoundEvent().AddUObject(this, &ARoundReward::SpawnReward);
+			}
+		}
+	}
+}
+
+void ARoundReward::SpawnReward()
+{
+	UWorld* World = GetWorld();
+	if (IsValid(World) == false)
+	{
+		return;
+	}
+
+	if (IsValid(RewardClass) == false)
+	{
+		UE_LOG(LogReward, Warning, TEXT("Reward class invalid."));
+		return;
+	}
+
+	if (RewardLocations.Num() == 0)
+	{
+		UE_LOG(LogReward, Log, TEXT("Reward location is empty. Use this actor location."));
+		RewardLocations.Add(GetActorLocation());
+	}
+
+	FTransform Transform;
+	Transform.SetLocation(RewardLocations[0]);
+	if (AActor* Reward = World->SpawnActorDeferred<AActor>(RewardClass, Transform))
+	{
+		UGameplayStatics::FinishSpawningActor(Reward, Transform);
+	}
 }

@@ -31,6 +31,21 @@ public:
 	bool IsValid() const { return Round != INDEX_NONE; }
 };
 
+USTRUCT(BlueprintType)
+struct FRound
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	int Round = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	int Wave = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float NextWaveTime = 0.f;
+};
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnRoundStartedDynamicDelegate);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnGameOverDynamicDelegate);
 DECLARE_EVENT(AMGameStateInGame, FOnMatchEndEvent);
@@ -42,6 +57,9 @@ class TESTGAME_API AMGameStateInGame : public AGameState
 
 public:
 	AMGameStateInGame();
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	URoundComponent* RoundComponent = nullptr;
 
 public:
 	virtual void BeginPlay() override;
@@ -50,10 +68,6 @@ public:
 	virtual void HandleMatchHasEnded() override;
 public:
 	FOnMatchEndEvent OnMatchEndEvent;
-
-protected:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	URoundComponent* RoundComponent = nullptr;
 
 	// 부활
 public:
@@ -92,6 +106,9 @@ protected:
 
 };
 
+DECLARE_EVENT_OneParam(URoundComponent, FOnRoundChangedEvent, const FRound& /*Round*/);
+DECLARE_EVENT(URoundComponent, FOnWaitNextRound);
+
 UCLASS(Blueprintable)
 class TESTGAME_API URoundComponent : public UActorComponent
 {
@@ -109,28 +126,38 @@ public:
 
 	// 웨이브
 public:
+	UFUNCTION(BlueprintPure)
 	bool IsLastWave() const;
-	bool IsLastWave(int InWave) const;
+	UFUNCTION(BlueprintPure)
+	bool IsLastWaveFor(int InWave) const;
 	bool IsFinished() const;
 	UFUNCTION(BlueprintPure)
-	FRoundInfo GetRoundInfo(int32 InRound) const;
+	FRoundInfo GetRoundTableData(int32 InRound) const;
+	const FRound& GetRoundWave() const { return RoundWaveData; }
+	int32 GetRound() const { return RoundWaveData.Round; }
+	int32 GetWave() const { return RoundWaveData.Wave; }
 public:
-	void TryNextRound(AActor* Rounder);
+	void TryNextRound(float Delay);
+	UFUNCTION(BlueprintCallable)
+	void NextRound();
 	UFUNCTION(BlueprintCallable)
 	void StartWave();
 	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_Wave(int32 InRound, int32 InWave);
+	void Multicast_Wave(const FRound& InRound);
 public:
-	DECLARE_EVENT_ThreeParams(URoundComponent, FOnRoundChangedEvent, int /*Round*/, const FRoundInfo&, int /*Wave*/);
-	FOnRoundChangedEvent OnWaveChangedEvent;
+	FOnWaitNextRound& GetWaitNextRoundEvent() { return OnWaitNextRoundEvent; }
+	FOnRoundChangedEvent& GetRoundChangeEvent() { return OnRoundChangedEvent; }
+public:
+	FOnWaitNextRound OnWaitNextRoundEvent;
+	FOnRoundChangedEvent OnRoundChangedEvent;
+	FOnRoundChangedEvent OnRoundAndWaveChangedEvent;
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class UDataTable* RoundTable;
-	FName CurrentWaveName = NAME_None;
+
 	UPROPERTY(Replicated)
-	int32 Round = 0;
-	UPROPERTY()
-	int32 Wave = 0;
+	FRound RoundWaveData;
+	FTimerHandle NextRoundTimerHandle;
 	FTimerHandle NextWaveTimerHandle;
 	bool bAllRoundFinished = false;
 };
@@ -148,4 +175,20 @@ class TESTGAME_API IRoundInterface
 public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 	bool IsClear();
+};
+
+UCLASS()
+class TESTGAME_API ARoundReward : public AActor
+{
+	GENERATED_BODY()
+
+public:
+	virtual void BeginPlay() override;
+
+public:
+	virtual void SpawnReward();
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TSubclassOf<AActor> RewardClass = nullptr;
+	TArray<FVector> RewardLocations;
 };

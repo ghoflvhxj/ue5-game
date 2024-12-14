@@ -69,7 +69,9 @@ void AMHudInGame::BeginPlay()
 
 		if (URoundComponent* RoundComponent = GameStateInGame->GetComponentByClass<URoundComponent>())
 		{
-			RoundComponent->OnWaveChangedEvent.AddUObject(this, &AMHudInGame::UpdateRoundInfo);
+			UpdateRoundInfo(RoundComponent->GetRoundWave());
+			RoundComponent->GetWaitNextRoundEvent().AddUObject(this, &AMHudInGame::ShowGetRewardMessage);
+			RoundComponent->OnRoundAndWaveChangedEvent.AddUObject(this, &AMHudInGame::UpdateRoundInfo);
 		}
 
 		GameStateInGame->OnBossMonsterSet.AddUObject(this, &AMHudInGame::BoundBoss);
