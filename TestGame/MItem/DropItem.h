@@ -45,7 +45,7 @@ public:
 
 protected:
 	void UpdateItemMesh();
-
+	 
 public:	
 	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void Tick(float DeltaTime) override;

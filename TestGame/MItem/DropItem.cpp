@@ -1,6 +1,8 @@
 #include "DropItem.h"
 
 #include "GameFramework/PlayerState.h"
+#include "AbilitySystemBlueprintLibrary.h"
+
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MCharacter/Component/InteractorComponent.h"
 #include "TestGame/MComponents/InventoryComponent.h"
@@ -49,14 +51,14 @@ void ADropItem::BeginPlay()
 	if (IsValid(InteractorComponent))
 	{
 		InteractorComponent->InteractFinishEvent.AddWeakLambda(this, [this]() {
-			FItemBaseInfo* ItemBaseInfo = GetItemBaseInfo();
+			FItemBaseInfo* ItemBaseInfo = GetItemTableRow();
 			AMCharacter* Interactor = InteractorComponent->GetInteractor<AMCharacter>();
 			if (IsValid(Interactor) == false || ItemBaseInfo == nullptr)
 			{
 				return;
 			}
 
-			switch (ItemBaseInfo->ItemType)
+			switch (ItemBaseInfo->GameItemInfo.ItemType)
 			{
 				case EItemType::Money:
 				{
@@ -81,6 +83,24 @@ void ADropItem::BeginPlay()
 						if (IsNetMode(NM_Client))
 						{
 							SetLifeSpan(0.3f);
+						}
+					}
+				}
+				break;
+				case EItemType::Common:
+				{
+					UAbilitySystemComponent* AbilitySystemComponent = Interactor->GetComponentByClass<UAbilitySystemComponent>();
+					if (HasAuthority() && IsValid(AbilitySystemComponent))
+					{
+						for (const auto& Pair : ItemBaseInfo->GameItemData.GameplayEffects)
+						{
+							FGameplayEffectSpecHandle EffectSpecHandle = AbilitySystemComponent->MakeOutgoingSpec(Pair.Key, 0.f, AbilitySystemComponent->MakeEffectContext());
+							for (const auto& TagToValuePair : Pair.Value.ParamTagToValueMap)
+							{
+								EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, TagToValuePair.Key, TagToValuePair.Value);
+							}
+
+							AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*EffectSpecHandle.Data.Get());
 						}
 					}
 				}
@@ -114,7 +134,7 @@ void ADropItem::UpdateItemMesh()
 		return;
 	}
 
-	if (FItemBaseInfo* ItemBaseInfo = GetItemBaseInfo())
+	if (FItemBaseInfo* ItemBaseInfo = GetItemTableRow())
 	{
 		if (UStreamableRenderAsset* MeshAsset = ItemBaseInfo->GetMesh())
 		{
