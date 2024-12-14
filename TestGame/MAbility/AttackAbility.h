@@ -58,3 +58,15 @@ public:
 public:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 };
+
+UCLASS()
+class TESTGAME_API UGameplayAbility_LightChargeAttack : public UGameplayAbility_AttackBase
+{
+	GENERATED_BODY()
+
+public:
+	UGameplayAbility_LightChargeAttack();
+
+public:
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+};

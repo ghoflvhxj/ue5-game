@@ -8,8 +8,11 @@
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MWeapon/Weapon.h"
 #include "TestGame/MAttribute/MAttribute.h"
+#include "TestGame/MAbility/MEffect.h"
 
 DECLARE_LOG_CATEGORY_CLASS(LogAttack, Log, Log);
+
+FGameplayTag LightAttack = FGameplayTag::RequestGameplayTag("Action.BasicAttack");
 
 bool UGameplayAbility_AttackBase::CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags /*= nullptr*/)
 {
@@ -53,17 +56,17 @@ void UGameplayAbility_AttackBase::EndAbility(const FGameplayAbilitySpecHandle Ha
 
 bool UGameplayAbility_AttackBase::PlayAttackMontage()
 {
-	float BasicAttackSpeed = 1.f;
+	float AttackSpeed = 1.f;
 	if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
 	{
-		BasicAttackSpeed = AbilitySystemComponent->GetNumericAttribute(UMAttributeSet::GetBasicAttackSpeedAttribute());
+		AttackSpeed = AbilitySystemComponent->GetNumericAttribute(UMAttributeSet::GetAttackSpeedAttribute());
 	}
 
 	if (UMActionComponent* ActionComponent = Character->GetComponentByClass<UMActionComponent>())
 	{
 		if (UAnimMontage* Montage = ActionComponent->GetActionMontage(AbilityTags.GetByIndex(0)))
 		{
-			PlayMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, "Attack", Montage, BasicAttackSpeed, NAME_None, true, 1.f, 0.f);
+			PlayMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, "Attack", Montage, AttackSpeed, NAME_None, true, 1.f, 0.f);
 			PlayMontageTask->OnCompleted.AddDynamic(this, &UGameplayAbility_BasicAttack::OnMontageFinished);
 
 			PlayMontageTask->ReadyForActivation();
@@ -114,7 +117,7 @@ UGameplayAbility_BasicAttack::UGameplayAbility_BasicAttack()
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
 
-	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Action.BasicAttack"));
+	AbilityTags.AddTag(LightAttack);
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("ActionType.Dynamic"));
 	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Reload"));
 	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Attack.DashLight")); // 공격 어빌리티가 시작되면 다른 공격 어빌리티는 모두 취소 되도록 해야함
@@ -150,7 +153,7 @@ void UGameplayAbility_BasicAttack::ActivateAbility(const FGameplayAbilitySpecHan
 		if (WeaponData->WeaponType == EWeaponType::Gun)
 		{
 			FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(UGameplayEffect_AddMoveSpeed::StaticClass());
-			EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, FGameplayTag::RequestGameplayTag("Attribute.MoveSpeed"), -300.f);
+			EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, EffectParamTag, -300.f);
 			ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, EffectSpecHandle);
 		}
 
@@ -180,7 +183,7 @@ void UGameplayAbility_BasicAttack::EndAbility(const FGameplayAbilitySpecHandle H
 			if (WeaponData->WeaponType == EWeaponType::Gun)
 			{
 				FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(UGameplayEffect_AddMoveSpeed::StaticClass());
-				EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, FGameplayTag::RequestGameplayTag("Attribute.MoveSpeed"), 300.f);
+				EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, EffectParamTag, 300.f);
 				ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, EffectSpecHandle);
 			}
 		}
@@ -219,6 +222,36 @@ UGameplayAbility_DashLightAttack::UGameplayAbility_DashLightAttack()
 }
 
 void UGameplayAbility_DashLightAttack::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	if (CommitAbility(Handle, ActorInfo, ActivationInfo) == false)
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+
+	if (PlayAttackMontage())
+	{
+		return;
+	}
+
+	EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+}
+
+UGameplayAbility_LightChargeAttack::UGameplayAbility_LightChargeAttack()
+{
+	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
+	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
+
+	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Attack.ChargeLight"));
+	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("ActionType.Dynamic"));
+	CancelAbilitiesWithTag.AddTag(LightAttack);
+	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Dead"));
+}
+
+void UGameplayAbility_LightChargeAttack::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
 	if (CommitAbility(Handle, ActorInfo, ActivationInfo) == false)
 	{
