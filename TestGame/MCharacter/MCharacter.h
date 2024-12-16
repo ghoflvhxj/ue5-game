@@ -19,6 +19,7 @@ class UMBattleComponent;
 class UMAttributeSet;
 class UMAbilityDataAsset;
 class UStateComponent;
+class UNiagaraComponent;
 class AWeapon;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnAttackedDelegate);
@@ -32,6 +33,30 @@ class TESTGAME_API AMCharacter : public ACharacter, public IAbilitySystemInterfa
 
 public:
 	AMCharacter();
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UAbilitySystemComponent* AbilitySystemComponent = nullptr;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UMBattleComponent* BattleComponent = nullptr;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UStateComponent* StateComponent = nullptr;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UNiagaraComponent* NiagaraComponent = nullptr;
+private:
+	template <class T>
+	void CompoentLogic(TFunction<void(T* Component)> Logic)
+	{
+		T* Component = GetComponentByClass<T>();
+		if (IsValid(Component))
+		{
+			Logic(Component);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Component Logic Failed"));
+		}
+	}
+
 
 // 언리얼 인터페이스
 protected:
@@ -64,6 +89,8 @@ protected:
 	class UInputAction* InputAction = nullptr;
 	UPROPERTY(EditAnywhere)
 	class UInputAction* InputAction2 = nullptr;
+	UPROPERTY(EditAnywhere)
+	class UInputAction* InputAction3 = nullptr;
 
 	//UFUNCTION(BlueprintPure)
 	//FGameplayAbilitySpecHandle GetAbiltiyTypeHandle(EAbilityType AbilityType);
@@ -79,38 +106,6 @@ public:
 protected:
 	UPROPERTY(BlueprintReadOnly)
 	UMAttributeSet* AttributeSet;
-
-// 컴포넌트
-protected:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	UAbilitySystemComponent* AbilitySystemComponent = nullptr;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	UMBattleComponent* BattleComponent = nullptr;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	UStateComponent* StateComponent = nullptr;
-private:
-	template <class T>
-	void CompoentLogic(TFunction<void(T* Component)> Logic)
-	{
-		T* Component = GetComponentByClass<T>();
-		if (IsValid(Component))
-		{
-			Logic(Component);
-		}
-		else
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Component Logic Failed"));
-		}
-	}
-
-// 기능 테스트
-public:
-	UFUNCTION(BlueprintCallable)
-	void TestFunction1();
-	UFUNCTION(BlueprintCallable)
-	void TestFunction2();
-	UFUNCTION(BlueprintCallable)
-	void TestFunction3();
 
 // 상태 델레게이트
 public:
@@ -173,10 +168,14 @@ protected:
 
 // 공격
 public:
+	void Aim();
 	UFUNCTION(BlueprintCallable)
 	void BasicAttack();
 	UFUNCTION(BlueprintCallable)
 	void FinishBasicAttack();
+	void Charge();
+	void ChargeAttack();
+	void FinishCharge();
 
 // 타겟팅 -> 컴포넌트로 뺴기
 public:

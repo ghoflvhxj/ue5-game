@@ -14,6 +14,12 @@ DECLARE_LOG_CATEGORY_CLASS(LogAttack, Log, Log);
 
 FGameplayTag LightAttack = FGameplayTag::RequestGameplayTag("Action.BasicAttack");
 
+UGameplayAbility_AttackBase::UGameplayAbility_AttackBase()
+{
+	ActivationOwnedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Attack"));
+	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Dead"));
+}
+
 bool UGameplayAbility_AttackBase::CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags /*= nullptr*/)
 {
 	if (Super::CommitAbility(Handle, ActorInfo, ActivationInfo, OptionalRelevantTags))
@@ -50,6 +56,8 @@ void UGameplayAbility_AttackBase::EndAbility(const FGameplayAbilitySpecHandle Ha
 		Weapon->ResetCombo();
 		ComboDelegateHandle.Reset();
 	}
+
+	Weapon->SetAttackMode(FGameplayTag::EmptyTag);
 
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
@@ -97,7 +105,7 @@ void UGameplayAbility_AttackBase::MontageJumpToComboSection(int32 InComboIndex)
 				ComboName = Montage->GetSectionName(Montage->GetNumSections() - 1).ToString();
 			}
 
-			if (AnimInstance->Montage_IsPlaying(Montage))
+			if (AnimInstance->Montage_IsPlaying(Montage) && AnimInstance->Montage_GetCurrentSection(Montage) != ComboName)
 			{
 				AnimInstance->Montage_JumpToSection(*ComboName, Montage);
 			}
@@ -122,8 +130,6 @@ UGameplayAbility_BasicAttack::UGameplayAbility_BasicAttack()
 	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Reload"));
 	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Attack.DashLight")); // 공격 어빌리티가 시작되면 다른 공격 어빌리티는 모두 취소 되도록 해야함
 
-	ActivationOwnedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Attack"));
-	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Dead"));
 	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Dash"));
 }
 
@@ -248,6 +254,7 @@ UGameplayAbility_LightChargeAttack::UGameplayAbility_LightChargeAttack()
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Attack.ChargeLight"));
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("ActionType.Dynamic"));
 	CancelAbilitiesWithTag.AddTag(LightAttack);
+	BlockAbilitiesWithTag.AddTag(LightAttack);
 	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Dead"));
 }
 
@@ -267,4 +274,14 @@ void UGameplayAbility_LightChargeAttack::ActivateAbility(const FGameplayAbilityS
 	}
 
 	EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+}
+
+void UGameplayAbility_LightChargeAttack::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+{
+	if (Character.IsValid())
+	{
+		Character->FinishCharge();
+	}
+
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }

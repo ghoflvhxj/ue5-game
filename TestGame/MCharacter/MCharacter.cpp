@@ -8,6 +8,7 @@
 #include "OnlineSubsystem.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "EnhancedInputComponent.h"
+#include "NiagaraComponent.h"
 // 임시
 #include "BehaviorTree/BehaviorTreeComponent.h"
 
@@ -36,6 +37,12 @@ AMCharacter::AMCharacter()
 	BattleComponent = CreateDefaultSubobject<UMBattleComponent>(TEXT("BattleComponent"));
 
 	StateComponent = CreateDefaultSubobject<UStateComponent>(TEXT("StateComponent"));
+
+	NiagaraComponent = CreateDefaultSubobject<UNiagaraComponent>(TEXT("NiagaraComponent"));
+	if (USkeletalMeshComponent* MeshComponent = GetMesh())
+	{
+		NiagaraComponent->SetupAttachment(MeshComponent);
+	}
 }
 
 // Called when the game starts or when spawned
@@ -88,11 +95,6 @@ void AMCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	//if (bRotateToTargetAngle)
-	//{
-	//	RotateToTargetAngle();
-	//}
-
 	if (InteractTargets.Num() > 0 && IsPlayerControlled())
 	{
 		TWeakObjectPtr<AActor> ClosetTarget = InteractTargets[0];
@@ -128,29 +130,15 @@ void AMCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponen
 
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent))
 	{
-		//if (PlayerGameplayAbilitiesDataAsset)
-		{
-			//const TSet<FGameplayInputAbilityInfo>& InputAbilities = PlayerGameplayAbilitiesDataAsset->GetInputAbilities();
-			//const TSet<FGameplayInputAbilityInfo>& InputAbilities;
-			//for (const auto& It : InputAbilities)
-			//{
-				//if (It.IsValid())
-				//{
-					//const UInputAction* InputAction = It.InputAction;
-					//const int32 InputID = It.InputID;
+		// 총 쏠때 사용한거
+		//EnhancedInputComponent->BindAction(InputAction3, ETriggerEvent::Triggered, this, &AMCharacter::Aim);
 
-					if (InputAction)
-					{
-						EnhancedInputComponent->BindAction(InputAction, ETriggerEvent::Started, this, &AMCharacter::OnAbilityInputPressed, 0);
-						EnhancedInputComponent->BindAction(InputAction, ETriggerEvent::Completed, this, &AMCharacter::OnAbilityInputReleased, 0);
-					}
-
-
-					EnhancedInputComponent->BindAction(InputAction2, ETriggerEvent::Triggered, this, &AMCharacter::BasicAttack);
-					EnhancedInputComponent->BindAction(InputAction2, ETriggerEvent::Completed, this, &AMCharacter::FinishBasicAttack);
-				//}
-			//}
-		}
+		// 마우스 왼쪽 때면 공격
+		EnhancedInputComponent->BindAction(InputAction2, ETriggerEvent::Completed, this, &AMCharacter::BasicAttack);
+		// 마우스 왼쪽 1초 누르면 차징
+		EnhancedInputComponent->BindAction(InputAction3, ETriggerEvent::Triggered, this, &AMCharacter::Charge);
+		// 마우스 왼쪽 1초 누른거 때면 차징 공격
+		EnhancedInputComponent->BindAction(InputAction, ETriggerEvent::Completed, this, &AMCharacter::ChargeAttack);
 	}
 }
 
@@ -214,11 +202,6 @@ UAbilitySystemComponent* AMCharacter::GetAbilitySystemComponent() const
 
 void AMCharacter::OnAbilityInputPressed(int32 InInputID)
 {
-	if (InInputID == 1)
-	{
-		BasicAttack();
-	}
-
 	if (AbilitySystemComponent)
 	{
 		AbilitySystemComponent->AbilityLocalInputPressed(InInputID);
@@ -227,11 +210,6 @@ void AMCharacter::OnAbilityInputPressed(int32 InInputID)
 
 void AMCharacter::OnAbilityInputReleased(int32 InInputID)
 {
-	if (InInputID == 1)
-	{
-		FinishBasicAttack();
-	}
-
 	if (AbilitySystemComponent)
 	{
 		AbilitySystemComponent->AbilityLocalInputReleased(InInputID);
@@ -370,21 +348,6 @@ void AMCharacter::OnDamaged(AActor* DamageInstigator)
 	}
 }
 
-void AMCharacter::TestFunction1()
-{
-
-}
-
-void AMCharacter::TestFunction2()
-{
-
-}
-
-void AMCharacter::TestFunction3()
-{
-
-}
-
 void AMCharacter::AddVitalityChangedDelegate(UObject* Object, const TFunction<void(uint8, uint8)> Function)
 {
 	CompoentLogic<UStateComponent>([Object, Function](UStateComponent* StateMachineComponent){
@@ -474,13 +437,14 @@ void AMCharacter::OnRep_Weapon(AActor* OldWeapon)
 	OnWeaponChangedEvent.Broadcast(OldWeapon, Item);
 }
 
-void AMCharacter::BasicAttack()
+void AMCharacter::Aim()
 {
 	AWeapon* Weapon = GetEquipItem<AWeapon>();
 	if (IsValid(Weapon) == false)
 	{
 		return;
 	}
+
 	const FWeaponData* WeaponData = Weapon->GetItemData();
 	if (WeaponData == nullptr)
 	{
@@ -491,22 +455,31 @@ void AMCharacter::BasicAttack()
 	{
 		switch (WeaponData->WeaponRotateType)
 		{
-			case EWeaponRotateType::None:
-			{
-				// 회전하지 않음
-			}
-			break;
-			case EWeaponRotateType::Instantly:
-			{
-				LookMouse(-1.f);
-			}
-			break;
-			case EWeaponRotateType::Smoothly:
-			{
-				LookMouse(5.f);
-			}
-			break;
+		case EWeaponRotateType::None:
+		{
+			// 회전하지 않음
 		}
+		break;
+		case EWeaponRotateType::Instantly:
+		{
+			LookMouse(-1.f);
+		}
+		break;
+		case EWeaponRotateType::Smoothly:
+		{
+			LookMouse(5.f);
+		}
+		break;
+		}
+	}
+}
+
+void AMCharacter::BasicAttack()
+{
+	AWeapon* Weapon = GetEquipItem<AWeapon>();
+	if (IsValid(Weapon) == false)
+	{
+		return;
 	}
 
 	if (Weapon->IsCoolDown() == false)
@@ -516,12 +489,12 @@ void AMCharacter::BasicAttack()
 			if (AbilitySystemComponent)
 			{
 				AbilitySystemComponent->AbilityLocalInputPressed(1);
-				AbilitySystemComponent->AbilityLocalInputReleased(2);
+				AbilitySystemComponent->AbilityLocalInputPressed(2);
 			}
 		}
 		else
 		{
-			FinishBasicAttack();
+			//FinishBasicAttack();
 		}
 	}
 }
@@ -534,18 +507,59 @@ void AMCharacter::FinishBasicAttack()
 		return;
 	}
 
-	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
-	{
-		Movement->bOrientRotationToMovement = true;
-	}
-
 	if (AbilitySystemComponent)
 	{
 		AbilitySystemComponent->AbilityLocalInputReleased(1);
-		AbilitySystemComponent->AbilityLocalInputPressed(2);
+		AbilitySystemComponent->AbilityLocalInputReleased(2);
 	}
 
 	SetRotateToTargetAngle(false);
+}
+
+void AMCharacter::Charge()
+{
+	AWeapon* Weapon = GetEquipItem<AWeapon>();
+	if (IsValid(Weapon) == false)
+	{
+		return;
+	}
+
+	if (Weapon->IsCoolDown() == false)
+	{
+		AbilitySystemComponent->AbilityLocalInputPressed(5);
+	}
+
+	if (IsValid(NiagaraComponent))
+	{
+		NiagaraComponent->Activate(true);
+	}
+	UE_LOG(LogTemp, Warning, TEXT("Charge"));
+}
+
+void AMCharacter::ChargeAttack()
+{
+	FinishCharge();
+
+	if (AbilitySystemComponent)
+	{
+		AbilitySystemComponent->AbilityLocalInputReleased(5);
+		AbilitySystemComponent->AbilityLocalInputPressed(2);
+	}
+}
+
+void AMCharacter::FinishCharge()
+{
+	if (AWeapon* Weapon = GetEquipItem<AWeapon>())
+	{
+		Weapon->UnCharge();
+	}
+
+	if (IsValid(NiagaraComponent))
+	{
+		NiagaraComponent->Deactivate();
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("FinishCharge"));
 }
 
 void AMCharacter::LookMouse(float TurnSpeed)
@@ -577,6 +591,8 @@ void AMCharacter::Server_SetTargetAngle_Implementation(float InTargetAngle, bool
 	{
 		SetActorRotation(FRotator(0.f, InTargetAngle, 0.f));
 	}
+
+	UE_LOG(LogTemp, Warning, TEXT("Server Set TargetAngle"));
 }
 
 void AMCharacter::SetRotateToTargetAngle(bool bNewValue)
