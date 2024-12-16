@@ -135,13 +135,24 @@ void AWeapon::OnEquipmentChanged(AActor* OldWeapon, AActor* NewWeapon)
 		// 새로운 무기의 어빌리티를 모두 가짐
 		if (const FWeaponData* WeaponData = GetItemData())
 		{
-			OwningCharacter->AddAbilities(WeaponData->AbilitiesDataAsset);
+			Character->AddAbilities(WeaponData->AbilitiesDataAsset);
 		}
 
 		// 애니메이션 갱신
-		if (UMActionComponent* CharacterActionComponent = OwningCharacter->GetComponentByClass<UMActionComponent>())
+		if (UMActionComponent* CharacterActionComponent = Character->GetComponentByClass<UMActionComponent>())
 		{
 			CharacterActionComponent->UpdateAction(ActionComponent);
+		}
+
+		if (UAbilitySystemComponent* CharacterAbilityComponent = Character->GetComponentByClass<UAbilitySystemComponent>())
+		{
+			CharacterAbilityComponent->GetGameplayAttributeValueChangeDelegate(UMAttributeSet::GetWeaponScaleAttribute()).AddUObject(this, &AWeapon::ChangeWeaponScale);
+
+			FOnAttributeChangeData ChangedData;
+			ChangedData.Attribute = nullptr;
+			ChangedData.OldValue = 0.f;
+			ChangedData.NewValue = CharacterAbilityComponent->GetNumericAttribute(UMAttributeSet::GetWeaponScaleAttribute());
+			ChangeWeaponScale(ChangedData);
 		}
 	}
 }

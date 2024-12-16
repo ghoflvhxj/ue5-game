@@ -66,3 +66,12 @@ class UGameplayEffect_AddAttackSpeed : public UGameplayEffect_AttributeAdd
 public:
 	UGameplayEffect_AddAttackSpeed();
 };
+
+UCLASS()
+class UGameplayEffect_AddWeaponScale : public UGameplayEffect_AttributeAdd
+{
+	GENERATED_BODY()
+
+public:
+	UGameplayEffect_AddWeaponScale();
+};

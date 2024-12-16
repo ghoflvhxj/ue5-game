@@ -74,3 +74,15 @@ UGameplayEffect_AddAttackSpeed::UGameplayEffect_AddAttackSpeed()
 	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
 	Modifiers.Add(ModifierInfo);
 }
+
+UGameplayEffect_AddWeaponScale::UGameplayEffect_AddWeaponScale()
+{
+	FGameplayModifierInfo ModifierInfo;
+	FSetByCallerFloat SetByCaller;
+
+	ModifierInfo.Attribute = Attribute = UMAttributeSet::GetWeaponScaleAttribute();
+	ModifierInfo.ModifierOp = EGameplayModOp::Additive;
+	SetByCaller.DataTag = EffectParamTag;
+	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
+	Modifiers.Add(ModifierInfo);
+}

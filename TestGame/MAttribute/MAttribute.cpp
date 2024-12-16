@@ -31,14 +31,19 @@ void UMAttributeSet::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty> 
 	DOREPLIFETIME(UMAttributeSet, AttackSpeed);
 }
 
-void UMAttributeSet::OnRep_Health(const FGameplayAttributeData& OldValue)
+void UMAttributeSet::OnRep_Health(const FGameplayAttributeData& OldData)
 {
-	GAMEPLAYATTRIBUTE_REPNOTIFY(UMAttributeSet, Health, OldValue);
+	GAMEPLAYATTRIBUTE_REPNOTIFY(UMAttributeSet, Health, OldData);
 }
 
-void UMAttributeSet::OnRep_MoveSpeed(const FGameplayAttributeData& OldValue)
+void UMAttributeSet::OnRep_MoveSpeed(const FGameplayAttributeData& OldData)
 {
-	GAMEPLAYATTRIBUTE_REPNOTIFY(UMAttributeSet, MoveSpeed, OldValue);
+	GAMEPLAYATTRIBUTE_REPNOTIFY(UMAttributeSet, MoveSpeed, OldData);
+}
+
+void UMAttributeSet::OnRep_WeaponScale(const FGameplayAttributeData& OldData)
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(UMAttributeSet, WeaponScale, OldData);
 }
 
 void UMWeaponAttributeSet::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const

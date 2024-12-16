@@ -48,19 +48,32 @@ protected:
 public:
 	UFUNCTION()
 	void OnRep_Health(const FGameplayAttributeData& OldValue);
-	UFUNCTION()
-	void OnRep_MoveSpeed(const FGameplayAttributeData& OldValue);
 public:
 	GAMEPLAYATTRIBUTE_VALUE_SETTER(Health);
 	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, Health);
 
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing = OnRep_MoveSpeed)
+	FGameplayAttributeData MoveSpeed;
+public:
+	UFUNCTION()
+	void OnRep_MoveSpeed(const FGameplayAttributeData& OldData);
+public:
+	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, MoveSpeed);
+
+	// 무기 크기
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing = OnRep_WeaponScale)
+	FGameplayAttributeData WeaponScale;
+public:
+	UFUNCTION()
+	void OnRep_WeaponScale(const FGameplayAttributeData& OldData);
+public:
+	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, WeaponScale);
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated)
 	FGameplayAttributeData AttackPower;
 	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, AttackPower);
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing = OnRep_MoveSpeed)
-	FGameplayAttributeData MoveSpeed;
-	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, MoveSpeed);
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated)
 	FGameplayAttributeData AttackSpeed;
@@ -68,6 +81,8 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FGameplayAttributeData KnockBackPower;
+
+
 };
 
 UCLASS(Blueprintable)
