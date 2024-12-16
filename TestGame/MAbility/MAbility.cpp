@@ -15,6 +15,7 @@
 
 #include "TestGame/MCharacter/Component/ActionComponent.h"
 #include "TestGame/MCharacter/MCharacter.h"
+#include "TestGame/MCharacter/MPlayer.h"
 #include "TestGame/MWeapon/Weapon.h"
 #include "TestGame/MAttribute/MAttribute.h"
 #include "TestGame/MAbility/MEffect.h"
@@ -553,7 +554,7 @@ UGameplayAbility_Combo::UGameplayAbility_Combo()
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
 
-	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Action.BasicAttack.Combo"));
+	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Action.AttackCombo"));
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("ActionType.Dynamic"));
 
 	ActivationOwnedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Attack"));
@@ -786,6 +787,7 @@ UGameplayAbility_Dash::UGameplayAbility_Dash()
 	ActivationOwnedTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Dash"));
 
 	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.BasicAttack"));
+	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Attack"));
 	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Reload"));
 
 	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Dead"));
@@ -802,18 +804,29 @@ void UGameplayAbility_Dash::ActivateAbility(const FGameplayAbilitySpecHandle Han
 
 	if (AMCharacter* Character = Cast<AMCharacter>(GetAvatarActorFromActorInfo()))
 	{
-		if (UCharacterMovementComponent* MovementComponent = Character->GetCharacterMovement())
+		// 로컬 입력이 있는 경우에만...
+		if (Character->IsLocallyControlled())
 		{
-			FVector LastInputVector = MovementComponent->GetLastInputVector();
-			if (bool bForward = LastInputVector.X != 0.f)
+			FVector InputVector = FVector::ZeroVector;
+			if (UInputCacheComponent* InputCacheComponent = Character->GetComponentByClass<UInputCacheComponent>())
 			{
-				Character->SetActorRotation(FRotator(0.0, LastInputVector.X >= 0.0 ? 0.0 : 180.0, 0.0));
-				Character->Server_SetTargetAngle(LastInputVector.X >= 0.0 ? 0.0 : 180.0, true);
+				InputVector = InputCacheComponent->GetInput();
 			}
-			if (bool bStrafe = LastInputVector.Y != 0.f)
+			else if (UCharacterMovementComponent* MovementComponent = Character->GetCharacterMovement())
 			{
-				Character->SetActorRotation(FRotator(0.0, LastInputVector.Y >= 0.0 ? 90.0 : 270.0, 0.0));
-				Character->Server_SetTargetAngle(LastInputVector.Y >= 0.0 ? 90.0 : 270.0, true);
+				InputVector = MovementComponent->GetLastInputVector();
+			}
+
+			// 대시 방향이 이상한 경우가 있던데, Unreliable RPC라 가끔씩 씹히는 경우로 확인됨. 어떻게 해결할지는 이후에 생각함
+			if (bool bForward = InputVector.X != 0.f)
+			{
+				Character->SetActorRotation(FRotator(0.0, InputVector.X >= 0.0 ? 0.0 : 180.0, 0.0));
+				Character->Server_SetTargetAngle(InputVector.X >= 0.0 ? 0.0 : 180.0, true);
+			}
+			if (bool bStrafe = InputVector.Y != 0.f)
+			{
+				Character->SetActorRotation(FRotator(0.0, InputVector.Y >= 0.0 ? 90.0 : 270.0, 0.0));
+				Character->Server_SetTargetAngle(InputVector.Y >= 0.0 ? 90.0 : 270.0, true);
 			}
 		}
 

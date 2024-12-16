@@ -11,3 +11,13 @@ AMPlayer::AMPlayer()
 	CameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraComponent"));
 	CameraComponent->SetupAttachment(SpringArmComponent);
 
+	LevelComponent = CreateDefaultSubobject<ULevelComponent>(TEXT("LevelComponent"));
+
+	InputCacheComponent = CreateDefaultSubobject<UInputCacheComponent>(TEXT("InputCacheComponent"));
+}
+
+UInputCacheComponent::UInputCacheComponent()
+{
+	SetIsReplicatedByDefault(false);
+	PrimaryComponentTick.bCanEverTick = false;
+}
