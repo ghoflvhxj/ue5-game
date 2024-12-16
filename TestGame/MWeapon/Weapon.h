@@ -8,7 +8,9 @@
 
 class UMAbilityDataAsset;
 class UMActionDataAsset;
+class UAttributeSet;
 class AMCharacter;
+struct FOnAttributeChangeData;
 
 UENUM(BlueprintType)
 enum class EWeaponType : uint8
@@ -33,6 +35,15 @@ enum class EWeaponRotateType : uint8
 	None,
 	Instantly,
 	Smoothly
+};
+
+USTRUCT(BlueprintType)
+struct FWeaponInfo : public FTableRowBase
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool LookMouseWhenCharging = true;
 };
 
 USTRUCT(BlueprintType)
@@ -105,6 +116,9 @@ protected:
 public:
 	void SetEquipActor(AActor* EquipActor);
 	void OnEquipmentChanged(AActor* OldWeapon, AActor* NewWeapon);
+	void ChangeWeaponScale(const FOnAttributeChangeData& AttributeChangeData);
+protected:
+	FDelegateHandle EquipChangedHandle;
 
 	// WeaponIndex
 public:
@@ -149,7 +163,18 @@ public:
 protected:
 	bool bCoolDown = false;
 
+public:
+	bool IsCharged() { return bCharge; }
+	void Charge() { bCharge = true; }
+	void UnCharge() { bCharge = false; }
+protected:
+	bool bCharge = false;
+
 	FTimerHandle AttackTimerHandle;
+
+// 임시. WeaponTable만들고 Info와 Data를 가리키도록 변경해야 함
+public:
+	FWeaponInfo WeaponInfo;
 };
 
 UCLASS()

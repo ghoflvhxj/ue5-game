@@ -9,7 +9,7 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "AbilitySystemBlueprintLibrary.h"
 
-DECLARE_LOG_CATEGORY_CLASS(Log_Weapon, Log, Log);
+DECLARE_LOG_CATEGORY_CLASS(LogWeapon, Log, Log);
 
 AWeapon::AWeapon()
 {
@@ -24,7 +24,7 @@ void AWeapon::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
 
-	//UE_LOG(Log_Weapon, Warning, TEXT("Weapon Construct Index:%d"), WeaponIndex);
+	//UE_LOG(LogWeapon, Warning, TEXT("Weapon Construct Index:%d"), WeaponIndex);
 
 	if (const FWeaponData* WeaponData = GetItemData())
 	{
@@ -106,15 +106,15 @@ void AWeapon::SetEquipActor(AActor* EquipActor)
 
 	if (AMCharacter* Character = Cast<AMCharacter>(EquipActor))
 	{
-		Character->OnWeaponChangedEvent.AddUObject(this, &AWeapon::OnEquipmentChanged);
+		EquipChangedHandle = Character->OnWeaponChangedEvent.AddUObject(this, &AWeapon::OnEquipmentChanged);
 		Character->EquipItem(this);
 	}
 }
 
 void AWeapon::OnEquipmentChanged(AActor* OldWeapon, AActor* NewWeapon)
 {
-	AMCharacter* OwningCharacter = Cast<AMCharacter>(GetOwner());
-	if (IsValid(OwningCharacter) == false)
+	AMCharacter* Character = Cast<AMCharacter>(GetOwner());
+	if (IsValid(Character) == false)
 	{
 		return;
 	}
@@ -127,6 +127,12 @@ void AWeapon::OnEquipmentChanged(AActor* OldWeapon, AActor* NewWeapon)
 		if (const FWeaponData* WeaponData = GetItemData())
 		{
 			//OwningCharacter->RemoveAbilities(WeaponData->AbilitiesDataAsset);
+		}
+
+		if (EquipChangedHandle.IsValid())
+		{
+			Character->OnWeaponChangedEvent.Remove(EquipChangedHandle);
+			EquipChangedHandle.Reset();
 		}
 	}
 
@@ -155,6 +161,11 @@ void AWeapon::OnEquipmentChanged(AActor* OldWeapon, AActor* NewWeapon)
 			ChangeWeaponScale(ChangedData);
 		}
 	}
+}
+
+void AWeapon::ChangeWeaponScale(const FOnAttributeChangeData& AttributeChangeData)
+{
+	SetActorScale3D(FVector(AttributeChangeData.NewValue));
 }
 
 void AWeapon::OnRep_WeaponIndex()
@@ -211,7 +222,20 @@ void AWeapon::NextCombo()
 		return;
 	}
 
+	float OwnerAttackSpeed = 1.f;
+	if (UAbilitySystemComponent* CharacterAbilityComponent = Character->GetAbilitySystemComponent())
+	{
+		bool bFound = false;
+		CharacterAbilityComponent->GetGameplayAttributeValue(UMAttributeSet::GetAttackSpeedAttribute(), bFound);
+		if (bFound == false)
+		{
+			UE_LOG(LogWeapon, Warning, TEXT("Need attribute AttackSpeed. Failed to attack"));
+			return;
+		}
+	}
+
 	// 임시작업, 공격속도 어트리뷰트를 가져오도록 변경해야 함
+	// 공격속도가 빨라진다 = AttackSpeed 증가를 의미하는데 이게 맞는건가?
 	if (WeaponData->AttackSpeed > 0.f)
 	{
 		GetWorldTimerManager().SetTimer(AttackTimerHandle, this, &AWeapon::OnAttackCoolDownFinished, WeaponData->AttackSpeed, false);
@@ -219,7 +243,7 @@ void AWeapon::NextCombo()
 
 	if (WeaponData->WeaponType == EWeaponType::Sword)
 	{
-		if (AttackMode == FGameplayTag::RequestGameplayTag("Action.BasicAttack"))
+		if (AttackMode == FGameplayTag::RequestGameplayTag("Action.BasicAttack") || AttackMode == FGameplayTag::RequestGameplayTag("Action.Attack.ChargeLight"))
 		{
 			Character->LookMouse(-1.f);
 		}
@@ -252,18 +276,15 @@ bool AWeapon::IsAttackable() const
 {
 	const FWeaponData* WeaponData = GetItemData();
 
-	if (WeaponData == nullptr)
+	if (WeaponData == nullptr || IsValid(AbilitySystemComponent) == false)
 	{
 		return false;
 	}
 
-	if (IsValid(AbilitySystemComponent))
+	if (WeaponData->WeaponType == EWeaponType::Gun)
 	{
-		if (WeaponData->WeaponType == EWeaponType::Gun)
-		{
-			bool bFound = false;
-			return static_cast<int>(AbilitySystemComponent->GetGameplayAttributeValue(UMWeaponAttributeSet::GetAmmoAttribute(), bFound)) > 0;
-		}
+		bool bFound = false;
+		return static_cast<int>(AbilitySystemComponent->GetGameplayAttributeValue(UMWeaponAttributeSet::GetAmmoAttribute(), bFound)) > 0;
 	}
 
 	return true;

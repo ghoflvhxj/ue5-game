@@ -1,7 +1,8 @@
 #include "MAnimNotify.h"
+#include "AbilitySystemBlueprintLibrary.h"
 #include "TestGame/Bullet/Bullet.h"
 #include "TestGame/MCharacter/MCharacter.h"
-#include "AbilitySystemBlueprintLibrary.h"
+#include "TestGame/MWeapon/Weapon.h"
 
 DECLARE_LOG_CATEGORY_CLASS(LogNotify, Log, Log)
 
@@ -27,6 +28,19 @@ void UMAnimNotify_SpawnActor::Notify(USkeletalMeshComponent* MeshComp, UAnimSequ
 			UGameplayStatics::FinishSpawningActor(NewActor, SpawnTransform);
 			OnSpawnFinished(NewActor, MeshComp);
 		}
+	}
+}
+
+void UMAnimNotify_SpawnActor::OnSpawn(AActor* InActor, USkeletalMeshComponent* MeshComp)
+{
+	if (IsValid(MeshComp) == false)
+	{
+		return;
+	}
+
+	if (AMCharacter* Character = Cast<AMCharacter>(MeshComp->GetOwner()))
+	{
+		InActor->SetOwner(bWeaponOwning ? Character->GetEquipItem<AActor>() : Character);
 	}
 }
 
@@ -68,21 +82,11 @@ void UMAnimNotify_SpawnBullet::OnSpawn(AActor* InActor, USkeletalMeshComponent* 
 		return;
 	}
 
-	if (ABullet* Bullet = Cast<ABullet>(InActor))
-	{
-		if (AMCharacter* Character = Cast<AMCharacter>(MeshComp->GetOwner()))
-		{
-			Bullet->SetOwner(Character->GetEquipItem<AWeapon>());
-		}
-	}
-
-	UParticleSystemComponent* ReturnComp = nullptr;
-
 	if (Particle)
 	{
 		FTransform SpawnTransform = GetSocketTransform(MeshComp);
 		SpawnTransform.SetScale3D(ParticleScale);
-		ReturnComp = UGameplayStatics::SpawnEmitterAtLocation(MeshComp->GetWorld(), Particle, SpawnTransform);
+		UParticleSystemComponent* ReturnComp = UGameplayStatics::SpawnEmitterAtLocation(MeshComp->GetWorld(), Particle, SpawnTransform);
 	}
 }
 
@@ -201,5 +205,18 @@ void UMAnimNotifyState_AddMovemntInput::NotifyTick(USkeletalMeshComponent* MeshC
 	if (ACharacter* Character = Cast<ACharacter>(MeshComp->GetOwner()))
 	{
 		Character->AddMovementInput(Character->GetActorForwardVector(), Scale);
+	}
+}
+
+void UAnimNotify_WeaponCharge::Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference)
+{
+	Super::Notify(MeshComp, Animation, EventReference);
+
+	if (AMCharacter* Character = Cast<AMCharacter>(MeshComp->GetOwner()))
+	{
+		if (AWeapon* Weapon = Character->GetEquipItem<AWeapon>())
+		{
+			Weapon->Charge();
+		}
 	}
 }

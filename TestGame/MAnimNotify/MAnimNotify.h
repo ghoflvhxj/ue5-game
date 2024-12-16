@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Animation/AnimNotifies/AnimNotifyState.h"
+#include "GameplayTagContainer.h"
 
 #include "MAnimNotify.generated.h"
 
@@ -15,7 +16,7 @@ class TESTGAME_API UMAnimNotify_SpawnActor : public UAnimNotify
 public:
 	virtual void Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference) override;
 public:
-	virtual void OnSpawn(AActor* InActor, USkeletalMeshComponent* MeshComp) {}
+	virtual void OnSpawn(AActor* InActor, USkeletalMeshComponent* MeshComp);
 	virtual void OnSpawnFinished(AActor* InActor, USkeletalMeshComponent* MeshComp) {}
 	virtual bool GetSpawnParam(USkeletalMeshComponent* MeshComp, FActorSpawnParameters& OutSpawnTransform);
 	virtual AActor* GetContextObject(USkeletalMeshComponent* MeshComp);
@@ -28,6 +29,8 @@ protected:
 	FName SpawnSocketName;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FVector SpawnOffset;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	bool bWeaponOwning = false;
 };
 
 UCLASS()
@@ -87,4 +90,12 @@ public:
 protected:
 	UPROPERTY(EditAnywhere)
 	float Scale = 1.f;
+};
+UCLASS()
+class TESTGAME_API UAnimNotify_WeaponCharge : public UAnimNotify
+{
+	GENERATED_BODY()
+
+public:
+	virtual void Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference) override;
 };
