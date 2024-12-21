@@ -12,6 +12,15 @@ struct FRound;
 //struct FExperienceInfo;
 struct FOnAttributeChangeData;
 struct FPickData;
+struct FGameplayCueParameters;
+
+USTRUCT(BlueprintType)
+struct FDamage
+{
+	GENERATED_BODY()
+
+	float Value = 0.f;
+};
 
 UCLASS()
 class TESTGAME_API AMHud : public AHUD
@@ -67,8 +76,10 @@ protected:
 	FDelegateHandle HealthUpdateHandle;
 
 public:
-	UFUNCTION(BlueprintNativeEvent)
-	void ShowGameOver();
+	UFUNCTION(BlueprintImplementableEvent)
+	void ShowFloatingMessage(AActor* InActor, const FGameplayCueParameters& InCueParameter);
+	UFUNCTION(BlueprintImplementableEvent)
+	void ShowDamageFloater(const FDamage& InDamage);
 
 	// 무기 정보 갱신
 public:
@@ -94,7 +105,10 @@ public:
 public:
 	UFUNCTION(BlueprintImplementableEvent)
 	void ShowGameFinish();
+	UFUNCTION(BlueprintNativeEvent)
+	void ShowGameOver();
 
+	// 재화
 public:
 	UFUNCTION(BlueprintImplementableEvent)
 	void UpdateMoney(int32 InMoney);
