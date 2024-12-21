@@ -22,6 +22,11 @@ void AMPlayerControllerInGame::BeginPlay()
 	{
 		OnRep_PlayerState();
 	}
+	
+	if (IsLocalController())
+	{
+		Server_Ready();
+	}
 
 	AMHudInGame* HudInGame = GetHUD<AMHudInGame>();
 	if (IsValid(PickComponent) && IsValid(HudInGame))
@@ -70,6 +75,11 @@ float AMPlayerControllerInGame::GetAngleToMouse(const FVector& InLocation)
 	}
 
 	return 0.f;
+}
+
+void AMPlayerControllerInGame::Server_Ready_Implementation()
+{
+	bReady = true;
 }
 
 UPickComponent::UPickComponent()

@@ -38,6 +38,13 @@ public:
 public:
 	UFUNCTION(BlueprintPure)
 	float GetAngleToMouse(const FVector& InLocation);
+
+public:
+	bool IsReady() const { return bReady; }
+	UFUNCTION(Server, Reliable)
+	void Server_Ready();
+protected:
+	mutable bool bReady = false;
 };
 
 USTRUCT(BlueprintType)
