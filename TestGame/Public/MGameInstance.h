@@ -7,7 +7,7 @@
 
 #include "MGameInstance.generated.h"
 
-struct FItemBaseInfo;
+struct FGameItemTableRow;
 
 UCLASS(Blueprintable)
 class TESTGAME_API UMGameInstance : public UGameInstance
@@ -18,10 +18,9 @@ public:
 	virtual void Init() override;
 
 public:
-	FItemBaseInfo* GetItemBaseInfo(FName InRowName);
-	FItemBaseInfo* GetItemBaseInfo(int32 InItemIndex);
+	FGameItemTableRow* GetItemTableRow(FName InRowName);
+	FGameItemTableRow* GetItemTableRow(int32 InItemIndex);
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	UDataTable* ItemDataTable = nullptr;
-	TMap<int32, FName> ItemIndexToNameMap;
 };

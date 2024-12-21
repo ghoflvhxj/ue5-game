@@ -8,10 +8,6 @@ void UMGameInstance::Init()
 
 	if (IsValid(ItemDataTable))
 	{
-		ItemDataTable->ForeachRow<FItemBaseInfo>(TEXT("ItemTable"), [this](const FName & Key, const FItemBaseInfo & Value) {
-			ItemIndexToNameMap.Emplace(Value.Index, Key);
-		});
-
 		//TArray<FItemBaseInfo*> ItemBaseInfos;
 		//ItemDataTable->GetAllRows(TEXT("ItemTable"), ItemBaseInfos);
 
@@ -22,21 +18,16 @@ void UMGameInstance::Init()
 	}
 }
 
-FItemBaseInfo* UMGameInstance::GetItemBaseInfo(int32 InItemIndex)
+FGameItemTableRow* UMGameInstance::GetItemTableRow(int32 InItemIndex)
 {
-	if (InItemIndex != INDEX_NONE && ItemIndexToNameMap.Contains(InItemIndex))
-	{
-		return GetItemBaseInfo(ItemIndexToNameMap[InItemIndex]);
-	}
-
-	return nullptr;
+	return GetItemTableRow(*FString::FromInt(InItemIndex));
 }
 
-FItemBaseInfo* UMGameInstance::GetItemBaseInfo(FName InRowName)
+FGameItemTableRow* UMGameInstance::GetItemTableRow(FName InRowName)
 {
 	if (IsValid(ItemDataTable) && InRowName != NAME_None)
 	{
-		return ItemDataTable->FindRow<FItemBaseInfo>(InRowName, TEXT("ItemTable"));
+		return ItemDataTable->FindRow<FGameItemTableRow>(InRowName, TEXT("ItemTable"));
 	}
 
 	return nullptr;

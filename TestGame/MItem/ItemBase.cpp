@@ -32,31 +32,24 @@ void AItemBase::OnRep_ItemIndex()
 	UE_LOG(LogItem, Log, TEXT("%s OnRep_ItemIndex: %d"), HasAuthority() && IsNetMode(NM_Client) == false ? TEXT("Server") : TEXT("Client"), ItemIndex);
 }
 
-const FItemBaseInfo& AItemBase::GetItemTableRowImplement()
+const FGameItemTableRow& AItemBase::GetItemTableRowImplement()
 {
 	return *GetItemTableRow();
 }
 
-FItemBaseInfo* AItemBase::GetItemTableRow()
+FGameItemTableRow* AItemBase::GetItemTableRow()
 {
 #if WITH_EDITOR
 	if (IsValid(ItemTable))
 	{
-		FName ItemRowName = NAME_None;
-		ItemTable->ForeachRow<FItemBaseInfo>(TEXT("ItemTable"), [this, &ItemRowName](const FName & Key, const FItemBaseInfo & Value) {
-			if (Value.Index == ItemIndex)
-			{
-				ItemRowName = Key;
-			}
-		});
-
-		return ItemTable->FindRow<FItemBaseInfo>(ItemRowName, TEXT("ItemTable"));
+		FName ItemRowName = *FString::FromInt(ItemIndex);
+		return ItemTable->FindRow<FGameItemTableRow>(ItemRowName, TEXT("ItemTable"));
 	}
 #endif
 
 	if (UMGameInstance* GameInstance = Cast<UMGameInstance>(UGameplayStatics::GetGameInstance(this)))
 	{
-		return GameInstance->GetItemBaseInfo(ItemIndex);
+		return GameInstance->GetItemTableRow(ItemIndex);
 	}
 
 	return nullptr;

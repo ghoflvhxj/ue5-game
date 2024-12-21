@@ -2,11 +2,15 @@
 
 #include "GameFramework/PlayerState.h"
 #include "AbilitySystemBlueprintLibrary.h"
+#include "NiagaraSystem.h"
+#include "NiagaraComponent.h"
 
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MCharacter/Component/InteractorComponent.h"
 #include "TestGame/MComponents/InventoryComponent.h"
 #include "TestGame/MWeapon/Weapon.h"
+
+DECLARE_LOG_CATEGORY_CLASS(LogDropItem, Log, Log);
 
 // Sets default values
 ADropItem::ADropItem()
@@ -26,6 +30,9 @@ ADropItem::ADropItem()
 	SkeletalMeshComponent->SetupAttachment(GetRootComponent());
 	SkeletalMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	SkeletalMeshComponent->SetComponentTickEnabled(false);
+
+	NiagaraComponent = CreateDefaultSubobject<UNiagaraComponent>(TEXT("NiagaraComponent"));
+	NiagaraComponent->SetupAttachment(SphereComponent);
 
 	InteractorComponent = CreateDefaultSubobject<UMInteractorComponent>(TEXT("InteractorComponent"));
 	InteractorComponent->SetComponentTickEnabled(false);
@@ -51,7 +58,7 @@ void ADropItem::BeginPlay()
 	if (IsValid(InteractorComponent))
 	{
 		InteractorComponent->InteractFinishEvent.AddWeakLambda(this, [this]() {
-			FItemBaseInfo* ItemBaseInfo = GetItemTableRow();
+			FGameItemTableRow* ItemBaseInfo = GetItemTableRow();
 			AMCharacter* Interactor = InteractorComponent->GetInteractor<AMCharacter>();
 			if (IsValid(Interactor) == false || ItemBaseInfo == nullptr)
 			{
@@ -100,7 +107,19 @@ void ADropItem::BeginPlay()
 								EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, TagToValuePair.Key, TagToValuePair.Value);
 							}
 
+							if (EffectSpecHandle.IsValid() == false)
+							{
+								UE_LOG(LogDropItem, Warning, TEXT("Faield to apply item(%d) effect."), ItemIndex);
+								continue;
+							}
+
 							AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*EffectSpecHandle.Data.Get());
+						}
+
+						for (const auto& AbilityClass : ItemBaseInfo->GameItemData.Abilities)
+						{
+							FGameplayAbilitySpec AbilitySpec(AbilityClass);
+							AbilitySystemComponent->GiveAbility(AbilitySpec);
 						}
 					}
 				}
@@ -114,6 +133,8 @@ void ADropItem::BeginPlay()
 				SphereComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 				SphereComponent->SetGenerateOverlapEvents(false);
 			}
+
+			
 		});
 	}
 
@@ -134,9 +155,9 @@ void ADropItem::UpdateItemMesh()
 		return;
 	}
 
-	if (FItemBaseInfo* ItemBaseInfo = GetItemTableRow())
+	if (FGameItemTableRow* ItemBaseInfo = GetItemTableRow())
 	{
-		if (UStreamableRenderAsset* MeshAsset = ItemBaseInfo->GetMesh())
+		if (UStreamableRenderAsset* MeshAsset = ItemBaseInfo->GetMesh<UStreamableRenderAsset>())
 		{
 			switch (MeshAsset->GetRenderAssetType())
 			{
@@ -164,6 +185,13 @@ void ADropItem::UpdateItemMesh()
 					}
 				}
 				break;
+			}
+		}
+		else if (UNiagaraSystem* NiagaraAsset = ItemBaseInfo->GetMesh<UNiagaraSystem>())
+		{
+			if (IsValid(NiagaraComponent))
+			{
+				NiagaraComponent->SetAsset(NiagaraAsset);
 			}
 		}
 	}

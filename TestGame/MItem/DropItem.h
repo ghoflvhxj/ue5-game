@@ -10,6 +10,7 @@
 #include "DropItem.generated.h"
 
 class UMInteractorComponent;
+class UNiagaraComponent;
 class AWeapon;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnInteractTargetedDelegate, bool, bTargeted);
@@ -21,15 +22,16 @@ class TESTGAME_API ADropItem : public AItemBase
 
 public:
 	ADropItem();
-
-	// 컴포넌트
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	USphereComponent* SphereComponent;
+	USphereComponent* SphereComponent = nullptr;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	UStaticMeshComponent* StaticMeshComponent;
+	UStaticMeshComponent* StaticMeshComponent = nullptr;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	USkeletalMeshComponent* SkeletalMeshComponent;
+	UNiagaraComponent* NiagaraComponent = nullptr;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	USkeletalMeshComponent* SkeletalMeshComponent = nullptr;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	UMInteractorComponent* InteractorComponent;
 

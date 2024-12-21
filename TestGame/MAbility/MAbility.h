@@ -34,8 +34,45 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bActivate;
+};
 
-	// server, client, all
+USTRUCT(BlueprintType)
+struct TESTGAME_API FAbilityInfo
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FText Name;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FText Description;
+};
+
+USTRUCT(BlueprintType)
+struct TESTGAME_API FAbilityTableRow : public FTableRowBase
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	int32 Index = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FAbilityInfo AbilityInfo;
+
+public:
+	virtual void OnPostDataImport(const UDataTable* InDataTable, const FName InRowName, TArray<FString>& OutCollectedImportProblems) override
+	{
+		Super::OnPostDataImport(InDataTable, InRowName, OutCollectedImportProblems);
+		if (InRowName.ToString().IsNumeric())
+		{
+			Index = FCString::Atoi(*InRowName.ToString());
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("DataTable(%s) rowname(%s) is not numeric. Failed to initialize index property!!!"), *InDataTable->GetName(), *InRowName.ToString());
+		}
+	}
 };
 
 UCLASS()

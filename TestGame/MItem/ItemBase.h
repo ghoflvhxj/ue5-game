@@ -8,6 +8,7 @@
 
 #include "ItemBase.generated.h"
 
+class UGameplayAbility;
 class UGameplayEffect;
 
 UENUM()
@@ -17,6 +18,15 @@ enum class EItemType : uint8
 	Common,
 	Weapon,
 	Money,
+};
+
+UENUM(BlueprintType)
+enum class EItemGrade : uint8
+{
+	None,
+	Normal,
+	Rare,
+	Unique,
 };
 
 USTRUCT(BlueprintType)
@@ -32,6 +42,9 @@ USTRUCT(BlueprintType)
 struct FGameItemData
 {
 	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TSet<TSubclassOf<UGameplayAbility>> Abilities;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TMap<TSubclassOf<UGameplayEffect>, FGameplayEffectParam> GameplayEffects;
@@ -55,6 +68,9 @@ struct FGameItemInfo
 	FText Description;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	EItemGrade Grade = EItemGrade::None;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class UPaperSprite* Icon = nullptr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -63,7 +79,7 @@ struct FGameItemInfo
 
 
 USTRUCT(BlueprintType)
-struct FItemBaseInfo : public FTableRowBase
+struct FGameItemTableRow : public FTableRowBase
 {
 	GENERATED_BODY()
 
@@ -78,11 +94,26 @@ public:
 	FGameItemData GameItemData;
 
 public:
-	UStreamableRenderAsset* GetMesh() const
+	virtual void OnPostDataImport(const UDataTable* InDataTable, const FName InRowName, TArray<FString>& OutCollectedImportProblems) override
+	{
+		Super::OnPostDataImport(InDataTable, InRowName, OutCollectedImportProblems);
+		if (InRowName.ToString().IsNumeric())
+		{
+			Index = FCString::Atoi(*InRowName.ToString());
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("DataTable(%s) rowname(%s) is not numeric. Failed to initialize index property!!!"), *InDataTable->GetName(), *InRowName.ToString());
+		}
+	}
+
+public:
+	template<class T>
+	T* GetMesh() const
 	{
 		if (GameItemInfo.DropMesh.IsValid())
 		{
-			return Cast<UStreamableRenderAsset>(GameItemInfo.DropMesh.TryLoad());
+			return Cast<T>(GameItemInfo.DropMesh.TryLoad());
 		}
 		return nullptr;
 	}
@@ -111,8 +142,8 @@ protected:
 	// 아이템 정보
 public:
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "GetItemTableRow"))
-	const FItemBaseInfo& GetItemTableRowImplement();
-	FItemBaseInfo* GetItemTableRow();
+	const FGameItemTableRow& GetItemTableRowImplement();
+	FGameItemTableRow* GetItemTableRow();
 	// 아이템 데이터
 public:
 	FGameItemData* GetItemData();
