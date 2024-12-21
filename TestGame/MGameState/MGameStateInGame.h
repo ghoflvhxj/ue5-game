@@ -68,6 +68,7 @@ public:
 	virtual void HandleMatchHasEnded() override;
 public:
 	FOnMatchEndEvent OnMatchEndEvent;
+	FTimerHandle GameStartTimerHandle;
 
 	// 부활
 public:
@@ -144,6 +145,8 @@ public:
 	void StartWave();
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_Wave(const FRound& InRound);
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_WaitNextRound();
 public:
 	FOnWaitNextRound& GetWaitNextRoundEvent() { return OnWaitNextRoundEvent; }
 	FOnRoundChangedEvent& GetRoundChangeEvent() { return OnRoundChangedEvent; }

@@ -7,6 +7,7 @@
 #include "Kismet/GameplayStatics.h"
 
 #include "TestGame/MSpawner/MonsterSpawner.h"
+#include "TestGame/MPlayerController/MPlayerController.h"
 
 DECLARE_LOG_CATEGORY_CLASS(LogRound, Log, Log);
 DECLARE_LOG_CATEGORY_CLASS(LogReward, Log, Log);
@@ -46,7 +47,23 @@ void AMGameStateInGame::HandleMatchHasStarted()
 
 	if (HasAuthority() && IsValid(RoundComponent))
 	{
-		RoundComponent->TryNextRound(0.f);
+		GetWorldTimerManager().SetTimer(GameStartTimerHandle, FTimerDelegate::CreateWeakLambda(this, [this]() {
+			
+			for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It) 
+			{
+				if (AMPlayerControllerInGame* PlayerController = Cast<AMPlayerControllerInGame>(It->Get()))
+				{
+					if (PlayerController->IsReady() == false)
+					{
+						return;
+					}
+				}
+			}
+
+			RoundComponent->TryNextRound(3.f);
+			GetWorldTimerManager().ClearTimer(GameStartTimerHandle);
+
+		}), 1.f, true);
 	}
 }
 
@@ -162,7 +179,7 @@ void URoundComponent::TryNextRound(float Delay)
 			NextRound();
 		}), Delay, false);
 
-		OnWaitNextRoundEvent.Broadcast();
+		Multicast_WaitNextRound();
 	}
 }
 
@@ -243,6 +260,11 @@ void URoundComponent::Multicast_Wave_Implementation(const FRound& InRound)
 
 	OnRoundAndWaveChangedEvent.Broadcast(RoundWaveData);
 	UE_LOG(LogRound, Log, TEXT("Wave Updated %d-%d"), RoundWaveData.Round, RoundWaveData.Wave);
+}
+
+void URoundComponent::Multicast_WaitNextRound_Implementation()
+{
+	OnWaitNextRoundEvent.Broadcast();
 }
 
 void ARoundReward::BeginPlay()
