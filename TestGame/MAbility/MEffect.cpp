@@ -17,6 +17,11 @@ UGameplayEffect_Damage::UGameplayEffect_Damage()
 	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
 	ModifierInfo.TargetTags.IgnoreTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Ability.DamageImmune"));
 	Modifiers.Add(ModifierInfo);
+
+	FGameplayEffectCue EffectCue;
+	EffectCue.GameplayCueTags.AddTag(FGameplayTag::RequestGameplayTag("GameplayCue.UI.Floater.Deal"));
+	EffectCue.MagnitudeAttribute = UMAttributeSet::GetHealthAttribute();
+	GameplayCues.Add(EffectCue);
 }
 
 UGameplayEffect_ConsumeAmmo::UGameplayEffect_ConsumeAmmo()
@@ -85,4 +90,21 @@ UGameplayEffect_AddWeaponScale::UGameplayEffect_AddWeaponScale()
 	SetByCaller.DataTag = EffectParamTag;
 	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
 	Modifiers.Add(ModifierInfo);
+}
+
+UGameplayEffect_AddHealth::UGameplayEffect_AddHealth()
+{
+	FGameplayModifierInfo ModifierInfo;
+	FSetByCallerFloat SetByCaller;
+
+	ModifierInfo.Attribute = Attribute = UMAttributeSet::GetHealthAttribute();
+	ModifierInfo.ModifierOp = EGameplayModOp::Additive;
+	SetByCaller.DataTag = EffectParamTag;
+	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
+	Modifiers.Add(ModifierInfo);
+
+	FGameplayEffectCue EffectCue;
+	EffectCue.GameplayCueTags.AddTag(FGameplayTag::RequestGameplayTag("GameplayCue.UI.Floater.Heal"));
+	EffectCue.MagnitudeAttribute = UMAttributeSet::GetHealthAttribute();
+	GameplayCues.Add(EffectCue);
 }
