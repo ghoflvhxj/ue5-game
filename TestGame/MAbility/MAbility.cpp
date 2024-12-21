@@ -19,6 +19,7 @@
 #include "TestGame/MWeapon/Weapon.h"
 #include "TestGame/MAttribute/MAttribute.h"
 #include "TestGame/MAbility/MEffect.h"
+#include "TestGame/MItem/ItemBase.h"
 
 DECLARE_LOG_CATEGORY_CLASS(LogAbility, Log, Log);
 
@@ -882,4 +883,119 @@ void UGameplayAbility_Dash::ActivateAbility(const FGameplayAbilitySpecHandle Han
 void UGameplayAbility_Dash::OnMontageFinished()
 {
 	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+}
+
+UGameplayAbility_SpinalReflex::UGameplayAbility_SpinalReflex()
+{
+	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
+	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
+
+	FAbilityTriggerData TriggerData;
+	TriggerData.TriggerTag = FGameplayTag::RequestGameplayTag("Character.Event.Damaged");
+	AbilityTriggers.Add(TriggerData);
+
+	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Dash"));
+	ActivationOwnedTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Dash"));
+
+	// 공격 취소 & 막음
+	BlockAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Attack"));
+	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Attack"));
+
+	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Dead"));
+}
+
+void UGameplayAbility_SpinalReflex::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	if (CommitAbility(Handle, ActorInfo, ActivationInfo) == false)
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+
+	if (HasAuthority(&ActivationInfo))
+	{
+		if (UNavigationSystemV1* NavSystem = UNavigationSystemV1::GetCurrent(this))
+		{
+			AActor* Actor = GetAvatarActorFromActorInfo();
+			FNavLocation Result;
+			if (NavSystem->GetRandomReachablePointInRadius(Actor->GetActorLocation(), 2000.f, Result))
+			{
+				Actor->SetActorLocation(Result.Location);
+			}
+		}
+	}
+
+	if (UAbilitySystemComponent* AbilityComponent = GetAbilitySystemComponentFromActorInfo())
+	{
+		FGameplayEffectContextHandle EffectContext = AbilityComponent->MakeEffectContext();
+		FGameplayCueParameters CueParams(EffectContext);
+		AbilityComponent->ExecuteGameplayCue(FGameplayTag::RequestGameplayTag("GameplayCue.FloatMessage.Teleport"), CueParams);
+	}
+
+	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+}
+
+UGameplayAbility_CounterAttack::UGameplayAbility_CounterAttack()
+{
+	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
+	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
+
+	FAbilityTriggerData TriggerData;
+	TriggerData.TriggerTag = FGameplayTag::RequestGameplayTag("Character.Event.Damaged");
+	AbilityTriggers.Add(TriggerData);
+
+	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Dead"));
+}
+
+void UGameplayAbility_CounterAttack::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	if (CommitAbility(Handle, ActorInfo, ActivationInfo) == false)
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+	AActor* Actor = GetAvatarActorFromActorInfo();
+	if (UWorld* World = GetWorld())
+	{
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.Instigator = Cast<APawn>(Actor);
+		SpawnParams.Owner = Actor;
+
+		FVector Offset = FVector::ZeroVector;
+		if (ACharacter* Character = Cast<ACharacter>(Actor))
+		{
+			if (UCapsuleComponent* CapsuleComponent = Character->GetCapsuleComponent())
+			{
+				Offset.Z += CapsuleComponent->GetScaledCapsuleHalfHeight();
+			}
+		}
+
+		if (HasAuthority(&ActivationInfo))
+		{
+			FTransform SpawnTransform;
+			SpawnTransform.SetLocation(Actor->GetActorLocation() + Offset);
+			if (AActor* CounterAttacker = World->SpawnActor(CounterAttackClass, &SpawnTransform, SpawnParams))
+			{
+
+			}
+		}
+
+		if (UAbilitySystemComponent* AbilityComponent = GetAbilitySystemComponentFromActorInfo())
+		{
+			FGameplayEffectContextHandle EffectContext = AbilityComponent->MakeEffectContext();
+			FGameplayCueParameters CueParams(EffectContext);
+			CueParams.Instigator = Actor;
+			CueParams.Location = Actor->GetActorLocation() + Offset;
+			AbilityComponent->ExecuteGameplayCue(FGameplayTag::RequestGameplayTag("GameplayCue.UI.Floater.Counter"), CueParams);
+			AbilityComponent->ExecuteGameplayCue(FGameplayTag::RequestGameplayTag("GameplayCue.Effect.Counter"), CueParams);
+		}
+	}
+
+	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
 }

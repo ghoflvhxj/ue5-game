@@ -309,3 +309,32 @@ public:
 	UFUNCTION()
 	void OnMontageFinished();
 };
+
+UCLASS()
+class TESTGAME_API UGameplayAbility_SpinalReflex : public UGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UGameplayAbility_SpinalReflex();
+
+public:
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+};
+
+// 피격 시 주변 공격
+UCLASS()
+class TESTGAME_API UGameplayAbility_CounterAttack : public UGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UGameplayAbility_CounterAttack();
+
+public:
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+
+protected:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TSubclassOf<AActor> CounterAttackClass = nullptr;
+};
