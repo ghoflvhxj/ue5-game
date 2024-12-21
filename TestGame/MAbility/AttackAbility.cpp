@@ -51,14 +51,21 @@ void UGameplayAbility_AttackBase::ActivateAbility(const FGameplayAbilitySpecHand
 
 void UGameplayAbility_AttackBase::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
-	if (Weapon.IsValid())
+	if (IsActive() == false)
 	{
-		Weapon->OnComboChangedEvent.Remove(ComboDelegateHandle);
-		Weapon->ResetCombo();
-		ComboDelegateHandle.Reset();
+		return;
 	}
 
-	Weapon->SetAttackMode(FGameplayTag::EmptyTag);
+	if (Weapon.IsValid())
+	{
+		Weapon->ResetCombo();
+		Weapon->SetAttackMode(FGameplayTag::EmptyTag);
+		if (ComboDelegateHandle.IsValid())
+		{
+			Weapon->OnComboChangedEvent.Remove(ComboDelegateHandle);
+		}
+		ComboDelegateHandle.Reset();
+	}
 
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
@@ -130,8 +137,7 @@ UGameplayAbility_BasicAttack::UGameplayAbility_BasicAttack()
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("ActionType.Dynamic"));
 	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Reload"));
 	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Attack.DashLight")); // 공격 어빌리티가 시작되면 다른 공격 어빌리티는 모두 취소 되도록 해야함
-
-	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Dash"));
+	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Attack.Light.Block"));
 }
 
 void UGameplayAbility_BasicAttack::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
@@ -154,7 +160,7 @@ void UGameplayAbility_BasicAttack::ActivateAbility(const FGameplayAbilitySpecHan
 		bMoveBlockReleased = true;
 	}));
 
-	if (const FWeaponData* WeaponData = Weapon->GetItemData())
+	if (const FWeaponData* WeaponData = Weapon->GetWeaponData())
 	{
 		// 임시작업. 무기마다 다른 이펙트가 들어갈 수 있음.
 		if (WeaponData->WeaponType == EWeaponType::Gun)
@@ -183,9 +189,14 @@ void UGameplayAbility_BasicAttack::ActivateAbility(const FGameplayAbilitySpecHan
 
 void UGameplayAbility_BasicAttack::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
+	if (IsActive() == false)
+	{
+		return;
+	}
+
 	if (Weapon.IsValid())
 	{
-		if (const FWeaponData* WeaponData = Weapon->GetItemData())
+		if (const FWeaponData* WeaponData = Weapon->GetWeaponData())
 		{
 			if (WeaponData->WeaponType == EWeaponType::Gun)
 			{
@@ -277,6 +288,11 @@ void UGameplayAbility_LightChargeAttack::ActivateAbility(const FGameplayAbilityS
 
 void UGameplayAbility_LightChargeAttack::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
+	if (IsActive() == false)
+	{
+		return;
+	}
+
 	if (Character.IsValid())
 	{
 		Character->FinishCharge();

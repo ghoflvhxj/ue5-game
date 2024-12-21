@@ -2,12 +2,13 @@
 
 #include "Weapon.h"
 #include "Net/UnrealNetwork.h"
+#include "Kismet/KismetMathLibrary.h"
+#include "AbilitySystemBlueprintLibrary.h"
+#include "MGameInstance.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MCharacter/Component/ActionComponent.h"
 #include "TestGame/MAbility/MAbility.h"
 #include "TestGame/MAttribute/Mattribute.h"
-#include "Kismet/KismetMathLibrary.h"
-#include "AbilitySystemBlueprintLibrary.h"
 
 DECLARE_LOG_CATEGORY_CLASS(LogWeapon, Log, Log);
 
@@ -26,7 +27,7 @@ void AWeapon::OnConstruction(const FTransform& Transform)
 
 	//UE_LOG(LogWeapon, Warning, TEXT("Weapon Construct Index:%d"), WeaponIndex);
 
-	if (const FWeaponData* WeaponData = GetItemData())
+	if (const FWeaponData* WeaponData = GetWeaponData())
 	{
 		if (USkeletalMeshComponent* SkeletalMeshComponent = GetComponentByClass<USkeletalMeshComponent>())
 		{
@@ -55,7 +56,7 @@ void AWeapon::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (const FWeaponData* WeaponData = GetItemData())
+	if (const FWeaponData* WeaponData = GetWeaponData())
 	{
 		if (IsValid(ActionComponent))
 		{
@@ -63,7 +64,7 @@ void AWeapon::BeginPlay()
 		}
 	}
 
-	if (const FWeaponData* WeaponData = GetItemData())
+	if (const FWeaponData* WeaponData = GetWeaponData())
 	{
 		AbilitySystemComponent->InitStats(GetAttributeSet(), WeaponData->Attributes);
 	}
@@ -80,7 +81,7 @@ void AWeapon::SetEquipActor(AActor* EquipActor)
 {
 	if (IsValid(EquipActor))
 	{
-		if (const FWeaponData* WeaponData = GetItemData())
+		if (const FWeaponData* WeaponData = GetWeaponData())
 		{
 			FString SocketName;
 			switch (WeaponData->WeaponType)
@@ -124,7 +125,7 @@ void AWeapon::OnEquipmentChanged(AActor* OldWeapon, AActor* NewWeapon)
 		SetActorHiddenInGame(true);
 		SetLifeSpan(0.1f);
 		// 기존 무기의 어빌리티를 모두 버림 -> 버리고 끼면 어빌리티 쿨같은게 초기화 되있을 듯?
-		if (const FWeaponData* WeaponData = GetItemData())
+		if (const FWeaponData* WeaponData = GetWeaponData())
 		{
 			//OwningCharacter->RemoveAbilities(WeaponData->AbilitiesDataAsset);
 		}
@@ -139,7 +140,7 @@ void AWeapon::OnEquipmentChanged(AActor* OldWeapon, AActor* NewWeapon)
 	if (NewWeapon == this)
 	{
 		// 새로운 무기의 어빌리티를 모두 가짐
-		if (const FWeaponData* WeaponData = GetItemData())
+		if (const FWeaponData* WeaponData = GetWeaponData())
 		{
 			Character->AddAbilities(WeaponData->AbilitiesDataAsset);
 		}
@@ -172,7 +173,7 @@ void AWeapon::OnRep_WeaponIndex()
 {
 	if (HasAuthority() == false)
 	{
-		if (const FWeaponData* WeaponData = GetItemData())
+		if (const FWeaponData* WeaponData = GetWeaponData())
 		{
 			if (USkeletalMeshComponent* SkeletalMeshComponent = GetComponentByClass<USkeletalMeshComponent>())
 			{
@@ -184,7 +185,11 @@ void AWeapon::OnRep_WeaponIndex()
 
 void AWeapon::SetAttackMode(FGameplayTag InAttackModeTag)
 {
-	AttackMode = InAttackModeTag;
+	if (AttackMode != InAttackModeTag)
+	{
+		AttackMode = InAttackModeTag;
+		Combo = INDEX_NONE;
+	}
 }
 
 void AWeapon::SetWeaponIndex(int32 InIndex)
@@ -192,11 +197,21 @@ void AWeapon::SetWeaponIndex(int32 InIndex)
 	WeaponIndex = InIndex;
 }
 
-const FWeaponData* AWeapon::GetItemData() const
+const FWeaponData* AWeapon::GetWeaponData() const
 {
 	if (IsValid(WeaponDataTable) && WeaponIndex != INDEX_NONE)
 	{
 		return WeaponDataTable->FindRow<FWeaponData>(*FString::FromInt(WeaponIndex), TEXT("WeaponDataTable"));
+	}
+
+	return nullptr;
+}
+
+const FGameItemTableRow* AWeapon::GetItemTableRow() const
+{
+	if (UMGameInstance* GameInstace = GetGameInstance<UMGameInstance>())
+	{
+		return GameInstace->GetItemTableRow(WeaponIndex);
 	}
 
 	return nullptr;
@@ -215,7 +230,7 @@ bool AWeapon::GetMuzzleTransform(FTransform& OutTransform)
 
 void AWeapon::NextCombo()
 {
-	const FWeaponData* WeaponData = GetItemData();
+	const FWeaponData* WeaponData = GetWeaponData();
 	AMCharacter* Character = Cast<AMCharacter>(GetOwner());
 	if (WeaponData == nullptr || IsValid(Character) == false)
 	{
@@ -243,7 +258,7 @@ void AWeapon::NextCombo()
 
 	if (WeaponData->WeaponType == EWeaponType::Sword)
 	{
-		if (AttackMode == FGameplayTag::RequestGameplayTag("Action.BasicAttack") || AttackMode == FGameplayTag::RequestGameplayTag("Action.Attack.ChargeLight"))
+		if (AttackMode == FGameplayTag::RequestGameplayTag("Action.Attack.Light") || AttackMode == FGameplayTag::RequestGameplayTag("Action.Attack.ChargeLight"))
 		{
 			Character->LookMouse(-1.f);
 		}
@@ -274,7 +289,7 @@ void AWeapon::OnAttackCoolDownFinished()
 
 bool AWeapon::IsAttackable() const
 {
-	const FWeaponData* WeaponData = GetItemData();
+	const FWeaponData* WeaponData = GetWeaponData();
 
 	if (WeaponData == nullptr || IsValid(AbilitySystemComponent) == false)
 	{
@@ -331,7 +346,7 @@ void AWeapon::UnCharge()
 
 bool AWeapon::IsComboableWeapon() const
 {
-	if (const FWeaponData* WeaponData = GetItemData())
+	if (const FWeaponData* WeaponData = GetWeaponData())
 	{
 		return WeaponData->Combo != INDEX_NONE;
 	}
@@ -341,7 +356,7 @@ bool AWeapon::IsComboableWeapon() const
 
 bool AWeapon::IsComboable() const
 {
-	if (const FWeaponData* WeaponData = GetItemData())
+	if (const FWeaponData* WeaponData = GetWeaponData())
 	{
 		return Combo + 1 < WeaponData->Combo;
 	}
@@ -352,15 +367,25 @@ bool AWeapon::IsComboable() const
 ADelegator::ADelegator()
 {
 	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
+	bReplicates = true;	
 }
 
 void ADelegator::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
 
-	if (AWeapon* Weapon = Cast<AWeapon>(GetOwner()))
+	AWeapon* Weapon = Cast<AWeapon>(GetOwner());
+	if (Weapon == nullptr)
 	{
-		if (const FWeaponData* WeaponData = Weapon->GetItemData())
+		if (AMCharacter* Character = Cast<AMCharacter>(GetOwner()))
+		{
+			Weapon = Character->GetEquipItem<AWeapon>();
+		}
+	}
+
+	if (IsValid(Weapon))
+	{
+		if (const FWeaponData* WeaponData = Weapon->GetWeaponData())
 		{
 			AbilitySystemComponent->InitStats(UMWeaponAttributeSet::StaticClass(), WeaponData->Attributes);
 		}

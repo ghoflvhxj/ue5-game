@@ -10,6 +10,7 @@ class UMAbilityDataAsset;
 class UMActionDataAsset;
 class UAttributeSet;
 class AMCharacter;
+struct FGameItemTableRow;
 struct FOnAttributeChangeData;
 
 UENUM(BlueprintType)
@@ -88,6 +89,21 @@ struct FWeaponData : public FTableRowBase
 	int32 Combo = INDEX_NONE;
 };
 
+USTRUCT(BlueprintType)
+struct FWeaponTableRow : public FTableRowBase
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	int32 Index = INDEX_NONE;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FWeaponInfo WeaponInfo;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FWeaponData WeaponData;
+};
+
 UCLASS()
 class TESTGAME_API AWeapon : public AActor
 {
@@ -123,7 +139,8 @@ protected:
 	// WeaponIndex
 public:
 	void SetWeaponIndex(int32 ItemIndex);
-	const FWeaponData* GetItemData() const;
+	const FWeaponData* GetWeaponData() const;
+	const FGameItemTableRow* GetItemTableRow() const;
 public:
 	UFUNCTION()
 	void OnRep_WeaponIndex();
