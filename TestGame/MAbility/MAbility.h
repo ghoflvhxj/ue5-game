@@ -111,6 +111,7 @@ public:
 public:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 	virtual bool CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags = nullptr) override;
+	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
 };
 
 UCLASS()
@@ -133,7 +134,7 @@ public:
 struct FSkillTableRow;
 
 UCLASS()
-class UGameplayAbility_Skill : public UGameplayAbility
+class TESTGAME_API UGameplayAbility_Skill : public UGameplayAbility
 {
 	GENERATED_BODY()
 
@@ -166,7 +167,7 @@ protected:
 };
 
 UCLASS()
-class UGameplayAbility_CollideDamage : public UGameplayAbility
+class TESTGAME_API UGameplayAbility_CollideDamage : public UGameplayAbility
 {
 	GENERATED_BODY()
 
@@ -186,10 +187,11 @@ public:
 	void SetDamage(float InDamage) { Damage = InDamage; }
 protected:
 	float Damage = 0.f;
+	FGameplayTag CueTag = FGameplayTag::EmptyTag;
 };
 
 UCLASS()
-class UGameplayAbility_DamageImmune : public UGameplayAbility
+class TESTGAME_API UGameplayAbility_DamageImmune : public UGameplayAbility
 {
 	GENERATED_BODY()
 
@@ -206,7 +208,7 @@ protected:
 };
 
 UCLASS()
-class UGameplayAbility_KnockBack : public UGameplayAbility
+class TESTGAME_API UGameplayAbility_KnockBack : public UGameplayAbility
 {
 	GENERATED_BODY()
 
@@ -228,7 +230,7 @@ protected:
 };
 
 UCLASS()
-class UGameplayAbility_Move : public UGameplayAbility
+class TESTGAME_API UGameplayAbility_Move : public UGameplayAbility
 {
 	GENERATED_BODY()
 
@@ -250,7 +252,7 @@ protected:
 };
 
 UCLASS()
-class UGameplayAbility_Move_KeepBasicAttack : public UGameplayAbility_Move
+class TESTGAME_API UGameplayAbility_Move_KeepBasicAttack : public UGameplayAbility_Move
 {
 	GENERATED_BODY()
 
@@ -259,7 +261,7 @@ public:
 };
 
 UCLASS()
-class UGameplayAbility_CameraShake : public UGameplayAbility
+class TESTGAME_API UGameplayAbility_CameraShake : public UGameplayAbility
 {
 	GENERATED_BODY()
 
@@ -277,7 +279,7 @@ protected:
 };
 
 UCLASS()
-class UGameplayAbility_Reload : public UGameplayAbility_WeaponBase
+class TESTGAME_API UGameplayAbility_Reload : public UGameplayAbility_WeaponBase
 {
 	GENERATED_BODY()
 
@@ -293,7 +295,7 @@ public:
 };
 
 UCLASS()
-class UGameplayAbility_Dash : public UGameplayAbility_Skill
+class TESTGAME_API UGameplayAbility_Dash : public UGameplayAbility_Skill
 {
 	GENERATED_BODY()
 

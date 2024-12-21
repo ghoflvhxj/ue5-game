@@ -12,12 +12,13 @@
 
 DECLARE_LOG_CATEGORY_CLASS(LogAttack, Log, Log);
 
-FGameplayTag LightAttack = FGameplayTag::RequestGameplayTag("Action.BasicAttack");
+FGameplayTag LightAttack = FGameplayTag::RequestGameplayTag("Action.Attack.Light");
 
 UGameplayAbility_AttackBase::UGameplayAbility_AttackBase()
 {
 	ActivationOwnedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Attack"));
 	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Dead"));
+	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Attack.Block"));
 }
 
 bool UGameplayAbility_AttackBase::CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags /*= nullptr*/)
@@ -223,8 +224,7 @@ UGameplayAbility_DashLightAttack::UGameplayAbility_DashLightAttack()
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Attack.DashLight"));
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("ActionType.Dynamic"));
 	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Dash"));
-	ActivationRequiredTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Dash"));
-	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Dead"));
+	ActivationRequiredTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Dash")); // Character.Dash
 }
 
 void UGameplayAbility_DashLightAttack::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
@@ -254,7 +254,6 @@ UGameplayAbility_LightChargeAttack::UGameplayAbility_LightChargeAttack()
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Attack.ChargeLight"));
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("ActionType.Dynamic"));
 	CancelAbilitiesWithTag.AddTag(LightAttack);
-	BlockAbilitiesWithTag.AddTag(LightAttack);
 	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Dead"));
 }
 

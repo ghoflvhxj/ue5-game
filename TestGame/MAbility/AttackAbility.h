@@ -6,7 +6,7 @@
 class UAbilityTask_PlayMontageAndWait;
 
 UCLASS()
-class UGameplayAbility_AttackBase : public UGameplayAbility_WeaponBase
+class TESTGAME_API UGameplayAbility_AttackBase : public UGameplayAbility_WeaponBase
 {
 	GENERATED_BODY()
 

@@ -70,7 +70,7 @@ UGameplayAbility_MoveToMouse::UGameplayAbility_MoveToMouse()
 
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag(FName("Action.Move")));
 	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag(FName("Character.Dead")));
-	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag(FName("Action.BasicAttack")));
+	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag(FName("Action.Attack.Light")));
 }
 
 void UGameplayAbility_MoveToMouse::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
@@ -252,9 +252,27 @@ void UGameplayAbility_CollideDamage::ActivateAbility(const FGameplayAbilitySpecH
 		EndAbility(Handle, ActorInfo, ActivationInfo, false, true);
 	}
 
-	if (AActor* AbilityOwer = GetAvatarActorFromActorInfo())
+	AActor* AbilityOwer = GetAvatarActorFromActorInfo();
+	AbilityOwer->OnActorBeginOverlap.AddDynamic(this, &UGameplayAbility_CollideDamage::OnCollide);
+	CueTag = FGameplayTag::RequestGameplayTag("GameplayCue.Hit.Default");
+	if (AWeapon* Weapon = Cast<AWeapon>(AbilityOwer))
 	{
-		AbilityOwer->OnActorBeginOverlap.AddDynamic(this, &UGameplayAbility_CollideDamage::OnCollide);
+		if (const FGameItemTableRow* ItemTableRow = Weapon->GetItemTableRow())
+		{
+			// 테스트용
+			switch (ItemTableRow->GameItemInfo.Grade)
+			{
+			case EItemGrade::Normal:
+				CueTag = FGameplayTag::RequestGameplayTag("GameplayCue.Effect.Hit.Test1");
+				break;
+			case EItemGrade::Rare:
+				CueTag = FGameplayTag::RequestGameplayTag("GameplayCue.Effect.Hit.Test2");
+				break;
+			case EItemGrade::Unique:
+				CueTag = FGameplayTag::RequestGameplayTag("GameplayCue.Effect.Hit.Test3");
+				break;
+			}
+		}
 	}
 
 	if (UAbilitySystemComponent* AbilityComponent = GetAbilitySystemComponentFromActorInfo())
@@ -268,7 +286,6 @@ void UGameplayAbility_CollideDamage::ActivateAbility(const FGameplayAbilitySpecH
 				Damage = AttributeChangeData.NewValue;
 			});
 		}
-
 	}
 }
 
@@ -306,16 +323,21 @@ void UGameplayAbility_CollideDamage::OnCollide(AActor* OverlappedActor, AActor* 
 
 	if (IsValid(MyCharacter) && HasAuthority(&CurrentActivationInfo))
 	{
-		//UE_LOG(LogTemp, Warning, TEXT("OnCollide %s"), *OtherActor->GetActorLabel());
-
 		if (AMCharacter* OtherCharacter = Cast<AMCharacter>(OtherActor))
 		{
 			if (OtherCharacter->IsDead() == false && OtherCharacter->IsPlayerControlled() != MyCharacter->IsPlayerControlled())
 			{
 				FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(UGameplayEffect_Damage::StaticClass());
 				EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, FGameplayTag::RequestGameplayTag("Attribute.Damage"), -Damage);
-
+ 
 				ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, EffectSpecHandle, UAbilitySystemBlueprintLibrary::AbilityTargetDataFromActor(OtherActor));
+
+				if (UAbilitySystemComponent* OtherAbilityComponent = OtherCharacter->GetComponentByClass<UAbilitySystemComponent>())
+				{
+					FGameplayEffectContextHandle EffectContext = OtherAbilityComponent->MakeEffectContext();
+					FGameplayCueParameters CueParams(EffectContext);
+					OtherAbilityComponent->ExecuteGameplayCue(CueTag, CueParams);
+				}
 			}
 		}
 	}
@@ -554,7 +576,7 @@ UGameplayAbility_Combo::UGameplayAbility_Combo()
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
 
-	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Action.AttackCombo"));
+	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Attack.Combo"));
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("ActionType.Dynamic"));
 
 	ActivationOwnedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Attack"));
@@ -578,7 +600,7 @@ void UGameplayAbility_Combo::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 		EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, FGameplayTag::RequestGameplayTag("Attribute.ConsumeMagazine"), -1);
 		ApplyGameplayEffectSpecToTarget(Handle, ActorInfo, ActivationInfo, EffectSpecHandle, TargetDataHandle);
 	}
-
+	
 	Weapon->NextCombo();
 
 	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
@@ -600,6 +622,19 @@ bool UGameplayAbility_Combo::CommitAbility(const FGameplayAbilitySpecHandle Hand
 	}
 
 	return false;
+}
+
+void UGameplayAbility_Combo::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+{
+	UGameplayAbility::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+
+	if (Character.IsValid())
+	{
+		if (Character->OnWeaponChangedEvent.IsBoundToObject(this) && Character->OnWeaponChangedEvent.Remove(WeaponChangedDelegateHandle))
+		{
+			WeaponChangedDelegateHandle.Reset();
+		}
+	}
 }
 
 UGameplayAbility_BasicAttackStop::UGameplayAbility_BasicAttackStop()
@@ -625,7 +660,7 @@ void UGameplayAbility_BasicAttackStop::ActivateAbility(const FGameplayAbilitySpe
 
 	// 총 사격이 Loop하는 몽타주라 손을 때면 End섹션으로 이동시키는 역할
 	// 그런데 이렇게 하는게 최선일까?
-	if (const FWeaponData* WeaponData = Weapon->GetItemData())
+	if (const FWeaponData* WeaponData = Weapon->GetWeaponData())
 	{
 		if (WeaponData->WeaponType == EWeaponType::Gun)
 		{
@@ -636,7 +671,7 @@ void UGameplayAbility_BasicAttackStop::ActivateAbility(const FGameplayAbilitySpe
 	if (UMActionComponent* ActionComponent = GetAvatarActorFromActorInfo()->GetComponentByClass<UMActionComponent>())
 	{
 		UAnimInstance* AnimInstance = CurrentActorInfo->GetAnimInstance();
-		if (UAnimMontage* Montage = ActionComponent->GetActionMontage(FGameplayTag::RequestGameplayTag("Action.BasicAttack")))
+		if (UAnimMontage* Montage = ActionComponent->GetActionMontage(FGameplayTag::RequestGameplayTag("Action.Attack.Light")))
 		{
 			if (AnimInstance->Montage_IsPlaying(Montage))
 			{
@@ -654,7 +689,7 @@ void UGameplayAbility_BasicAttackStop::OnMontageEnd(UAnimMontage* Montage, bool 
 	if (UMActionComponent* ActionComponent = GetAvatarActorFromActorInfo()->GetComponentByClass<UMActionComponent>())
 	{
 		UAnimInstance* AnimInstance = CurrentActorInfo->GetAnimInstance();
-		if (UAnimMontage* AttackMontage = ActionComponent->GetActionMontage(FGameplayTag::RequestGameplayTag("Action.BasicAttack")))
+		if (UAnimMontage* AttackMontage = ActionComponent->GetActionMontage(FGameplayTag::RequestGameplayTag("Action.Attack.Light")))
 		{
 			if (AttackMontage == Montage)
 			{
@@ -673,7 +708,7 @@ UGameplayAbility_Reload::UGameplayAbility_Reload()
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
 
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Reload"));
-	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.BasicAttack"));
+	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Attack"));
 	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Dead"));
 }
 
@@ -786,7 +821,6 @@ UGameplayAbility_Dash::UGameplayAbility_Dash()
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Dash"));
 	ActivationOwnedTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Dash"));
 
-	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.BasicAttack"));
 	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Attack"));
 	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Reload"));
 
