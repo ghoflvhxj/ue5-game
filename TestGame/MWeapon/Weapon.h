@@ -164,11 +164,15 @@ protected:
 	bool bCoolDown = false;
 
 public:
-	bool IsCharged() { return bCharge; }
-	void Charge() { bCharge = true; }
-	void UnCharge() { bCharge = false; }
+	DECLARE_EVENT_OneParam(AWeapon, FOnChargeChangedEvent, bool);
+	FOnChargeChangedEvent& GetOnChargeChangedEvent() { return OnChargeChangedEvent; }
+public:
+	bool IsCharged() { return FMath::IsNearlyEqual(ChargeValue, 1.f); }
+	void Charge();
+	void UnCharge();
 protected:
-	bool bCharge = false;
+	float ChargeValue = 0.f;
+	FOnChargeChangedEvent OnChargeChangedEvent;
 
 	FTimerHandle AttackTimerHandle;
 

@@ -136,9 +136,10 @@ void AMCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponen
 		// 마우스 왼쪽 때면 공격
 		EnhancedInputComponent->BindAction(InputAction2, ETriggerEvent::Completed, this, &AMCharacter::BasicAttack);
 		// 마우스 왼쪽 1초 누르면 차징
-		EnhancedInputComponent->BindAction(InputAction3, ETriggerEvent::Triggered, this, &AMCharacter::Charge);
+		EnhancedInputComponent->BindAction(InputAction3, ETriggerEvent::Started, this, &AMCharacter::ChargeInputPressed);
+		EnhancedInputComponent->BindAction(InputAction3, ETriggerEvent::Triggered, this, &AMCharacter::ChargeLightAttack);
 		// 마우스 왼쪽 1초 누른거 때면 차징 공격
-		EnhancedInputComponent->BindAction(InputAction, ETriggerEvent::Completed, this, &AMCharacter::ChargeAttack);
+		EnhancedInputComponent->BindAction(InputAction, ETriggerEvent::Completed, this, &AMCharacter::LightChargeAttack);
 	}
 }
 
@@ -229,6 +230,14 @@ void AMCharacter::RemoveAbilities(UMAbilityDataAsset* AbilityDataAsset)
 	if (IsValid(AbilityDataAsset))
 	{
 		AbilityDataAsset->ClearAbilities(AbilitySystemComponent, AblitiyHandles);
+	}
+}
+
+void AMCharacter::ChargeInputPressed()
+{
+	if (IsValid(AbilitySystemComponent))
+	{
+		bChargeInput = AbilitySystemComponent->GetTagCount(FGameplayTag::RequestGameplayTag("Action.Attack.Block")) == 0;
 	}
 }
 
@@ -403,6 +412,16 @@ void AMCharacter::EquipItem(AActor* InItem)
 		AActor* OldWeapon = Item;
 		Item = InItem;
 		OnWeaponChangedEvent.Broadcast(OldWeapon, InItem);
+
+		if (AWeapon* Weapon = GetEquipItem<AWeapon>())
+		{
+			Weapon->GetOnChargeChangedEvent().AddWeakLambda(this, [this](bool bCharged) {
+				if (IsValid(NiagaraComponent))
+				{
+					NiagaraComponent->Activate(bCharged);
+				}
+			});
+		}
 	}
 }
 
@@ -410,7 +429,7 @@ bool AMCharacter::GetWeaponData(FWeaponData& OutWeaponData)
 {
 	if (AWeapon* Weapon = GetEquipItem<AWeapon>())
 	{
-		OutWeaponData = *Weapon->GetItemData();
+		OutWeaponData = *Weapon->GetWeaponData();
 		return true;
 	}
 
@@ -445,7 +464,7 @@ void AMCharacter::Aim()
 		return;
 	}
 
-	const FWeaponData* WeaponData = Weapon->GetItemData();
+	const FWeaponData* WeaponData = Weapon->GetWeaponData();
 	if (WeaponData == nullptr)
 	{
 		return;
@@ -477,26 +496,26 @@ void AMCharacter::Aim()
 void AMCharacter::BasicAttack()
 {
 	AWeapon* Weapon = GetEquipItem<AWeapon>();
-	if (IsValid(Weapon) == false)
+	if (IsValid(Weapon) == false || Weapon->IsCoolDown())
 	{
+		UE_LOG(LogTemp, Warning, TEXT("LightAttack return"));
 		return;
 	}
 
-	if (Weapon->IsCoolDown() == false)
+	if (Weapon->IsAttackable())
 	{
-		if (Weapon->IsAttackable())
+		if (AbilitySystemComponent)
 		{
-			if (AbilitySystemComponent)
-			{
-				AbilitySystemComponent->AbilityLocalInputPressed(1);
-				AbilitySystemComponent->AbilityLocalInputPressed(2);
-			}
-		}
-		else
-		{
-			//FinishBasicAttack();
+			AbilitySystemComponent->AbilityLocalInputPressed(1);
+			AbilitySystemComponent->AbilityLocalInputPressed(2);
 		}
 	}
+	else
+	{
+		//FinishBasicAttack();
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("LightAttack"));
 }
 
 void AMCharacter::FinishBasicAttack()
@@ -516,31 +535,35 @@ void AMCharacter::FinishBasicAttack()
 	SetRotateToTargetAngle(false);
 }
 
-void AMCharacter::Charge()
+void AMCharacter::ChargeLightAttack()
 {
-	AWeapon* Weapon = GetEquipItem<AWeapon>();
-	if (IsValid(Weapon) == false)
+	if (bChargeInput == false)
 	{
 		return;
 	}
 
-	if (Weapon->IsCoolDown() == false)
+	AWeapon* Weapon = GetEquipItem<AWeapon>();
+	if (IsValid(Weapon) == false || Weapon->IsCharged())
 	{
-		AbilitySystemComponent->AbilityLocalInputPressed(5);
+		return;
 	}
 
-	if (IsValid(NiagaraComponent))
+	if (IsValid(AbilitySystemComponent) == false || AbilitySystemComponent->GetTagCount(FGameplayTag::RequestGameplayTag("Action.Attack.Block")))
 	{
-		NiagaraComponent->Activate(true);
+		return;
 	}
+
+	AbilitySystemComponent->AbilityLocalInputPressed(5);
+
 	UE_LOG(LogTemp, Warning, TEXT("Charge"));
 }
 
-void AMCharacter::ChargeAttack()
+void AMCharacter::LightChargeAttack()
 {
 	FinishCharge();
 
-	if (AbilitySystemComponent)
+	// 이 함수는 손을 때는 순간 호출되므로, 차징 공격 중에 클릭하여 bChargeInput이 false로 변해도 이 함수는 한참전에 호출됬을거임
+	if (AbilitySystemComponent && bChargeInput)
 	{
 		AbilitySystemComponent->AbilityLocalInputReleased(5);
 		AbilitySystemComponent->AbilityLocalInputPressed(2);

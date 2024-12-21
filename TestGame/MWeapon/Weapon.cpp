@@ -300,6 +300,35 @@ bool AWeapon::IsAttacking() const
 	return true;
 }
 
+void AWeapon::Charge()
+{
+	if (IsCharged() == false)
+	{
+		//bCharge = true;
+		//if (UWorld* World = GetWorld())
+		//{
+		//	ChargeValue += World->GetDeltaSeconds();
+		//	ChargeValue = FMath::Min(ChargeValue, 1.f);
+		//}
+
+		ChargeValue = 1.f;
+
+		if (IsCharged())
+		{
+			OnChargeChangedEvent.Broadcast(true);
+		}
+	}
+}
+
+void AWeapon::UnCharge()
+{
+	if (IsCharged())
+	{
+		ChargeValue = 0.f;
+		OnChargeChangedEvent.Broadcast(false);
+	}
+}
+
 bool AWeapon::IsComboableWeapon() const
 {
 	if (const FWeaponData* WeaponData = GetItemData())

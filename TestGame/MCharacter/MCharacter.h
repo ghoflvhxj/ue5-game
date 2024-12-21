@@ -84,6 +84,10 @@ protected:
 	UMAbilityDataAsset* AbilitySetData;
 	UPROPERTY(BlueprintReadOnly)
 	TMap<FGameplayTag, FGameplayAbilitySpecHandle> AblitiyHandles;
+
+public:
+	void ChargeInputPressed();
+protected:
 // 입력과 어빌리티 바인딩 테스트
 	UPROPERTY(EditAnywhere)
 	class UInputAction* InputAction = nullptr;
@@ -91,6 +95,7 @@ protected:
 	class UInputAction* InputAction2 = nullptr;
 	UPROPERTY(EditAnywhere)
 	class UInputAction* InputAction3 = nullptr;
+	bool bChargeInput = false;
 
 	//UFUNCTION(BlueprintPure)
 	//FGameplayAbilitySpecHandle GetAbiltiyTypeHandle(EAbilityType AbilityType);
@@ -173,8 +178,8 @@ public:
 	void BasicAttack();
 	UFUNCTION(BlueprintCallable)
 	void FinishBasicAttack();
-	void Charge();
-	void ChargeAttack();
+	void ChargeLightAttack();
+	void LightChargeAttack();
 	void FinishCharge();
 
 // 타겟팅 -> 컴포넌트로 뺴기
