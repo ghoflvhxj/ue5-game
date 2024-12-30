@@ -19,7 +19,7 @@ void ADestructableActor::Destruct_Implementation()
 {
 	if (AMGameModeInGame* GameMode = Cast<AMGameModeInGame>(UGameplayStatics::GetGameMode(this)))
 	{
-		GameMode->OnActorDestruct(this);
+		GameMode->SpawnItem(this);
 	}
 
 	if (IsValid(SphereComponent))

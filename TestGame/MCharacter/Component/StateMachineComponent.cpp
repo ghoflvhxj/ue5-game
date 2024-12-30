@@ -3,7 +3,8 @@
 
 UStateComponent::UStateComponent()
 {
-
+	PrimaryComponentTick.bCanEverTick = false;
+	SetIsReplicatedByDefault(true);
 }
 
 bool UStateComponent::AddStateClass(TSubclassOf<UStateClass> StateClass)
