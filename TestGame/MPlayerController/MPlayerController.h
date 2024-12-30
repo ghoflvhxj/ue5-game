@@ -19,6 +19,9 @@ public:
 	//virtual void BeginPlay() override;
 };
 
+DECLARE_EVENT_OneParam(AMPlayerController, FOnSpectateModeChangedEvent, bool)
+DECLARE_EVENT_TwoParams(AMPlayerControllerInGame, FOnViewTargetChangedEvent, AActor*, AActor*);
+
 UCLASS()
 class TESTGAME_API AMPlayerControllerInGame : public AMPlayerController
 {
@@ -31,9 +34,28 @@ protected:
 	UPickComponent* PickComponent = nullptr;
 
 public:
-	virtual void BeginPlay() override;
 	virtual void PlayerTick(float DeltaTime) override;
+	virtual void SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams = FViewTargetTransitionParams()) override;
 	virtual void OnRep_PlayerState() override;
+protected:
+	virtual void BeginPlay() override;
+
+protected:
+	virtual ASpectatorPawn* SpawnSpectatorPawn() override;
+	virtual bool ShouldKeepCurrentPawnUponSpectating() const override { return true; }
+	virtual void BeginSpectatingState() override;
+	virtual void EndSpectatingState() override;
+
+public:
+	UFUNCTION(BlueprintCallable)
+	void StartSpectate();
+
+public:
+	FOnViewTargetChangedEvent& GetViewTargetChangedEvent() { return OnViewTargetChangedEvent; }
+	FOnSpectateModeChangedEvent& GetSpectateModeChangedEvent() { return OnSpectateModeChangedEvent; }
+protected:
+	FOnViewTargetChangedEvent OnViewTargetChangedEvent;
+	FOnSpectateModeChangedEvent OnSpectateModeChangedEvent;
 
 public:
 	UFUNCTION(BlueprintPure)

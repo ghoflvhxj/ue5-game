@@ -36,6 +36,41 @@ void AMPlayerControllerInGame::BeginPlay()
 	}
 }
 
+ASpectatorPawn* AMPlayerControllerInGame::SpawnSpectatorPawn()
+{
+	if (ShouldKeepCurrentPawnUponSpectating() == false)
+	{
+		return Super::SpawnSpectatorPawn();
+	}
+
+	return nullptr;
+}
+
+void AMPlayerControllerInGame::BeginSpectatingState()
+{
+	Super::BeginSpectatingState();
+
+	if (IsLocalController() == false)
+	{
+		ClientGotoState(NAME_Spectating);
+	}
+}
+
+void AMPlayerControllerInGame::EndSpectatingState()
+{
+	Super::EndSpectatingState();
+
+	if (IsLocalController())
+	{
+		OnSpectateModeChangedEvent.Broadcast(false);
+	}
+}
+
+void AMPlayerControllerInGame::StartSpectate()
+{
+	ServerViewNextPlayer();
+}
+
 void AMPlayerControllerInGame::PlayerTick(float DeltaTime)
 {
 	Super::PlayerTick(DeltaTime);
@@ -44,6 +79,22 @@ void AMPlayerControllerInGame::PlayerTick(float DeltaTime)
 	if (IsValid(PickComponent))
 	{
 		PickComponent->SetPickingActor(NewPicking);
+	}
+}
+
+void AMPlayerControllerInGame::SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams /*= FViewTargetTransitionParams()*/)
+{
+	AActor* OldViewTarget = GetViewTarget();
+
+	Super::SetViewTarget(NewViewTarget, TransitionParams);
+
+	if (OldViewTarget != NewViewTarget)
+	{
+		if (IsInState(NAME_Spectating))
+		{
+			OnSpectateModeChangedEvent.Broadcast(true);
+		}
+		OnViewTargetChangedEvent.Broadcast(OldViewTarget, NewViewTarget);
 	}
 }
 
