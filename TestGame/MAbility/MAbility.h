@@ -26,54 +26,54 @@ public:
 
 	}
 
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	FGameplayTag GameplayTag;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TSubclassOf<UGameplayAbility> GameplayAbilityClass;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bActivate;
 };
 
-USTRUCT(BlueprintType)
-struct TESTGAME_API FAbilityInfo
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	FText Name;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	FText Description;
-};
-
-USTRUCT(BlueprintType)
-struct TESTGAME_API FAbilityTableRow : public FTableRowBase
-{
-	GENERATED_BODY()
-
-public:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	int32 Index = 0;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	FAbilityInfo AbilityInfo;
-
-public:
-	virtual void OnPostDataImport(const UDataTable* InDataTable, const FName InRowName, TArray<FString>& OutCollectedImportProblems) override
-	{
-		Super::OnPostDataImport(InDataTable, InRowName, OutCollectedImportProblems);
-		if (InRowName.ToString().IsNumeric())
-		{
-			Index = FCString::Atoi(*InRowName.ToString());
-		}
-		else
-		{
-			UE_LOG(LogTemp, Warning, TEXT("DataTable(%s) rowname(%s) is not numeric. Failed to initialize index property!!!"), *InDataTable->GetName(), *InRowName.ToString());
-		}
-	}
-};
+//USTRUCT(BlueprintType)
+//struct TESTGAME_API FAbilityInfo
+//{
+//	GENERATED_BODY()
+//
+//	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+//	FText Name;
+//
+//	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+//	FText Description;
+//};
+//
+//USTRUCT(BlueprintType)
+//struct TESTGAME_API FAbilityTableRow : public FTableRowBase
+//{
+//	GENERATED_BODY()
+//
+//public:
+//	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+//	int32 Index = 0;
+//
+//	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+//	FAbilityInfo AbilityInfo;
+//
+//public:
+//	virtual void OnPostDataImport(const UDataTable* InDataTable, const FName InRowName, TArray<FString>& OutCollectedImportProblems) override
+//	{
+//		Super::OnPostDataImport(InDataTable, InRowName, OutCollectedImportProblems);
+//		if (InRowName.ToString().IsNumeric())
+//		{
+//			Index = FCString::Atoi(*InRowName.ToString());
+//		}
+//		else
+//		{
+//			UE_LOG(LogTemp, Warning, TEXT("DataTable(%s) rowname(%s) is not numeric. Failed to initialize index property!!!"), *InDataTable->GetName(), *InRowName.ToString());
+//		}
+//	}
+//};
 
 UCLASS()
 class TESTGAME_API UMAbilityDataAsset : public UDataAsset
@@ -84,6 +84,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FMAbilityBindInfo> Abilities;
 
+	void GiveAbilities(UAbilitySystemComponent* AbilitySystemComponent) const;
 	void GiveAbilities(UAbilitySystemComponent* AbilitySystemComponent, TMap<FGameplayTag, FGameplayAbilitySpecHandle>& Handles) const;
 	void ClearAbilities(UAbilitySystemComponent* AbilitySystemComponent, TMap<FGameplayTag, FGameplayAbilitySpecHandle>& Handles) const;
 };
@@ -128,8 +129,15 @@ public:
 	virtual bool CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags = nullptr) override;\
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
+
 public:
 	void ClearCachedData();
+protected:
+	bool bClearCacheIfEnd = true;
+
+protected:
+	FVector GetCharacterLocation(bool bIncludeCapsuleHeight);
+	FRotator GetCharacterRotation();
 	
 protected:
 	TWeakObjectPtr<AMCharacter> Character = nullptr;
@@ -181,6 +189,7 @@ public:
 public:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 	virtual bool CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags = nullptr) override;
+	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
 
 public:
 	UFUNCTION(BlueprintPure)
@@ -374,4 +383,16 @@ public:
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<AActor> CounterAttackClass = nullptr;
+};
+
+UCLASS()
+class TESTGAME_API UGameplayAbility_DamageToOne : public UGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UGameplayAbility_DamageToOne();
+
+public:
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 };

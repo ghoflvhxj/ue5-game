@@ -181,7 +181,7 @@ void UGameplayAbility_Skill::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 			}
 
 			SpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(SpecHandle, BuffParamTag, BuffInfo.TagToValue[BuffParamTag]);
-			ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, SpecHandle);
+			ActiveEffectHandles.Add(ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, SpecHandle));
 		}
 	}
 
@@ -202,6 +202,16 @@ bool UGameplayAbility_Skill::CommitAbility(const FGameplayAbilitySpecHandle Hand
 	}
 
 	return false;
+}
+
+void UGameplayAbility_Skill::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+{
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+	
+	for (const FActiveGameplayEffectHandle& ActiveEffectHandle : ActiveEffectHandles)
+	{
+		BP_RemoveGameplayEffectFromOwnerWithHandle(ActiveEffectHandle);
+	}
 }
 
 float UGameplayAbility_Skill::GetSkillParam(FGameplayTag GameplayTag)
@@ -255,7 +265,7 @@ void UGameplayAbility_CollideDamage::ActivateAbility(const FGameplayAbilitySpecH
 
 	AActor* AbilityOwer = GetAvatarActorFromActorInfo();
 	AbilityOwer->OnActorBeginOverlap.AddDynamic(this, &UGameplayAbility_CollideDamage::OnCollide);
-	CueTag = FGameplayTag::RequestGameplayTag("GameplayCue.Hit.Default");
+	CueTag = FGameplayTag::RequestGameplayTag("GameplayCue.Effect.Hit.Default");
 	if (AWeapon* Weapon = Cast<AWeapon>(AbilityOwer))
 	{
 		if (const FGameItemTableRow* ItemTableRow = Weapon->GetItemTableRow())
@@ -329,16 +339,16 @@ void UGameplayAbility_CollideDamage::OnCollide(AActor* OverlappedActor, AActor* 
 			if (OtherCharacter->IsDead() == false && OtherCharacter->IsPlayerControlled() != MyCharacter->IsPlayerControlled())
 			{
 				FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(UGameplayEffect_Damage::StaticClass());
-				EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, FGameplayTag::RequestGameplayTag("Attribute.Damage"), -Damage);
+				//EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, FGameplayTag::RequestGameplayTag("Attribute.Damage"), -Damage);
  
 				ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, EffectSpecHandle, UAbilitySystemBlueprintLibrary::AbilityTargetDataFromActor(OtherActor));
 
-				if (UAbilitySystemComponent* OtherAbilityComponent = OtherCharacter->GetComponentByClass<UAbilitySystemComponent>())
-				{
-					FGameplayEffectContextHandle EffectContext = OtherAbilityComponent->MakeEffectContext();
-					FGameplayCueParameters CueParams(EffectContext);
-					OtherAbilityComponent->ExecuteGameplayCue(CueTag, CueParams);
-				}
+				//if (UAbilitySystemComponent* OtherAbilityComponent = OtherCharacter->GetComponentByClass<UAbilitySystemComponent>())
+				//{
+				//	FGameplayEffectContextHandle EffectContext = OtherAbilityComponent->MakeEffectContext();
+				//	FGameplayCueParameters CueParams(EffectContext);
+				//	OtherAbilityComponent->ExecuteGameplayCue(CueTag, CueParams);
+				//}
 			}
 		}
 	}
@@ -804,13 +814,50 @@ void UGameplayAbility_WeaponBase::EndAbility(const FGameplayAbilitySpecHandle Ha
 		}
 	}
 
-	ClearCachedData();
+	if (bClearCacheIfEnd)
+	{
+		ClearCachedData();
+	}
 }
 
 void UGameplayAbility_WeaponBase::ClearCachedData()
 {
 	Weapon = nullptr;
 	Character = nullptr;
+}
+
+FVector UGameplayAbility_WeaponBase::GetCharacterLocation(bool bIncludeCapsuleHeight)
+{
+	FVector OutLocation = FVector::ZeroVector;
+	if (Character.IsValid())
+	{
+		OutLocation = Character->GetActorLocation();
+		if (bIncludeCapsuleHeight)
+		{
+			if (UCapsuleComponent* CapsuleComponent = Character->GetCapsuleComponent())
+			{
+				OutLocation.Z += CapsuleComponent->GetScaledCapsuleHalfHeight();
+			}
+		}
+	}
+	else
+	{
+		UE_LOG(LogAbility, Warning, TEXT("%s failed. Character is invalid."), *FString(__FUNCTION__));
+	}
+
+	return OutLocation;
+}
+
+FRotator UGameplayAbility_WeaponBase::GetCharacterRotation()
+{
+	FRotator OutRotator = FRotator::ZeroRotator;
+
+	if (Character.IsValid())
+	{
+		OutRotator.Yaw = Character->GetActorRotation().Yaw;
+	}
+
+	return OutRotator;
 }
 
 UGameplayAbility_Dash::UGameplayAbility_Dash()
@@ -921,7 +968,7 @@ void UGameplayAbility_SpinalReflex::ActivateAbility(const FGameplayAbilitySpecHa
 		{
 			AActor* Actor = GetAvatarActorFromActorInfo();
 			FNavLocation Result;
-			if (NavSystem->GetRandomReachablePointInRadius(Actor->GetActorLocation(), 2000.f, Result))
+			if (NavSystem->GetRandomReachablePointInRadius(Actor->GetActorLocation(), 1000.f, Result))
 			{
 				Actor->SetActorLocation(Result.Location);
 			}
@@ -932,7 +979,7 @@ void UGameplayAbility_SpinalReflex::ActivateAbility(const FGameplayAbilitySpecHa
 	{
 		FGameplayEffectContextHandle EffectContext = AbilityComponent->MakeEffectContext();
 		FGameplayCueParameters CueParams(EffectContext);
-		AbilityComponent->ExecuteGameplayCue(FGameplayTag::RequestGameplayTag("GameplayCue.FloatMessage.Teleport"), CueParams);
+		AbilityComponent->ExecuteGameplayCue(FGameplayTag::RequestGameplayTag("GameplayCue.UI.Floater.Teleport"), CueParams);
 	}
 
 	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
@@ -998,4 +1045,22 @@ void UGameplayAbility_CounterAttack::ActivateAbility(const FGameplayAbilitySpecH
 	}
 
 	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+}
+
+UGameplayAbility_DamageToOne::UGameplayAbility_DamageToOne()
+{
+	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
+	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
+
+	ActivationOwnedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Ability.DamageToOne"));
+}
+
+void UGameplayAbility_DamageToOne::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	if (CommitAbility(Handle, ActorInfo, ActivationInfo) == false)
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
 }

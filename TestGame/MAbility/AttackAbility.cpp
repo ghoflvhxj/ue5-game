@@ -78,12 +78,20 @@ bool UGameplayAbility_AttackBase::PlayAttackMontage()
 		AttackSpeed = AbilitySystemComponent->GetNumericAttribute(UMAttributeSet::GetAttackSpeedAttribute());
 	}
 
+	if (UAnimMontage* Montage = Character->GetCurrentMontage())
+	{
+		
+	}
+
 	if (UMActionComponent* ActionComponent = Character->GetComponentByClass<UMActionComponent>())
 	{
 		if (UAnimMontage* Montage = ActionComponent->GetActionMontage(AbilityTags.GetByIndex(0)))
 		{
-			PlayMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, "Attack", Montage, AttackSpeed, NAME_None, true, 1.f, 0.f);
-			PlayMontageTask->OnCompleted.AddDynamic(this, &UGameplayAbility_BasicAttack::OnMontageFinished);
+			PlayMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, "Attack", Montage, AttackSpeed, NAME_None, true, 1.f, 0.f, true);
+			PlayMontageTask->OnCompleted.AddDynamic(this, &UGameplayAbility_AttackBase::OnMontageFinished);
+			PlayMontageTask->OnCancelled.AddDynamic(this, &UGameplayAbility_AttackBase::OnMontageFinished);
+			PlayMontageTask->OnBlendOut.AddDynamic(this, &UGameplayAbility_AttackBase::OnMontageFinished);
+			PlayMontageTask->OnInterrupted.AddDynamic(this, &UGameplayAbility_AttackBase::OnMontageFinished);
 
 			PlayMontageTask->ReadyForActivation();
 			return true;
@@ -265,7 +273,6 @@ UGameplayAbility_LightChargeAttack::UGameplayAbility_LightChargeAttack()
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Attack.ChargeLight"));
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("ActionType.Dynamic"));
 	CancelAbilitiesWithTag.AddTag(LightAttack);
-	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Dead"));
 }
 
 void UGameplayAbility_LightChargeAttack::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
@@ -299,4 +306,104 @@ void UGameplayAbility_LightChargeAttack::EndAbility(const FGameplayAbilitySpecHa
 	}
 
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+}
+
+UGameplayAbility_SwordWave::UGameplayAbility_SwordWave()
+{
+	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
+	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
+
+	bClearCacheIfEnd = false;
+}
+
+bool UGameplayAbility_SwordWave::CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags /* = nullptr */)
+{
+	if (UGameplayAbility::CommitAbility(Handle, ActorInfo, ActivationInfo, OptionalRelevantTags))
+	{
+		if (AMCharacter* AvatarCharacter = Cast<AMCharacter>(GetAvatarActorFromActorInfo()))
+		{
+			Character = AvatarCharacter;
+			Weapon = Character->GetEquipItem<AWeapon>();
+			AvatarCharacter->OnWeaponChangedEvent.AddWeakLambda(this, [this](AActor* Old, AActor* New) {
+				if (AWeapon* OldWeapon = Cast<AWeapon>(Old))
+				{
+					OldWeapon->OnComboChangedEvent.Remove(WeaponComboChangeDelegateHandle);
+					WeaponComboChangeDelegateHandle.Reset();
+				}
+
+				if (AWeapon* NewWeapon = Cast<AWeapon>(New))
+				{
+					Weapon = NewWeapon;
+					BindToWeaponCombo();
+				}
+			});
+
+			BindToWeaponCombo();
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void UGameplayAbility_SwordWave::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
+{
+	Super::OnGiveAbility(ActorInfo, Spec);
+}
+
+void UGameplayAbility_SwordWave::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	if (CommitAbility(Handle, ActorInfo, ActivationInfo, nullptr) == false)
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+}
+
+void UGameplayAbility_SwordWave::SpawnSwordWave()
+{
+	if (IsValid(BulletClass) == false)
+	{
+		UE_LOG(LogAttack, Warning, TEXT("Failed to spawn bullet. Class is empty."));
+		return;
+	}
+
+	if (Character.IsValid() == false || Weapon.IsValid() == false)
+	{
+		UE_LOG(LogAttack, Warning, TEXT("Failed to spawn bullet. Cahce data is invalid."));
+		return;
+	}
+
+	if (UWorld* World = GetWorld())
+	{
+		FTransform SpawnTransform;
+		SpawnTransform.SetLocation(GetCharacterLocation(true));
+		SpawnTransform.SetRotation(GetCharacterRotation().Quaternion());
+
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.Owner = Weapon.Get();
+		SpawnParams.Instigator = Character.Get();
+
+		if (ABullet* Bullet = World->SpawnActor<ABullet>(BulletClass, SpawnTransform, SpawnParams))
+		{
+			Bullet->StartProjectile(Character->GetActorForwardVector(), 10.f);
+		}
+	}
+}
+
+void UGameplayAbility_SwordWave::BindToWeaponCombo()
+{
+	if (Weapon.IsValid())
+	{
+		WeaponComboChangeDelegateHandle = Weapon->OnComboChangedEvent.AddWeakLambda(this, [this](int32 InCombo) {
+			if (InCombo == 2)
+			{
+				SpawnSwordWave();
+			}
+		});
+	}
 }
