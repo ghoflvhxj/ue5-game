@@ -1,16 +1,20 @@
 #include "MHud.h"
-#include "TestGame/MGameState/MGameStateInGame.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerState.h"
 #include "GameFramework/Character.h"
+#include "Kismet/GameplayStatics.h"
+#include "Blueprint/UserWidget.h"
+#include "Blueprint/WidgetTree.h"
+#include "AbilitySystemComponent.h"
+#include "TestGame/MGameState/MGameStateInGame.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MComponents/InventoryComponent.h"
 #include "TestGame/MAttribute/MAttribute.h"
 #include "TestGame/MSpawner/MonsterSpawner.h"
+#include "TestGame/MPlayerController/MPlayerController.h"
+#include "MyPlayerState.h"
+#include "AttributeDisplayWidget.h" // ActorBindWidget 참조
 //#include "CharacterLevelSubSystem.h"
-#include "Blueprint/UserWidget.h"
-#include "Kismet/GameplayStatics.h"
-#include "AbilitySystemComponent.h"
 
 void AMHud::BeginPlay()
 {
@@ -24,12 +28,6 @@ void AMHud::BeginPlay()
 	if (IsValid(HUDWidget) && ShowHudWidgetAfterCreation)
 	{
 		ShowWidget();
-	}
-
-	if (IsValid(PlayerOwner))
-	{
-		OnPawnChanged(nullptr, PlayerOwner->GetPawn());
-		PlayerOwner->OnPossessedPawnChanged.AddDynamic(this, &AMHud::OnPawnChanged);
 	}
 }
 
@@ -77,15 +75,46 @@ void AMHudInGame::BeginPlay()
 		GameStateInGame->OnBossMonsterSet.AddUObject(this, &AMHudInGame::BoundBoss);
 		GameStateInGame->OnMatchEndEvent.AddUObject(this, &AMHudInGame::ShowGameFinish);
 	}
+
+	if (AMPlayerControllerInGame* PlayerController = Cast<AMPlayerControllerInGame>(PlayerOwner))
+	{
+		UpdatePawnBoundWidget(nullptr, PlayerOwner->GetPawn());
+		PlayerController->OnPossessedPawnChanged.AddDynamic(this, &AMHudInGame::UpdatePawnBoundWidget);
+		PlayerController->GetSpectateModeChangedEvent().AddWeakLambda(this, [this, PlayerController](bool bSpectateMode) {
+			UE_LOG(LogTemp, Warning, TEXT("Change To Spectate"));
+			if (bSpectateMode)	
+			{
+				UpdatePawnBoundWidget(nullptr, Cast<APawn>(PlayerController->GetViewTarget()));
+			}
+		});
+		PlayerController->GetViewTargetChangedEvent().AddWeakLambda(this, [this, PlayerController](AActor* Old, AActor* New) {
+			if (APlayerState* PlayerState = PlayerController->GetPlayerState<APlayerState>())
+			{
+				UE_LOG(LogTemp, Warning, TEXT("PlayerState Spectate:%d"), (int)PlayerState->IsSpectator());
+				if (PlayerState->IsSpectator())
+				{
+					UpdatePawnBoundWidget(nullptr, Cast<APawn>(PlayerController->GetViewTarget()));
+				}
+			}
+			UE_LOG(LogTemp, Warning, TEXT("Change Viewtarget To %s"), PlayerController->GetViewTarget() ? *PlayerController->GetViewTarget()->GetName() : *FString("None"));
+		});
+
+		PlayerController->GetSpectateModeChangedEvent().AddUObject(this, &AMHudInGame::ShowSpectateInfo);
+	}
 }
 
-bool AMHudInGame::InitializeUsingPlayerState(APlayerState* PlayerState)
+bool AMHudInGame::InitializeUsingPlayerState(APlayerState* InPlayerState)
 {
-	if (Super::InitializeUsingPlayerState(PlayerState))
+	if (Super::InitializeUsingPlayerState(InPlayerState))
 	{
-		if (UMInventoryComponent* InventoryComponent = PlayerState->GetComponentByClass<UMInventoryComponent>())
+		if (UMInventoryComponent* InventoryComponent = InPlayerState->GetComponentByClass<UMInventoryComponent>())
 		{
 			InventoryComponent->OnMoneyChangedEvent.AddUObject(this, &AMHudInGame::UpdateMoney);
+		}
+
+		if (AMPlayerState* PlayerState = Cast<AMPlayerState>(InPlayerState))
+		{
+			PlayerState->GetPlayerDeadEvent().AddUObject(this, &AMHudInGame::ShowDieInfo);
 		}
 
 		return true;
@@ -94,42 +123,20 @@ bool AMHudInGame::InitializeUsingPlayerState(APlayerState* PlayerState)
 	return false;
 }
 
-void AMHudInGame::OnPawnChanged(APawn* OldPawn, APawn* NewPawn)
+void AMHudInGame::UpdatePawnBoundWidget(APawn* OldPawn, APawn* NewPawn)
 {
-	Super::OnPawnChanged(OldPawn, NewPawn);
+	Super::UpdatePawnBoundWidget(OldPawn, NewPawn);
 
-	if (AMCharacter* PlayerCharacter = Cast<AMCharacter>(NewPawn))
+	if (IsValid(HUDWidget))
 	{
-		UpdateCharacterInfo(nullptr, PlayerCharacter);
-
-		PlayerCharacter->OnWeaponChangedEvent.AddUObject(this, &AMHudInGame::UpdateWeaponInfo);
-	}
-
-	if (IsValid(OldPawn))
-	{
-		if (UAbilitySystemComponent* AbilitySystemComponent = OldPawn->GetComponentByClass<UAbilitySystemComponent>())
+		if (UWidgetTree* WidgetTree = HUDWidget->WidgetTree)
 		{
-			AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UMAttributeSet::GetHealthAttribute()).Remove(HealthUpdateHandle);
-		}
-	}
-
-	if (IsValid(NewPawn))
-	{
-		if (UAbilitySystemComponent* AbilitySystemComponent = NewPawn->GetComponentByClass<UAbilitySystemComponent>())
-		{
-			HealthUpdateHandle = AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(UMAttributeSet::GetHealthAttribute()).AddUObject(this, &AMHudInGame::UpdateHealth);
-			UpdateHealthProxy(0.f, AbilitySystemComponent->GetNumericAttribute(UMAttributeSet::GetHealthAttribute()), AbilitySystemComponent->GetNumericAttribute(UMAttributeSet::GetMaxHealthAttribute()));
-		}
-	}
-}
-
-void AMHudInGame::UpdateHealth(const FOnAttributeChangeData& AttributeChangeData)
-{
-	if (APawn* Pawn = GetOwningPawn())
-	{
-		if (UAbilitySystemComponent* AbilitySystemComponent = Pawn->GetComponentByClass<UAbilitySystemComponent>())
-		{
-			UpdateHealthProxy(AttributeChangeData.OldValue, AttributeChangeData.NewValue, AbilitySystemComponent->GetNumericAttribute(UMAttributeSet::GetMaxHealthAttribute()));
+			WidgetTree->ForWidgetAndChildren(HUDWidget->GetRootWidget(), [this, NewPawn](UWidget* Widget) {
+				if (UActorBindWidget* ActorBindWidget = Cast<UActorBindWidget>(Widget))
+				{
+					ActorBindWidget->BindActor(NewPawn);
+				}
+			});
 		}
 	}
 }

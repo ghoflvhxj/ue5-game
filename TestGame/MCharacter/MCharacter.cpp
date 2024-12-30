@@ -243,7 +243,6 @@ void AMCharacter::ChargeInputPressed()
 
 void AMCharacter::OnMoveSpeedChanged(const FOnAttributeChangeData& AttributeChangeData)
 {
-	UE_LOG(LogTemp, Warning, TEXT("%s"), *FString(__FUNCTION__));
 	GetCharacterMovement()->MaxWalkSpeed = AttributeChangeData.NewValue;
 }
 
@@ -254,7 +253,6 @@ void AMCharacter::OnHealthChanged(const FOnAttributeChangeData& AttributeChangeD
 		return;
 	}
 
-	
 	APawn* DamageInstigator = nullptr;
 	if (AttributeChangeData.GEModData)
 	{
@@ -298,7 +296,10 @@ void AMCharacter::OnHealthChanged(const FOnAttributeChangeData& AttributeChangeD
 				StopAnimMontage(Montage);
 			}
 
-			SetLifeSpan(3.f);
+			if (IsPlayerControlled() == false)
+			{
+				SetLifeSpan(3.f);
+			}
 		}
 
 		TArray<UPrimitiveComponent*> Primitives;

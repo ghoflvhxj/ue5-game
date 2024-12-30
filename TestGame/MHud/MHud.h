@@ -33,7 +33,7 @@ public:
 
 protected:
 	UFUNCTION()
-	virtual void OnPawnChanged(APawn* OldPawn, APawn* NewPawn) {}
+	virtual void UpdatePawnBoundWidget(APawn* OldPawn, APawn* NewPawn) {}
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
@@ -62,12 +62,9 @@ public:
 	virtual bool InitializeUsingPlayerState(APlayerState* PlayerState) override;
 
 protected:
-	virtual void OnPawnChanged(APawn* OldPawn, APawn* NewPawn) override;
+	virtual void UpdatePawnBoundWidget(APawn* OldPawn, APawn* NewPawn) override;
 
 public:
-	void UpdateHealth(const FOnAttributeChangeData& AttributeChangeData);
-	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "UpdateHealth"))
-	void UpdateHealthProxy(float OldValue, float NewValue, float MaxValue);
 	UFUNCTION(BlueprintImplementableEvent)
 	void UpdateCharacterInfo(APawn* OldPawn, APawn* NewPawn);
 	//UFUNCTION(BlueprintImplementableEvent)
@@ -112,4 +109,12 @@ public:
 public:
 	UFUNCTION(BlueprintImplementableEvent)
 	void UpdateMoney(int32 InMoney);
+
+public:
+	UFUNCTION(BlueprintImplementableEvent)
+	void ShowSpectateInfo(bool InSpectating);
+
+public:
+	UFUNCTION(BlueprintImplementableEvent)
+	void ShowDieInfo();
 };

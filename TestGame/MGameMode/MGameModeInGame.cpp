@@ -32,7 +32,7 @@ void AMGameModeInGame::SetPlayerDefaults(APawn* PlayerPawn)
 				return;
 			}
 
-			APlayerState* PlayerState = PlayerCharacter->GetPlayerState();
+			AMPlayerState* PlayerState = PlayerCharacter->GetPlayerState<AMPlayerState>();
 			if (IsValid(PlayerState) == false)
 			{
 				return;
@@ -42,6 +42,9 @@ void AMGameModeInGame::SetPlayerDefaults(APawn* PlayerPawn)
 			{
 				case (uint8)ECharacterVitalityState::Die:
 				{
+					PlayerState->Die();
+
+					//GameStateInGame->AddDeadPlayer(PlayerState);
 					APlayerController* PlayerController = PlayerState->GetPlayerController();
 					GameStateInGame->AddDeadPlayer(PlayerState);
 					if (PlayerCanRestart(PlayerController))
@@ -54,6 +57,13 @@ void AMGameModeInGame::SetPlayerDefaults(APawn* PlayerPawn)
 					}
 					else
 					{
+						PlayerController->StartSpectatingOnly();
+
+						//FTimerHandle DummyHandle;
+						//GetWorldTimerManager().SetTimer(DummyHandle, FTimerDelegate::CreateWeakLambda(this, [this, PlayerController]() {
+						//	PlayerController->ServerViewNextPlayer();
+						//}), 5.f, false);
+						
 						//GameStateInGame->Multicast_GameOver();
 					}
 				}
