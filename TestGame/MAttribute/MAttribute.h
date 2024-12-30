@@ -37,17 +37,21 @@ public:
 	virtual void PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue) override;
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty> & OutLifetimeProps) const override;
 
-public:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated)
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing = OnRep_MaxHealth)
 	FGameplayAttributeData MaxHealth;
+public:
+	UFUNCTION()
+	void OnRep_MaxHealth(const FGameplayAttributeData& OldData);
 	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, MaxHealth);
+
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing = OnRep_Health)
 	FGameplayAttributeData Health;
 public:
 	UFUNCTION()
-	void OnRep_Health(const FGameplayAttributeData& OldValue);
+	void OnRep_Health(const FGameplayAttributeData& OldData);
 public:
 	GAMEPLAYATTRIBUTE_VALUE_SETTER(Health);
 	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, Health);

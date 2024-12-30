@@ -16,7 +16,7 @@ void UMAttributeSet::PostAttributeChange(const FGameplayAttribute& Attribute, fl
 
 	if (AActor* Owner = GetOwningActor())
 	{
-		UE_CLOG(Owner, LogAttribute, Warning, TEXT("%s, AttributeChanged:%s %f->%f"), *Owner->GetName(), *Attribute.GetName(), OldValue, NewValue);
+		UE_CLOG(Owner, LogAttribute, VeryVerbose, TEXT("%s, AttributeChanged:%s %f->%f"), *Owner->GetName(), *Attribute.GetName(), OldValue, NewValue);
 	}
 }
 
@@ -29,6 +29,11 @@ void UMAttributeSet::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty> 
 	DOREPLIFETIME(UMAttributeSet, AttackPower);
 	DOREPLIFETIME(UMAttributeSet, MoveSpeed);
 	DOREPLIFETIME(UMAttributeSet, AttackSpeed);
+}
+
+void UMAttributeSet::OnRep_MaxHealth(const FGameplayAttributeData& OldData)
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(UMAttributeSet, MaxHealth, OldData);
 }
 
 void UMAttributeSet::OnRep_Health(const FGameplayAttributeData& OldData)
