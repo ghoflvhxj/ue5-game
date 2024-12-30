@@ -104,18 +104,14 @@ bool AMGameModeInGame::ReadyToEndMatch_Implementation()
 	return false;
 }
 
-void AMGameModeInGame::OnActorDestruct(ADestructableActor* InDestructableActor)
+void AMGameModeInGame::SpawnItem(ADestructableActor* InDestructableActor)
 {
 	if (IsValid(InDestructableActor))
 	{
 		FTransform Transform = InDestructableActor->GetActorTransform();
 		Transform.SetScale3D(FVector::OneVector);
 
-		auto PickItemIndex = []()->int32 {
-			return FMath::RandRange(0, 3);
-		};
-
-		int32 ItemIndex = PickItemIndex();
+		int32 ItemIndex = ItemIndices.Pop(false);
 		SpawnDropItem(ItemIndex, Transform);
 
 		// GameItemComponent->SpawnRandomItem();
@@ -138,7 +134,7 @@ void AMGameModeInGame::OnPawnKilled(APawn* Killer, APawn* Killed)
 		
 		if (UMGameInstance* GameInstance = Cast<UMGameInstance>(UGameplayStatics::GetGameInstance(this)))
 		{
-			if (FItemBaseInfo* MoneyItemInfo = GameInstance->GetItemBaseInfo(TEXT("Money")))
+			if (FGameItemTableRow* MoneyItemInfo = GameInstance->GetItemTableRow(TEXT("Money")))
 			{
 				SpawnDropItem(MoneyItemInfo->Index, Transform);
 			}

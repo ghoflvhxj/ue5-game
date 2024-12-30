@@ -4,6 +4,8 @@
 
 DECLARE_LOG_CATEGORY_CLASS(LogItem, Log, Log);
 
+const FGameItemTableRow FGameItemTableRow::Empty = FGameItemTableRow();
+
 // Sets default values
 AItemBase::AItemBase()
 {
@@ -34,7 +36,12 @@ void AItemBase::OnRep_ItemIndex()
 
 const FGameItemTableRow& AItemBase::GetItemTableRowImplement()
 {
-	return *GetItemTableRow();
+	if (FGameItemTableRow* Row = GetItemTableRow())
+	{
+		return *Row;
+	}
+
+	return FGameItemTableRow::Empty;
 }
 
 FGameItemTableRow* AItemBase::GetItemTableRow()

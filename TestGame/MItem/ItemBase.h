@@ -47,6 +47,9 @@ struct FGameItemData
 	TSet<TSubclassOf<UGameplayAbility>> Abilities;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UMAbilityDataAsset* AbilitySet;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TMap<TSubclassOf<UGameplayEffect>, FGameplayEffectParam> GameplayEffects;
 };
 
@@ -75,6 +78,12 @@ struct FGameItemInfo
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FSoftObjectPath DropMesh = nullptr;
+
+public:
+	const FSoftObjectPath& GetWorldAssetPath() const
+	{
+		return DropMesh; // DropMesh이름을 변경하면 영향이 많으니 일단 이렇게
+	}
 };
 
 
@@ -82,6 +91,8 @@ USTRUCT(BlueprintType)
 struct FGameItemTableRow : public FTableRowBase
 {
 	GENERATED_BODY()
+
+	static const FGameItemTableRow Empty;
 
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -94,6 +105,7 @@ public:
 	FGameItemData GameItemData;
 
 public:
+#if WITH_EDITOR
 	virtual void OnPostDataImport(const UDataTable* InDataTable, const FName InRowName, TArray<FString>& OutCollectedImportProblems) override
 	{
 		Super::OnPostDataImport(InDataTable, InRowName, OutCollectedImportProblems);
@@ -106,14 +118,14 @@ public:
 			UE_LOG(LogTemp, Warning, TEXT("DataTable(%s) rowname(%s) is not numeric. Failed to initialize index property!!!"), *InDataTable->GetName(), *InRowName.ToString());
 		}
 	}
+#endif
 
-public:
 	template<class T>
-	T* GetMesh() const
+	T* GetWorldAsset() const
 	{
-		if (GameItemInfo.DropMesh.IsValid())
+		if (GameItemInfo.GetWorldAssetPath().IsValid())
 		{
-			return Cast<T>(GameItemInfo.DropMesh.TryLoad());
+			return Cast<T>(GameItemInfo.GetWorldAssetPath().TryLoad());
 		}
 		return nullptr;
 	}

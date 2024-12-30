@@ -35,22 +35,22 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	UMInteractorComponent* InteractorComponent;
 
-#if WITH_EDITOR
 public:
+	virtual void OnConstruction(const FTransform& Transform) override;
+	virtual void Tick(float DeltaTime) override;
+#if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 protected:
 	virtual void BeginPlay() override;
 
 public:
-	virtual void OnRep_ItemIndex();
-
+	virtual void OnRep_ItemIndex() override;
 protected:
 	void UpdateItemMesh();
-	 
-public:	
-	virtual void OnConstruction(const FTransform& Transform) override;
-	virtual void Tick(float DeltaTime) override;
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FSoftObjectPath DefaultMeshPath;
 
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)

@@ -9,10 +9,10 @@
 #include "TestGame/MCharacter/Component/InteractorComponent.h"
 #include "TestGame/MComponents/InventoryComponent.h"
 #include "TestGame/MWeapon/Weapon.h"
+#include "TestGame/MAbility/MAbility.h"
 
 DECLARE_LOG_CATEGORY_CLASS(LogDropItem, Log, Log);
 
-// Sets default values
 ADropItem::ADropItem()
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -116,6 +116,13 @@ void ADropItem::BeginPlay()
 							AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*EffectSpecHandle.Data.Get());
 						}
 
+						UE_LOG(LogTemp, Warning, TEXT("GiveAbilitiy"));
+						if (UMAbilityDataAsset* AbilitySet = ItemBaseInfo->GameItemData.AbilitySet)
+						{
+							TMap<FGameplayTag, FGameplayAbilitySpecHandle> TagToAbilityMap;
+							AbilitySet->GiveAbilities(AbilitySystemComponent, TagToAbilityMap);
+						}
+
 						for (const auto& AbilityClass : ItemBaseInfo->GameItemData.Abilities)
 						{
 							FGameplayAbilitySpec AbilitySpec(AbilityClass);
@@ -127,14 +134,8 @@ void ADropItem::BeginPlay()
 			}
 
 			SetActorHiddenInGame(true);
+			SetActorEnableCollision(false);
 			SetLifeSpan(0.1f);
-			if (IsValid(SphereComponent))
-			{
-				SphereComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-				SphereComponent->SetGenerateOverlapEvents(false);
-			}
-
-			
 		});
 	}
 
@@ -155,45 +156,76 @@ void ADropItem::UpdateItemMesh()
 		return;
 	}
 
+	if (IsValid(SkeletalMeshComponent))
+	{
+		SkeletalMeshComponent->SetSkeletalMesh(nullptr);
+		NiagaraComponent->SetHiddenInGame(true, false);
+	}
+	if (IsValid(StaticMeshComponent))
+	{
+		StaticMeshComponent->SetStaticMesh(nullptr);
+		NiagaraComponent->SetHiddenInGame(true, false);
+	}
+	if (IsValid(NiagaraComponent))
+	{
+		NiagaraComponent->SetAsset(nullptr);
+		NiagaraComponent->SetHiddenInGame(true, false);
+	}
+
+	UPrimitiveComponent* ActualPrimitiveComponent = nullptr;
+
 	if (FGameItemTableRow* ItemBaseInfo = GetItemTableRow())
 	{
-		if (UStreamableRenderAsset* MeshAsset = ItemBaseInfo->GetMesh<UStreamableRenderAsset>())
+		if (UStreamableRenderAsset* RenderAsset = ItemBaseInfo->GetWorldAsset<UStreamableRenderAsset>())
 		{
-			switch (MeshAsset->GetRenderAssetType())
+			switch (RenderAsset->GetRenderAssetType())
 			{
 				case EStreamableRenderAssetType::SkeletalMesh:
 				{
-					if (IsValid(SkeletalMeshComponent) && SkeletalMeshComponent->GetSkeletalMeshAsset() != MeshAsset)
+					if (IsValid(SkeletalMeshComponent) && SkeletalMeshComponent->GetSkeletalMeshAsset() != RenderAsset)
 					{
-						SkeletalMeshComponent->SetSkeletalMesh(Cast<USkeletalMesh>(MeshAsset));
-					}
-					if (IsValid(StaticMeshComponent))
-					{
-						StaticMeshComponent->SetStaticMesh(nullptr);
+						SkeletalMeshComponent->SetSkeletalMesh(Cast<USkeletalMesh>(RenderAsset));
+						ActualPrimitiveComponent = SkeletalMeshComponent;
 					}
 				}
 				break;
 				case EStreamableRenderAssetType::StaticMesh:
 				{
-					if (IsValid(StaticMeshComponent) && StaticMeshComponent->GetStaticMesh() != MeshAsset)
+					if (IsValid(StaticMeshComponent) && StaticMeshComponent->GetStaticMesh() != RenderAsset)
 					{
-						StaticMeshComponent->SetStaticMesh(Cast<UStaticMesh>(MeshAsset));
+						StaticMeshComponent->SetStaticMesh(Cast<UStaticMesh>(RenderAsset));
+						ActualPrimitiveComponent = StaticMeshComponent;
 					}
-					if (IsValid(SkeletalMeshComponent))
+				}
+				break;
+				case EStreamableRenderAssetType::Texture:
+				{
+					if (IsValid(StaticMeshComponent))
 					{
-						SkeletalMeshComponent->SetSkeletalMesh(nullptr);
+						StaticMeshComponent->SetStaticMesh(Cast<UStaticMesh>(DefaultMeshPath.TryLoad()));
+						if (UMaterialInstanceDynamic* MaterialInstanceDynamic = StaticMeshComponent->CreateDynamicMaterialInstance(0))
+						{
+							MaterialInstanceDynamic->SetTextureParameterValue("BaseColor", Cast<UTexture>(RenderAsset));
+						}
+						ActualPrimitiveComponent = StaticMeshComponent;
 					}
 				}
 				break;
 			}
 		}
-		else if (UNiagaraSystem* NiagaraAsset = ItemBaseInfo->GetMesh<UNiagaraSystem>())
+		else if (UNiagaraSystem* NiagaraAsset = ItemBaseInfo->GetWorldAsset<UNiagaraSystem>())
 		{
 			if (IsValid(NiagaraComponent))
 			{
 				NiagaraComponent->SetAsset(NiagaraAsset);
+				ActualPrimitiveComponent = NiagaraComponent;
 			}
 		}
+	}
+
+	if (IsValid(ActualPrimitiveComponent))
+	{
+		ActualPrimitiveComponent->SetHiddenInGame(false, true);
 	}
 }
 
