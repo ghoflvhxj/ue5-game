@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "TestGame/MCharacter/Component/ActionComponent.h"
+#include "TestGame/Bullet/Bullet.h" // DamageGiveActor 참조용
 #include "Weapon.generated.h"
 
 class UMAbilityDataAsset;
@@ -105,26 +106,27 @@ struct FWeaponTableRow : public FTableRowBase
 };
 
 UCLASS()
-class TESTGAME_API AWeapon : public AActor
+class TESTGAME_API AWeapon : public ADamageGiveActor
 {
 	GENERATED_BODY()
 
 public:
 	AWeapon();
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UMActionComponent* ActionComponent = nullptr;
+	//UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	//class UAbilitySystemComponent* AbilitySystemComponent = nullptr;
 
 public:
 	virtual void OnConstruction(const FTransform& Transform) override;
 	//virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	//virtual void NotifyActorBeginOverlap(AActor* OtherActor) override;
 protected:
 	virtual void BeginPlay() override;
 
 public:
 	TSubclassOf<UAttributeSet> GetAttributeSet();
-public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	class UMActionComponent* ActionComponent = nullptr;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	class UAbilitySystemComponent* AbilitySystemComponent = nullptr;
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	UDataTable* WeaponDataTable;

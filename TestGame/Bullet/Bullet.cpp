@@ -1,11 +1,12 @@
 #include "Bullet.h"
 
+#include "GameFramework/ProjectileMovementComponent.h"
+#include "AbilitySystemComponent.h"
+ 
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MAttribute/MAttribute.h"
 #include "TestGame/MAbility/MAbility.h"
-
-#include "GameFramework/ProjectileMovementComponent.h"
-#include "GameplayAbilities/Public/AbilitySystemComponent.h"
+#include "TestGame/MAbility/MEffect.h"
 
 DECLARE_LOG_CATEGORY_CLASS(LogBullet, Log, Log)
 
@@ -67,9 +68,6 @@ void ABullet::BeginPlay()
 			AbilitySystemComponent->TryActivateAbility(SpecHandle);
 		}
 	}
-
-
-	IgnoreActors.Add(GetInstigator());
 }
 
 void ABullet::NotifyActorBeginOverlap(AActor* OtherActor)
@@ -80,23 +78,6 @@ void ABullet::NotifyActorBeginOverlap(AActor* OtherActor)
 	{
 		return;
 	}
-
-	//if (HasAuthority())
-	//{
-	//	if (UAbilitySystemComponent* AbilitySystemComponent = OtherActor->FindComponentByClass<UAbilitySystemComponent>())
-	//	{
-	//		UE_LOG(LogBullet, Log, TEXT("%p, %s Apply Effect Num:%d"), this, *GetName(), GameplayEffects.Num());
-
-	//		for (auto GameplayEffect : GameplayEffects)
-	//		{
-	//			FGameplayEffectContextHandle EffectContextHandle = AbilitySystemComponent->MakeEffectContext();
-	//			EffectContextHandle.AddSourceObject(this);
-	//			EffectContextHandle.AddInstigator(GetInstigator()/*Character*/, GetOwner()/*Weapon*/);
-
-	//			AbilitySystemComponent->ApplyGameplayEffectToSelf(GameplayEffect, 1, EffectContextHandle);
-	//		}
-	//	}
-	//}
 
 	if (bPenerate == false)
 	{
@@ -112,39 +93,7 @@ void ABullet::NotifyActorBeginOverlap(AActor* OtherActor)
 		SetActorEnableCollision(false);
 		SetActorHiddenInGame(true);
 	}
-	
 }
-
-//void ABullet::GiveEffects(UAbilitySystemComponent* AbilitySystemComponent)
-//{
-//	if (HasAuthority() == false)
-//	{
-//		return;
-//	}
-//
-//	GameplayEffects.Reset();
-//
-//	if (IsValid(AbilitySystemComponent))
-//	{
-//		Damage = AbilitySystemComponent->GetNumericAttribute(UMAttributeSet::GetAttackPowerAttribute());
-//	}
-//
-//	// 임시 작업
-//	// 이후에 최대 체력 감소, 마나 감소, 시전 시간 증가 등 다양한 이펙트를 추가할 수 있는 구조로 변경
-//	// 그리고 Effects를 소유할 수 있는 컨테이너 컴포넌트를 만들자
-//	{
-//		UGameplayEffect* NewHealthAddEffect = NewObject<UGameplayEffect>();
-//		NewHealthAddEffect->DurationPolicy = EGameplayEffectDurationType::Instant;
-//
-//		FGameplayModifierInfo ModifierInfo;
-//		ModifierInfo.Attribute = UMAttributeSet::GetHealthAttribute();
-//		ModifierInfo.ModifierOp = EGameplayModOp::Additive;
-//		ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(-Damage);
-//		NewHealthAddEffect->Modifiers.Add(ModifierInfo);
-//
-//		GameplayEffects.Add(NewHealthAddEffect);
-//	}
-//}
 
 void ABullet::DestroyBullet()
 {
@@ -176,14 +125,42 @@ void ABullet::StartProjectile(const FVector& NewDirection, float NewDamage)
 	SetLifeSpan(10.f);
 }
 
-bool ABullet::IsReactable(AActor* InActor)
+void ADamageGiveActor::NotifyActorBeginOverlap(AActor* OtherActor)
+{
+	Super::NotifyActorBeginOverlap(OtherActor);
+
+	if (IsReactable(OtherActor) && HasAuthority() && IsValid(Owner))
+	{
+		if (UAbilitySystemComponent* AbilitySystemComponent = Owner->GetComponentByClass<UAbilitySystemComponent>())
+		{
+			FGameplayEffectSpecHandle GameplayEffectSpecHandle = AbilitySystemComponent->MakeOutgoingSpec(UGameplayEffect_Damage::StaticClass(), -1, AbilitySystemComponent->MakeEffectContext());
+			AbilitySystemComponent->ApplyGameplayEffectSpecToTarget(*GameplayEffectSpecHandle.Data.Get(), OtherActor->GetComponentByClass<UAbilitySystemComponent>());
+
+			// 넉백 처리, 임시로 한거고 추후에 넉백저항 등이 들어가면 어트리뷰트에 기반해야 할 듯?
+			FVector Offset = FVector::ZeroVector;
+			if (UCapsuleComponent* CapsuleComponent = Owner->GetComponentByClass<UCapsuleComponent>())
+			{
+				Offset.Z = CapsuleComponent->GetScaledCapsuleHalfHeight();
+			}
+			if (UCharacterMovementComponent* MovementComponent = OtherActor->GetComponentByClass<UCharacterMovementComponent>())
+			{
+				MovementComponent->StopMovementImmediately();
+				MovementComponent->AddRadialImpulse(Owner->GetActorLocation() + Offset, 1000.f, 150000.f, ERadialImpulseFalloff::RIF_Linear, false);
+			}
+		}
+	}
+}
+
+void ADamageGiveActor::OnConstruction(const FTransform& Transform)
+{
+	Super::OnConstruction(Transform);
+	IgnoreActors.Add(GetOwner());
+	IgnoreActors.Add(GetInstigator());
+}
+
+bool ADamageGiveActor::IsReactable(AActor* InActor)
 {
 	if (IsValid(InActor) == false || IgnoreActors.Contains(InActor))
-	{
-		return false;
-	}
-
-	if (InActor->IsA<APawn>() == false)
 	{
 		return false;
 	}

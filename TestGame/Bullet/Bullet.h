@@ -12,7 +12,22 @@ class UProjectileMovementComponent;
 class UGameplayEffect;
 
 UCLASS()
-class TESTGAME_API ABullet : public AActor
+class TESTGAME_API ADamageGiveActor : public AActor
+{
+	GENERATED_BODY()
+
+public:
+	virtual void NotifyActorBeginOverlap(AActor* OtherActor) override;
+	virtual void OnConstruction(const FTransform& Transform) override;
+
+public:
+	bool IsReactable(AActor* InActor);
+protected:
+	TArray<TWeakObjectPtr<AActor>> IgnoreActors;
+};
+
+UCLASS()
+class TESTGAME_API ABullet : public ADamageGiveActor
 {
 	GENERATED_BODY()
 
@@ -20,8 +35,9 @@ public:
 	// Sets default values for this character's properties
 	ABullet();
 
-public:
+protected:
 	virtual void BeginPlay() override;
+public:
 	virtual void NotifyActorBeginOverlap(AActor* OtherActor) override;
 
 public:
@@ -46,11 +62,7 @@ public:
 protected:
 	FVector Direction;
 	float Damage = 0.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	bool bPenerate = false;
-
-public:
-	bool IsReactable(AActor* InActor);
-protected:
-	TArray<TWeakObjectPtr<AActor>> IgnoreActors;
 };
 

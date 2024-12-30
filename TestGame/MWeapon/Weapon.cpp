@@ -7,8 +7,7 @@
 #include "MGameInstance.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MCharacter/Component/ActionComponent.h"
-#include "TestGame/MAbility/MAbility.h"
-#include "TestGame/MAttribute/Mattribute.h"
+#include "TestGame/MAttribute/MAttribute.h"
 
 DECLARE_LOG_CATEGORY_CLASS(LogWeapon, Log, Log);
 
@@ -16,7 +15,7 @@ AWeapon::AWeapon()
 {
 	ActionComponent = CreateDefaultSubobject<UMActionComponent>(TEXT("ActionComponent"));
 
-	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
+	//AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
 
 	//bReplicates = true;
 }
@@ -24,26 +23,69 @@ AWeapon::AWeapon()
 void AWeapon::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
-
-	//UE_LOG(LogWeapon, Warning, TEXT("Weapon Construct Index:%d"), WeaponIndex);
-
+	
 	if (const FWeaponData* WeaponData = GetWeaponData())
 	{
+		TArray<UShapeComponent*> ShapeComponents;
+		GetComponents(ShapeComponents);
+
+		// 무기의 메시 설정과 쉐이프를 메시에 어태치
 		if (USkeletalMeshComponent* SkeletalMeshComponent = GetComponentByClass<USkeletalMeshComponent>())
 		{
 			SkeletalMeshComponent->SetSkeletalMesh(WeaponData->Mesh);
-
-			TArray<UShapeComponent*> ShapeComponents;
-			GetComponents(ShapeComponents);
 			for (UShapeComponent* ShapeComponent : ShapeComponents)
 			{
 				ShapeComponent->AttachToComponent(SkeletalMeshComponent, FAttachmentTransformRules(EAttachmentRule::SnapToTarget, false), TEXT("Root"));
 			}
 		}
 
-		AbilitySystemComponent->InitStats(GetAttributeSet(), WeaponData->Attributes);
+		switch (WeaponData->WeaponType)
+		{
+			case EWeaponType::Sword:
+			{
+				for (UShapeComponent* ShapeComponent : ShapeComponents)
+				{
+					ShapeComponent->SetGenerateOverlapEvents(true);
+				}
+			}
+			break;
+			default:
+			{
+				for (UShapeComponent* ShapeComponent : ShapeComponents)
+				{
+					ShapeComponent->SetGenerateOverlapEvents(false);
+				}
+			}
+			break;
+		}
 	}
 }
+
+//void AWeapon::NotifyActorBeginOverlap(AActor* OtherActor)
+//{
+//	Super::NotifyActorBeginOverlap(OtherActor);
+//
+//	if (IsReactable(OtherActor) && HasAuthority() && IsValid(Owner))
+//	{
+//		if (UAbilitySystemComponent* AbilitySystemComponent = Owner->GetComponentByClass<UAbilitySystemComponent>())
+//		{
+//			FGameplayEffectSpecHandle GameplayEffectSpecHandle = AbilitySystemComponent->MakeOutgoingSpec(UGameplayEffect_Damage::StaticClass(), -1, AbilitySystemComponent->MakeEffectContext());
+//			AbilitySystemComponent->ApplyGameplayEffectSpecToTarget(*GameplayEffectSpecHandle.Data.Get(), OtherActor->GetComponentByClass<UAbilitySystemComponent>());
+//
+//			// 넉백 처리, 임시로 한거고 추후에 넉백저항 등이 들어가면 어트리뷰트에 기반해야 할 듯?
+//			FVector Offset = FVector::ZeroVector;
+//			if (UCapsuleComponent* CapsuleComponent = Owner->GetComponentByClass<UCapsuleComponent>())
+//			{
+//				Offset.Z = CapsuleComponent->GetScaledCapsuleHalfHeight();
+//			}
+//			if (UCharacterMovementComponent* MovementComponent = OtherActor->GetComponentByClass<UCharacterMovementComponent>())
+//			{
+//				MovementComponent->StopMovementImmediately();
+//				MovementComponent->AddRadialImpulse(Owner->GetActorLocation() + Offset, 1000.f, 150000.f, ERadialImpulseFalloff::RIF_Linear, false);
+//			}
+//		}
+//	}
+//}
 
 void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -64,10 +106,10 @@ void AWeapon::BeginPlay()
 		}
 	}
 
-	if (const FWeaponData* WeaponData = GetWeaponData())
-	{
-		AbilitySystemComponent->InitStats(GetAttributeSet(), WeaponData->Attributes);
-	}
+	//if (const FWeaponData* WeaponData = GetWeaponData())
+	//{
+	//	AbilitySystemComponent->InitStats(GetAttributeSet(), WeaponData->Attributes);
+	//}
 
 	SetActorEnableCollision(false);
 }
@@ -291,15 +333,18 @@ bool AWeapon::IsAttackable() const
 {
 	const FWeaponData* WeaponData = GetWeaponData();
 
-	if (WeaponData == nullptr || IsValid(AbilitySystemComponent) == false)
+	if (WeaponData == nullptr)
 	{
 		return false;
 	}
 
+
 	if (WeaponData->WeaponType == EWeaponType::Gun)
 	{
-		bool bFound = false;
-		return static_cast<int>(AbilitySystemComponent->GetGameplayAttributeValue(UMWeaponAttributeSet::GetAmmoAttribute(), bFound)) > 0;
+		if (UAbilitySystemComponent* AbilitySystemComponent = GetComponentByClass<UAbilitySystemComponent>())
+		{
+			return static_cast<int>(AbilitySystemComponent->GetNumericAttribute(UMWeaponAttributeSet::GetAmmoAttribute())) > 0;
+		}
 	}
 
 	return true;
@@ -382,13 +427,4 @@ void ADelegator::OnConstruction(const FTransform& Transform)
 			Weapon = Character->GetEquipItem<AWeapon>();
 		}
 	}
-
-	if (IsValid(Weapon))
-	{
-		if (const FWeaponData* WeaponData = Weapon->GetWeaponData())
-		{
-			AbilitySystemComponent->InitStats(UMWeaponAttributeSet::StaticClass(), WeaponData->Attributes);
-		}
-	}
-
 }
