@@ -112,14 +112,13 @@ float AMPlayerControllerInGame::GetAngleToMouse(const FVector& InLocation)
 {
 	FVector MouseWorldLocation;
 	FVector MouseWorldDirection;
-	FCollisionObjectQueryParams CollsionParam;
-	CollsionParam.AddObjectTypesToQuery(ECC_WorldStatic);
-	CollsionParam.AddObjectTypesToQuery(ECC_WorldDynamic);
+	FCollisionQueryParams QueryParams;
+	FCollisionResponseParams ResponsParams(ECollisionResponse::ECR_Block);
 
 	if (DeprojectMousePositionToWorld(MouseWorldLocation, MouseWorldDirection))
 	{
 		TArray<FHitResult> HitResults;
-		if (GetWorld()->LineTraceMultiByObjectType(HitResults, MouseWorldLocation, MouseWorldLocation + MouseWorldDirection * 10000.f, CollsionParam))
+		if (GetWorld()->LineTraceMultiByChannel(HitResults, MouseWorldLocation, MouseWorldLocation + MouseWorldDirection * 10000.f, ECC_Visibility, QueryParams, ResponsParams))
 		{
 			return UKismetMathLibrary::FindLookAtRotation(InLocation, HitResults[0].Location).Yaw;
 		}
