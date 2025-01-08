@@ -195,10 +195,8 @@ bool UGameplayAbility_Skill::CommitAbility(const FGameplayAbilitySpecHandle Hand
 {
 	if (Super::CommitAbility(Handle, ActorInfo, ActivationInfo, OptionalRelevantTags))
 	{
-		if (FSkillTableRow* SkillInfo = GetSkillInfo())
-		{
-			return true;
-		}
+		Character = Cast<AMCharacter>(GetAvatarActorFromActorInfo());
+		return GetSkillInfo() != nullptr && IsValid(Character);
 	}
 
 	return false;

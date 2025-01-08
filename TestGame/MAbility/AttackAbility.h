@@ -108,3 +108,18 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<ABullet> BulletClass = nullptr;
 };
+
+UCLASS()
+class TESTGAME_API UGameplayAbility_Batto : public UGameplayAbility_LightChargeAttack
+{
+	GENERATED_BODY()
+
+public:
+	UGameplayAbility_Batto();
+
+public:
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+
+public:
+	virtual void MontageJumpToComboSection(int32 InComboIndex) override;
+};

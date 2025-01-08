@@ -204,6 +204,10 @@ protected:
 	int32 SkillIndex = INDEX_NONE;
 
 protected:
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly)
+	AMCharacter* Character = nullptr;
+
+protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	bool bEndInstantly = true;
 

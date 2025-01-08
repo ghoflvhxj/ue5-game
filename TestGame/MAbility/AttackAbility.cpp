@@ -3,12 +3,16 @@
 #include "AttackAbility.h"
 #include "AbilitySystemBlueprintLibrary.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
+#include "NavigationSystem.h"
+#include "Kismet/KismetMathLibrary.h"
+#include "Engine/OverlapResult.h"
 
 #include "TestGame/MCharacter/Component/ActionComponent.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MWeapon/Weapon.h"
 #include "TestGame/MAttribute/MAttribute.h"
 #include "TestGame/MAbility/MEffect.h"
+#include "TestGame/MPlayerController/MPlayerController.h"
 
 DECLARE_LOG_CATEGORY_CLASS(LogAttack, Log, Log);
 
@@ -41,7 +45,7 @@ void UGameplayAbility_AttackBase::ActivateAbility(const FGameplayAbilitySpecHand
 
 	if (ComboDelegateHandle.IsValid() == false)
 	{
-		ComboDelegateHandle = Weapon->OnComboChangedEvent.AddUObject(this, &UGameplayAbility_BasicAttack::MontageJumpToComboSection);
+		ComboDelegateHandle = Weapon->OnComboChangedEvent.AddUObject(this, &UGameplayAbility_AttackBase::MontageJumpToComboSection);
 	}
 
 	Weapon->SetAttackMode(AbilityTags.GetByIndex(0));
@@ -403,5 +407,135 @@ void UGameplayAbility_SwordWave::BindToWeaponCombo()
 				SpawnSwordWave();
 			}
 		});
+	}
+}
+
+UGameplayAbility_Batto::UGameplayAbility_Batto()
+{
+//	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
+//	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
+//	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
+//
+//	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Attack.ChargeLight"));
+//	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("ActionType.Dynamic"));
+//	CancelAbilitiesWithTag.AddTag(LightAttack);
+
+	bClearCacheIfEnd = false;
+}
+
+void UGameplayAbility_Batto::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	//if (CommitAbility(Handle, ActorInfo, ActivationInfo, nullptr) == false)
+	//{
+	//	EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+	//	return;
+	//}
+
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+
+	//if (PlayAttackMontage())
+	//{
+	//	return;
+	//}
+
+	//EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+}
+
+void UGameplayAbility_Batto::MontageJumpToComboSection(int32 InComboIndex)
+{
+	UWorld* World = GetWorld();
+	UNavigationSystemV1* NavSystem = UNavigationSystemV1::GetCurrent(World);
+
+	if (Character.IsValid() == false || IsValid(World) == false || IsValid(NavSystem) == false)
+	{
+		return;
+	}
+
+	Super::MontageJumpToComboSection(InComboIndex);
+
+	FVector Trace = { 0.f, 0.f, 10000.f };
+
+	FVector LineTraceStart = Character->GetActorLocation() + Trace;
+	FVector LineTraceEnd = Character->GetActorLocation() - Trace;
+	FCollisionObjectQueryParams ObjectQueryParams(ECC_WorldStatic);
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(Character.Get());
+	QueryParams.bDebugQuery = true;
+
+	FString ComboName = InComboIndex == INDEX_NONE ? TEXT("End") : FString::Printf(TEXT("Combo%d"), InComboIndex);
+	if (ComboName == TEXT("Combo0"))
+	{
+		if (AMPlayerControllerInGame* PlayerController = Character->GetController<AMPlayerControllerInGame>())
+		{
+			FVector Distance = { 1000.f, 0.f, 0.f };
+			Distance = Distance.RotateAngleAxis(PlayerController->GetYawToMouse(), FVector::UpVector);
+
+			LineTraceStart += Distance;
+			LineTraceEnd += Distance;
+		}
+
+		if (ANavigationData* NavData = Cast<ANavigationData>(NavSystem->GetMainNavData()))
+		{
+			FHitResult HitResult;
+			if (World->LineTraceSingleByObjectType(HitResult, LineTraceStart, LineTraceEnd, ObjectQueryParams, QueryParams))
+			{
+				FPathFindingQuery PathFindingQuery;
+				PathFindingQuery.Owner = Character;
+				PathFindingQuery.StartLocation = Character->GetActorLocation();
+				PathFindingQuery.EndLocation = HitResult.Location;
+				PathFindingQuery.bAllowPartialPaths = true;
+				PathFindingQuery.NavData = NavData;
+				PathFindingQuery.NavAgentProperties = NavSystem->GetDefaultSupportedAgent().DefaultProperties;
+				PathFindingQuery.bRequireNavigableEndLocation = false;
+				PathFindingQuery.QueryFilter = NavData->GetDefaultQueryFilter();
+
+				FNavPathQueryDelegate PathQueryDelegate = FNavPathQueryDelegate::CreateWeakLambda(this, [this, World, QueryParams](uint32, ENavigationQueryResult::Type QueryResult, FNavPathSharedPtr Path) {
+					if (Character.IsValid() == false || QueryResult != ENavigationQueryResult::Success)
+					{
+						return;
+					}
+
+					FVector GoalLocatoin = Path->GetPathPoints().Last().Location;
+					FRotator RotateToGoal = UKismetMathLibrary::FindLookAtRotation(Character->GetActorLocation(), GoalLocatoin);
+
+					TArray<FOverlapResult> OverlapResults;
+					FCollisionShape CapsuleShape = FCollisionShape::MakeCapsule(100.f, static_cast<float>((GoalLocatoin - Character->GetActorLocation()).Length() / 2.f));
+					if (World->OverlapMultiByObjectType(OverlapResults, Character->GetActorLocation(), FRotator(90.f + RotateToGoal.Pitch, RotateToGoal.Yaw, RotateToGoal.Roll).Quaternion(), FCollisionObjectQueryParams(ECC_Pawn), CapsuleShape, QueryParams))
+					{
+						TSet<AActor*> DamagedActor;
+						for (const FOverlapResult& OverlapResult : OverlapResults)
+						{
+							AActor* OverlapActor = OverlapResult.GetActor();
+							if (DamagedActor.Contains(OverlapActor) == false)
+							{
+								DamagedActor.Add(OverlapActor);
+							}
+							else
+							{
+								continue;
+							}
+
+							if (AMCharacter* OverlapCharacter = Cast<AMCharacter>(OverlapActor))
+							{
+								FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(UGameplayEffect_Damage::StaticClass());
+								ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, EffectSpecHandle, UAbilitySystemBlueprintLibrary::AbilityTargetDataFromActor(OverlapCharacter));
+							}
+						}
+					}
+
+					if (UAbilitySystemComponent* AbilityComponent = Character->GetComponentByClass<UAbilitySystemComponent>())
+					{
+						FGameplayEffectContextHandle EffectContext = AbilityComponent->MakeEffectContext();
+						FGameplayCueParameters CueParams(EffectContext);
+						CueParams.Location = (Character->GetActorLocation() + GoalLocatoin) / 2.f;
+						AbilityComponent->ExecuteGameplayCue(FGameplayTag::RequestGameplayTag("GameplayCue.Effect.Batto"), CueParams);
+					}
+
+					Character->SetActorLocation(GoalLocatoin);
+				});
+
+				NavSystem->FindPathAsync(NavSystem->GetDefaultSupportedAgent().DefaultProperties, PathFindingQuery, PathQueryDelegate);
+			}
+		}
 	}
 }
