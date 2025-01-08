@@ -58,8 +58,13 @@ protected:
 	FOnSpectateModeChangedEvent OnSpectateModeChangedEvent;
 
 public:
+	UFUNCTION(Server, Unreliable)
+	void Server_SetYawToMouse(float InYaw);
 	UFUNCTION(BlueprintPure)
-	float GetAngleToMouse(const FVector& InLocation);
+	float YawToMouseFromWorldLocation(const FVector& InLocation);
+	UFUNCTION(BlueprintPure)
+	float GetYawToMouse() { return YawToMouseFromPawn; }
+	float YawToMouseFromPawn = 0.f;
 
 public:
 	bool IsReady() const { return bReady; }

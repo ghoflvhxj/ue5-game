@@ -593,7 +593,7 @@ void AMCharacter::LookMouse(float TurnSpeed)
 		return;
 	}
 
-	float Angle = PlayerController->GetAngleToMouse(GetActorLocation());
+	float Angle = PlayerController->GetYawToMouse();
 	float CurrentAngle = GetActorRotation().Yaw;
 	float DeltaAngle = FMath::UnwindDegrees(Angle - CurrentAngle);
 

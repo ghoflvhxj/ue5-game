@@ -75,6 +75,13 @@ void AMPlayerControllerInGame::PlayerTick(float DeltaTime)
 {
 	Super::PlayerTick(DeltaTime);
 
+	APawn* PlayerPawn = GetPawn();
+	if (IsLocalController() && IsValid(PlayerPawn))
+	{
+		YawToMouseFromPawn = YawToMouseFromWorldLocation(PlayerPawn->GetActorLocation());
+		Server_SetYawToMouse(YawToMouseFromPawn);
+	}
+
 	AActor* NewPicking = CurrentClickablePrimitive.IsValid() ? CurrentClickablePrimitive->GetOwner() : nullptr;
 	if (IsValid(PickComponent))
 	{
@@ -108,7 +115,12 @@ void AMPlayerControllerInGame::OnRep_PlayerState()
 	}
 }
 
-float AMPlayerControllerInGame::GetAngleToMouse(const FVector& InLocation)
+void AMPlayerControllerInGame::Server_SetYawToMouse_Implementation(float InYaw)
+{
+	YawToMouseFromPawn = InYaw;
+}
+
+float AMPlayerControllerInGame::YawToMouseFromWorldLocation(const FVector& InLocation)
 {
 	FVector MouseWorldLocation;
 	FVector MouseWorldDirection;
