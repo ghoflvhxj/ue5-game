@@ -34,7 +34,7 @@ AMCharacter::AMCharacter()
 	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
 	AbilitySystemComponent->SetIsReplicated(true);
 
-	BattleComponent = CreateDefaultSubobject<UMBattleComponent>(TEXT("BattleComponent"));
+	TeamComponent = CreateDefaultSubobject<UMTeamComponent>(TEXT("TeamComponent"));
 
 	StateComponent = CreateDefaultSubobject<UStateComponent>(TEXT("StateComponent"));
 
@@ -43,6 +43,8 @@ AMCharacter::AMCharacter()
 	{
 		NiagaraComponent->SetupAttachment(MeshComponent);
 	}
+
+	ActionComponent = CreateDefaultSubobject<UMActionComponent>(TEXT("ActionComponent"));
 }
 
 // Called when the game starts or when spawned
@@ -380,9 +382,9 @@ bool AMCharacter::IsSameTeam(AActor* OtherCharacter) const
 {
 	if (AMCharacter* OtherMCharacter = Cast<AMCharacter>(OtherCharacter))
 	{
-		if (IsValid(BattleComponent) && IsValid(OtherMCharacter->BattleComponent))
+		if (IsValid(TeamComponent) && IsValid(OtherMCharacter->TeamComponent))
 		{
-			return BattleComponent->IsSameTeam(OtherMCharacter->BattleComponent);
+			return TeamComponent->IsSameTeam(OtherMCharacter->TeamComponent);
 		}
 	}
 
@@ -446,12 +448,9 @@ void AMCharacter::OnRep_Weapon(AActor* OldWeapon)
 	//	WeaponCached = nullptr;
 	//}
 
-	if (IsValid(Item))
+	if (IsValid(Item) && IsValid(ActionComponent))
 	{
-		if (UMActionComponent* ActionComponent = GetComponentByClass<UMActionComponent>())
-		{
-			ActionComponent->UpdateAction(Item->GetComponentByClass<UMActionComponent>());
-		}
+		ActionComponent->UpdateAction(Item->GetComponentByClass<UMActionComponent>());
 	}
 
 	OnWeaponChangedEvent.Broadcast(OldWeapon, Item);

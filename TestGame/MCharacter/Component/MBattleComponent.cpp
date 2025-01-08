@@ -4,67 +4,47 @@
 
 #include "TestGame/Bullet/Bullet.h"
 
-UMBattleComponent::UMBattleComponent()
+UMTeamComponent::UMTeamComponent()
 {
-	SetComponentTickEnabled(true);
-
 	PrimaryComponentTick.bCanEverTick = false;
+	SetIsReplicatedByDefault(true);
 }
 
-void UMBattleComponent::Attack(TArray<AActor*> Targets)
+void UMTeamComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-	if (BulletClass == nullptr || Targets.Num() == 0)
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(UMTeamComponent, TeamIndex);
+}
+
+void UMTeamComponent::SetTeamIndex(int32 InTeamIndex)
+{
+	TeamIndex = InTeamIndex;
+}
+
+bool UMTeamComponent::IsSameTeam(AActor* OtherActor) const
+{
+	if (IsValid(OtherActor))
 	{
-		return;
+		return IsSameTeam(OtherActor->GetComponentByClass<UMTeamComponent>());
 	}
 
-	TArray<AActor*> PickedTargets;
-	if (PickTargets(Targets, PickedTargets))
-	{
-		FActorSpawnParameters SpawnParameters;
-		SpawnParameters.Owner = GetOwner();
-		ABullet* Bullet = GetWorld()->SpawnActor<ABullet>(BulletClass, GetOwner()->GetActorLocation(), GetOwner()->GetActorRotation(), SpawnParameters);
-		FVector Direction = (Targets[0]->GetActorLocation() - GetOwner()->GetActorLocation()).GetSafeNormal();
-		//Bullet->Fire(Direction, this, 0);
-	}
+	return false;
 }
 
-bool UMBattleComponent::IsSameTeam(int CheckTeamIndex) const
-{
-	UE_CLOG(TeamIndex == CheckTeamIndex, LogTemp, Warning, TEXT("같은 팀"));
-	UE_CLOG(TeamIndex != CheckTeamIndex, LogTemp, Warning, TEXT("다른 팀"));
-	return TeamIndex == CheckTeamIndex;
-}
-
-bool UMBattleComponent::IsSameTeam(UMBattleComponent* OtherBattleComponent) const
+bool UMTeamComponent::IsSameTeam(UMTeamComponent* OtherBattleComponent) const
 {
 	if (IsValid(OtherBattleComponent))
 	{
 		return IsSameTeam(OtherBattleComponent->TeamIndex);
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("실패2"));
-
 	return false;
 }
 
-bool UMBattleComponent::IsAttackableTarget(AActor* Target)
+bool UMTeamComponent::IsSameTeam(int CheckTeamIndex) const
 {
-	if (AMCharacter* MCharacter = Cast<AMCharacter>(Target))
-	{
-		if (MCharacter == GetOwner())
-		{
-			return false;
-		}
-
-		return true;
-	}
-
-	return false;
-}
-
-bool UMBattleComponent::PickTargets(TArray<AActor*>& InTargets, TArray<AActor*>& OutPickedTargets)
-{
-	OutPickedTargets = InTargets;
-	return true;
+	UE_CLOG(TeamIndex == CheckTeamIndex, LogTemp, Warning, TEXT("같은 팀"));
+	UE_CLOG(TeamIndex != CheckTeamIndex, LogTemp, Warning, TEXT("다른 팀"));
+	return TeamIndex == CheckTeamIndex;
 }

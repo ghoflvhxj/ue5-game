@@ -50,8 +50,8 @@ protected:
 	UProjectileMovementComponent* ProjectileComponent;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	UStaticMeshComponent* StaticMeshComponent;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	UAbilitySystemComponent* AbilitySystemComponent;
+	//UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	//UAbilitySystemComponent* AbilitySystemComponent;
 
 public:
 	virtual void Tick(float DeltaSeconds) override;

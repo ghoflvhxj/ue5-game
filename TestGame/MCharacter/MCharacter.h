@@ -15,11 +15,12 @@
 
 #include "MCharacter.generated.h"
 
-class UMBattleComponent;
+class UMTeamComponent;
 class UMAttributeSet;
 class UMAbilityDataAsset;
 class UStateComponent;
 class UNiagaraComponent;
+class UMActionComponent;
 class AWeapon;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnAttackedDelegate);
@@ -33,15 +34,20 @@ class TESTGAME_API AMCharacter : public ACharacter, public IAbilitySystemInterfa
 
 public:
 	AMCharacter();
+public:
+	UMTeamComponent* GetTeamComponent() const { return TeamComponent; }
+	UMActionComponent* GetActionComponent() const { return ActionComponent; }
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	UAbilitySystemComponent* AbilitySystemComponent = nullptr;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	UMBattleComponent* BattleComponent = nullptr;
+	UMTeamComponent* TeamComponent = nullptr;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	UStateComponent* StateComponent = nullptr;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	UNiagaraComponent* NiagaraComponent = nullptr;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UMActionComponent* ActionComponent = nullptr;
 private:
 	template <class T>
 	void CompoentLogic(TFunction<void(T* Component)> Logic)

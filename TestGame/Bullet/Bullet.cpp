@@ -4,6 +4,7 @@
 #include "AbilitySystemComponent.h"
  
 #include "TestGame/MCharacter/MCharacter.h"
+#include "TestGame/MCharacter/Component/MBattleComponent.h" // TeamComponent
 #include "TestGame/MAttribute/MAttribute.h"
 #include "TestGame/MAbility/MAbility.h"
 #include "TestGame/MAbility/MEffect.h"
@@ -25,7 +26,7 @@ ABullet::ABullet()
 
 	ProjectileComponent = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileComponent"));
 
-	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilityComponent"));
+	//AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilityComponent"));
 
 	//PrimaryActorTick.bCanEverTick = false;
 }
@@ -41,32 +42,32 @@ void ABullet::BeginPlay()
 
 	if (HasAuthority())
 	{
-		if (IsValid(Owner))
-		{
-			if (UAbilitySystemComponent* OwnerAbilitySystemComponent = Owner->GetComponentByClass<UAbilitySystemComponent>())
-			{
-				Damage = OwnerAbilitySystemComponent->GetNumericAttribute(UMWeaponAttributeSet::GetAttackPowerAttribute());
-			}
-		}
+		//if (IsValid(Owner))
+		//{
+		//	if (UAbilitySystemComponent* OwnerAbilitySystemComponent = Owner->GetComponentByClass<UAbilitySystemComponent>())
+		//	{
+		//		Damage = OwnerAbilitySystemComponent->GetNumericAttribute(UMWeaponAttributeSet::GetAttackPowerAttribute());
+		//	}
+		//}
 
-		if (IsValid(AbilitySystemComponent))
-		{
-			FGameplayAbilitySpec NewSpec(UGameplayAbility_CollideDamage::StaticClass());
-			FGameplayAbilitySpecHandle SpecHandle = AbilitySystemComponent->GiveAbility(NewSpec);
-			if (FGameplayAbilitySpec* Spec = AbilitySystemComponent->FindAbilitySpecFromHandle(SpecHandle))
-			{
-				for(UGameplayAbility* AbilityInstance : Spec->GetAbilityInstances())
-				{
-					if (UGameplayAbility_CollideDamage* CollideDamageAbility = Cast<UGameplayAbility_CollideDamage>(AbilityInstance))
-					{
-						CollideDamageAbility->SetDamage(Damage);
-					}
-				}
+		//if (IsValid(AbilitySystemComponent))
+		//{
+		//	FGameplayAbilitySpec NewSpec(UGameplayAbility_CollideDamage::StaticClass());
+		//	FGameplayAbilitySpecHandle SpecHandle = AbilitySystemComponent->GiveAbility(NewSpec);
+		//	if (FGameplayAbilitySpec* Spec = AbilitySystemComponent->FindAbilitySpecFromHandle(SpecHandle))
+		//	{
+		//		for(UGameplayAbility* AbilityInstance : Spec->GetAbilityInstances())
+		//		{
+		//			if (UGameplayAbility_CollideDamage* CollideDamageAbility = Cast<UGameplayAbility_CollideDamage>(AbilityInstance))
+		//			{
+		//				CollideDamageAbility->SetDamage(Damage);
+		//			}
+		//		}
 
-			}
+		//	}
 
-			AbilitySystemComponent->TryActivateAbility(SpecHandle);
-		}
+		//	AbilitySystemComponent->TryActivateAbility(SpecHandle);
+		//}
 	}
 }
 
@@ -170,6 +171,14 @@ bool ADamageGiveActor::IsReactable(AActor* InActor)
 		if (Character->IsDead())
 		{
 			return false;
+		}
+
+		if (UMTeamComponent* TeamComponent = Character->GetTeamComponent())
+		{
+			if (TeamComponent->IsSameTeam(GetInstigator()))
+			{
+				return false;
+			}
 		}
 	}
 
