@@ -16,11 +16,17 @@ public:
 	ADestructableActor();
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UBoxComponent* BoxComponent = nullptr;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	USphereComponent* SphereComponent = nullptr;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	UGeometryCollectionComponent* GeometryCollectionComponent = nullptr;
 
 public:
+	virtual void NotifyActorBeginOverlap(AActor* OtherActor) override;
+
+
+public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
-	void Destruct();
+	void Destruct(AActor* Desturctor);
 };

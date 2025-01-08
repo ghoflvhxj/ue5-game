@@ -15,6 +15,25 @@
 void AMGameModeInGame::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (UMGameInstance* GameInstance = GetGameInstance<UMGameInstance>())
+	{
+		GameInstance->IterateItemTable([this](const FGameItemTableRow& GameItemTableRow) {
+			if (GameItemTableRow.GameItemInfo.ItemType != EItemType::Common)
+			{
+				return;
+			}
+
+			ItemPool.Add(GameItemTableRow.Index);
+		});
+	}
+
+	int32 NumItems = ItemPool.Num();
+	for (int i = 0; i < NumItems; ++i)
+	{
+		Swap(ItemPool[i], ItemPool[FMath::Rand() % NumItems]);
+	}
+	
 	UE_LOG(LogTemp, Warning, TEXT("GAAMEMODE BeginPlay"));
 }
 
@@ -46,14 +65,13 @@ void AMGameModeInGame::SetPlayerDefaults(APawn* PlayerPawn)
 
 					//GameStateInGame->AddDeadPlayer(PlayerState);
 					APlayerController* PlayerController = PlayerState->GetPlayerController();
-					GameStateInGame->AddDeadPlayer(PlayerState);
 					if (PlayerCanRestart(PlayerController))
 					{
 						FTimerHandle DummyHandle;
 						PlayerCharacter->GetWorldTimerManager().SetTimer(DummyHandle, FTimerDelegate::CreateWeakLambda(this, [this, PlayerController]() {
 							PlayerController->UnPossess();
 							RestartPlayer(PlayerController);
-							}), 5.f, false);
+						}), 5.f, false);
 					}
 					else
 					{
@@ -104,18 +122,44 @@ bool AMGameModeInGame::ReadyToEndMatch_Implementation()
 	return false;
 }
 
-void AMGameModeInGame::SpawnItem(ADestructableActor* InDestructableActor)
+void AMGameModeInGame::PopItem(AActor* Popper, AActor* PopInstigator)
 {
-	if (IsValid(InDestructableActor))
+	if (ItemPool.IsEmpty())
 	{
-		FTransform Transform = InDestructableActor->GetActorTransform();
-		Transform.SetScale3D(FVector::OneVector);
-
-		int32 ItemIndex = ItemIndices.Pop(false);
-		SpawnDropItem(ItemIndex, Transform);
-
-		// GameItemComponent->SpawnRandomItem();
+		UE_LOG(LogTemp, VeryVerbose, TEXT("PopItem failed. Empty pool."));
+		return;
 	}
+
+	FTransform Transform = FTransform::Identity;
+	if (IsValid(Popper))
+	{
+		Transform = Popper->GetActorTransform();
+	}
+	else if(IsValid(PopInstigator))
+	{
+		Transform = PopInstigator->GetActorTransform();
+	}
+	else
+	{
+		UE_LOG(LogTemp, VeryVerbose, TEXT("Drop item failed. Invalid Dropper."));
+		return;
+	}
+
+	int32 ItemIndex = ItemPool.Pop();
+	SpawnItem(ItemIndex, Transform);
+}
+
+void AMGameModeInGame::DropItem(AActor* Dropper)
+{
+	if (IsValid(Dropper) == false)
+	{
+		UE_LOG(LogTemp, VeryVerbose, TEXT("Drop item failed. Invalid Dropper."));
+		return;
+	}
+
+	int32 ItemIndex = ItemIndices.Pop(false);
+
+	SpawnItem(ItemIndex, Dropper->GetActorTransform());
 }
 
 void AMGameModeInGame::OnPawnKilled(APawn* Killer, APawn* Killed)
@@ -127,33 +171,36 @@ void AMGameModeInGame::OnPawnKilled(APawn* Killer, APawn* Killed)
 	//	GetWorld()->GetSubsystem<UCharacterLevelSubSystem>()->AddExperiance(Killer, 10);
 	//}
 
-	if (bMonsterKilled)
-	{
-		FTransform Transform = Killed->GetActorTransform();
-		Transform.SetScale3D(FVector::OneVector);
-		
-		if (UMGameInstance* GameInstance = Cast<UMGameInstance>(UGameplayStatics::GetGameInstance(this)))
-		{
-			if (FGameItemTableRow* MoneyItemInfo = GameInstance->GetItemTableRow(TEXT("Money")))
-			{
-				SpawnDropItem(MoneyItemInfo->Index, Transform);
-			}
-		}
-	}
+	//if (bMonsterKilled)
+	//{
+	//	FTransform Transform = Killed->GetActorTransform();
+	//	Transform.SetScale3D(FVector::OneVector);
+	//	
+	//	if (UMGameInstance* GameInstance = Cast<UMGameInstance>(UGameplayStatics::GetGameInstance(this)))
+	//	{
+	//		if (FGameItemTableRow* MoneyItemInfo = GameInstance->GetItemTableRow(TEXT("Money")))
+	//		{
+	//			SpawnDropItem(MoneyItemInfo->Index, Transform);
+	//		}
+	//	}
+	//}
 }
 
-ADropItem* AMGameModeInGame::SpawnDropItem(int32 InItemIndex, FTransform& InTransform)
+void AMGameModeInGame::SpawnItem(int32 InItemIndex, const FTransform& InTransform)
 {
-	if (IsValid(DropItemClass))
+	if (IsValid(DropItemClass) == false)
 	{
-		if (ADropItem* DropItem = Cast<ADropItem>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, DropItemClass, InTransform)))
-		{
-			DropItem->SetItemIndex(InItemIndex);
-			UGameplayStatics::FinishSpawningActor(DropItem, InTransform);
-		}
+		return;
 	}
 
-	return nullptr;
+	FTransform Transform = InTransform;
+	Transform.SetScale3D(FVector::OneVector);
+
+	if (AItemBase* ItemActor = Cast<AItemBase>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, DropItemClass, Transform)))
+	{
+		ItemActor->SetItemIndex(InItemIndex);
+		UGameplayStatics::FinishSpawningActor(ItemActor, Transform);
+	}
 }
 
 bool AMGameModeInGame::PlayerCanRestart_Implementation(APlayerController* Player)
@@ -165,3 +212,4 @@ bool AMGameModeInGame::PlayerCanRestart_Implementation(APlayerController* Player
 
 	return Super::PlayerCanRestart_Implementation(Player);
 }
+

@@ -8,18 +8,28 @@
 
 ADestructableActor::ADestructableActor()
 {
-	SphereComponent = CreateDefaultSubobject<USphereComponent>(TEXT("SphereComponent"));
-	SetRootComponent(SphereComponent);
+	BoxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxComponent"));
+	SetRootComponent(BoxComponent);
 
 	GeometryCollectionComponent = CreateDefaultSubobject<UGeometryCollectionComponent>(TEXT("GeometryCollectionComponent"));
-	GeometryCollectionComponent->SetupAttachment(SphereComponent);
+	GeometryCollectionComponent->SetupAttachment(BoxComponent);
+
+	SphereComponent = CreateDefaultSubobject<USphereComponent>(TEXT("SphereComponent"));
+	SphereComponent->SetupAttachment(BoxComponent);
 }
 
-void ADestructableActor::Destruct_Implementation()
+void ADestructableActor::NotifyActorBeginOverlap(AActor* OtherActor)
+{
+	Super::NotifyActorBeginOverlap(OtherActor);
+
+
+}
+
+void ADestructableActor::Destruct_Implementation(AActor* Desturctor)
 {
 	if (AMGameModeInGame* GameMode = Cast<AMGameModeInGame>(UGameplayStatics::GetGameMode(this)))
 	{
-		GameMode->SpawnItem(this);
+		GameMode->PopItem(this, Desturctor);
 	}
 
 	if (IsValid(SphereComponent))

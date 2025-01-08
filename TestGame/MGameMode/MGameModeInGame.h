@@ -25,10 +25,12 @@ public:
 
 
 public:
-	void SpawnItem(ADestructableActor* InDestructableActor);
+	void PopItem(AActor* Popper, AActor* PopInstigator);
+	void DropItem(AActor* Dropper);
 	void OnPawnKilled(APawn* Killer, APawn* Killed);
 protected:
-	ADropItem* SpawnDropItem(int32 InItemIndex, FTransform& InTransform);
+	void SpawnItem(int32 InItemIndex, const FTransform& InTransform);
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TSubclassOf<AActor> DropItemClass = nullptr;
+	TArray<int32> ItemPool;
 };
