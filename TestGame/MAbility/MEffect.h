@@ -8,10 +8,21 @@ class AWeapon;
 class AMCharacter;
 struct FGameplayTag;
 
-static FGameplayTag EffectParamTag = FGameplayTag::RequestGameplayTag("Effect.Value");
+UCLASS()
+class TESTGAME_API UGameplayEffect_Base : public UGameplayEffect
+{
+	GENERATED_BODY()
+
+public:
+	FGameplayTag GetEffectValueTag()
+	{
+		return FGameplayTag::RequestGameplayTag("Effect.Value");
+	}
+};
+
 
 UCLASS()
-class TESTGAME_API UGameplayEffect_Damage : public UGameplayEffect
+class TESTGAME_API UGameplayEffect_Damage : public UGameplayEffect_Base
 {
 	GENERATED_BODY()
 
@@ -21,7 +32,7 @@ public:
 
 /* 사격 후 탄약 감소 */
 UCLASS()
-class TESTGAME_API UGameplayEffect_ConsumeAmmo : public UGameplayEffect
+class TESTGAME_API UGameplayEffect_ConsumeAmmo : public UGameplayEffect_Base
 {
 	GENERATED_BODY()
 
@@ -31,7 +42,7 @@ public:
 
 /* 리로드 */
 UCLASS()
-class TESTGAME_API UGameplayEffect_Reload : public UGameplayEffect
+class TESTGAME_API UGameplayEffect_Reload : public UGameplayEffect_Base
 {
 	GENERATED_BODY()
 
@@ -40,7 +51,7 @@ public:
 };
 
 UCLASS()
-class TESTGAME_API UGameplayEffect_Attribute : public UGameplayEffect
+class TESTGAME_API UGameplayEffect_Attribute : public UGameplayEffect_Base
 {
 	GENERATED_BODY()
 

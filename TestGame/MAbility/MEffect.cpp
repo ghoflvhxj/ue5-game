@@ -37,7 +37,7 @@ UGameplayEffect_ConsumeAmmo::UGameplayEffect_ConsumeAmmo()
 	ModifierInfo.ModifierOp = EGameplayModOp::Additive;
 
 	FSetByCallerFloat SetByCaller;
-	SetByCaller.DataTag = EffectParamTag;
+	SetByCaller.DataTag = GetEffectValueTag();
 	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
 	Modifiers.Add(ModifierInfo);
 }
@@ -50,14 +50,14 @@ UGameplayEffect_Reload::UGameplayEffect_Reload()
 	// 탄약 충전
 	ModifierInfo.Attribute = UMWeaponAttributeSet::GetAmmoAttribute();
 	ModifierInfo.ModifierOp = EGameplayModOp::Additive;
-	SetByCaller.DataTag = EffectParamTag;
+	SetByCaller.DataTag = GetEffectValueTag();
 	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
 	Modifiers.Add(ModifierInfo);
 
 	// 전체 탄약 감소
 	ModifierInfo.Attribute = UMWeaponAttributeSet::GetTotalAmmoAttribute();
 	ModifierInfo.ModifierOp = EGameplayModOp::Additive;
-	SetByCaller.DataTag = EffectParamTag;
+	SetByCaller.DataTag = GetEffectValueTag();
 	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
 	Modifiers.Add(ModifierInfo);
 }
@@ -69,7 +69,7 @@ UGameplayEffect_AddMoveSpeed::UGameplayEffect_AddMoveSpeed()
 
 	ModifierInfo.Attribute = Attribute = UMAttributeSet::GetMoveSpeedAttribute();
 	ModifierInfo.ModifierOp = EGameplayModOp::Additive;
-	SetByCaller.DataTag = EffectParamTag;
+	SetByCaller.DataTag = GetEffectValueTag();
 	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
 	Modifiers.Add(ModifierInfo);
 }
@@ -81,7 +81,7 @@ UGameplayEffect_AddAttackSpeed::UGameplayEffect_AddAttackSpeed()
 
 	ModifierInfo.Attribute = Attribute = UMAttributeSet::GetAttackSpeedAttribute();
 	ModifierInfo.ModifierOp = EGameplayModOp::Additive;
-	SetByCaller.DataTag = EffectParamTag;
+	SetByCaller.DataTag = GetEffectValueTag();
 	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
 	Modifiers.Add(ModifierInfo);
 }
@@ -93,7 +93,7 @@ UGameplayEffect_AddWeaponScale::UGameplayEffect_AddWeaponScale()
 
 	ModifierInfo.Attribute = Attribute = UMAttributeSet::GetWeaponScaleAttribute();
 	ModifierInfo.ModifierOp = EGameplayModOp::Additive;
-	SetByCaller.DataTag = EffectParamTag;
+	SetByCaller.DataTag = GetEffectValueTag();
 	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
 	Modifiers.Add(ModifierInfo);
 }
@@ -105,7 +105,7 @@ UGameplayEffect_AddHealth::UGameplayEffect_AddHealth()
 
 	ModifierInfo.Attribute = Attribute = UMAttributeSet::GetHealthAttribute();
 	ModifierInfo.ModifierOp = EGameplayModOp::Additive;
-	SetByCaller.DataTag = EffectParamTag;
+	SetByCaller.DataTag = GetEffectValueTag();
 	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
 	Modifiers.Add(ModifierInfo);
 
@@ -122,7 +122,7 @@ UGameplayEffect_SetHealth::UGameplayEffect_SetHealth()
 
 	ModifierInfo.Attribute = Attribute = UMAttributeSet::GetHealthAttribute();
 	ModifierInfo.ModifierOp = EGameplayModOp::Override;
-	SetByCaller.DataTag = EffectParamTag;
+	SetByCaller.DataTag = GetEffectValueTag();
 	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
 	Modifiers.Add(ModifierInfo);
 }
@@ -134,7 +134,7 @@ UGameplayEffect_SetMaxHealth::UGameplayEffect_SetMaxHealth()
 
 	ModifierInfo.Attribute = Attribute = UMAttributeSet::GetMaxHealthAttribute();
 	ModifierInfo.ModifierOp = EGameplayModOp::Override;
-	SetByCaller.DataTag = EffectParamTag;
+	SetByCaller.DataTag = GetEffectValueTag();
 	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
 	Modifiers.Add(ModifierInfo);
 }

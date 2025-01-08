@@ -12,8 +12,6 @@
 
 DECLARE_LOG_CATEGORY_CLASS(LogAttack, Log, Log);
 
-FGameplayTag LightAttack = FGameplayTag::RequestGameplayTag("Action.Attack.Light");
-
 UGameplayAbility_AttackBase::UGameplayAbility_AttackBase()
 {
 	ActivationOwnedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Attack"));
@@ -141,7 +139,7 @@ UGameplayAbility_BasicAttack::UGameplayAbility_BasicAttack()
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
 
-	AbilityTags.AddTag(LightAttack);
+	AbilityTags.AddTag(GetLightAttackTag());
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("ActionType.Dynamic"));
 	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Reload"));
 	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Attack.DashLight")); // 공격 어빌리티가 시작되면 다른 공격 어빌리티는 모두 취소 되도록 해야함
@@ -174,7 +172,7 @@ void UGameplayAbility_BasicAttack::ActivateAbility(const FGameplayAbilitySpecHan
 		if (WeaponData->WeaponType == EWeaponType::Gun)
 		{
 			FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(UGameplayEffect_AddMoveSpeed::StaticClass());
-			EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, EffectParamTag, -300.f);
+			EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, GetEffectValueTag(), -300.f);
 			ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, EffectSpecHandle);
 		}
 
@@ -209,7 +207,7 @@ void UGameplayAbility_BasicAttack::EndAbility(const FGameplayAbilitySpecHandle H
 			if (WeaponData->WeaponType == EWeaponType::Gun)
 			{
 				FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(UGameplayEffect_AddMoveSpeed::StaticClass());
-				EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, EffectParamTag, 300.f);
+				EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, GetEffectValueTag(), 300.f);
 				ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, EffectSpecHandle);
 			}
 		}
@@ -272,7 +270,7 @@ UGameplayAbility_LightChargeAttack::UGameplayAbility_LightChargeAttack()
 
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Attack.ChargeLight"));
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("ActionType.Dynamic"));
-	CancelAbilitiesWithTag.AddTag(LightAttack);
+	CancelAbilitiesWithTag.AddTag(GetLightAttackTag());
 }
 
 void UGameplayAbility_LightChargeAttack::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)

@@ -28,6 +28,16 @@ public:
 protected:
 	FDelegateHandle ComboDelegateHandle;
 	UAbilityTask_PlayMontageAndWait* PlayMontageTask = nullptr;
+
+public:
+	FGameplayTag GetLightAttackTag()
+	{
+		return FGameplayTag::RequestGameplayTag("Action.Attack.Light");
+	}
+	FGameplayTag GetEffectValueTag()
+	{
+		return FGameplayTag::RequestGameplayTag("Effect.Value");
+	}
 };
 
 
