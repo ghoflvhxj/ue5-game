@@ -44,6 +44,15 @@ struct FRound
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float NextWaveTime = 0.f;
+
+	bool operator==(const FRound& Rhs)
+	{
+		return Round == Rhs.Round && Wave == Rhs.Wave;
+	}
+	bool operator!=(const FRound& Rhs)
+	{
+		return *this == Rhs;
+	}
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnRoundStartedDynamicDelegate);
@@ -138,13 +147,14 @@ public:
 	int32 GetRound() const { return RoundWaveData.Round; }
 	int32 GetWave() const { return RoundWaveData.Wave; }
 public:
+	void SetRoundWave(const FRound& InRound);
 	void TryNextRound(float Delay);
 	UFUNCTION(BlueprintCallable)
 	void NextRound();
 	UFUNCTION(BlueprintCallable)
 	void StartWave();
 	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_Wave(const FRound& InRound);
+	void Multicast_RoundWave(const FRound& InRound);
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_WaitNextRound();
 public:
@@ -158,7 +168,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class UDataTable* RoundTable;
 
-	UPROPERTY(Replicated)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Replicated)
 	FRound RoundWaveData;
 	FTimerHandle NextRoundTimerHandle;
 	FTimerHandle NextWaveTimerHandle;

@@ -155,6 +155,20 @@ FRoundInfo URoundComponent::GetRoundTableData(int32 InRound) const
 	return FRoundInfo();
 }
 
+void URoundComponent::SetRoundWave(const FRound& InRound)
+{
+	if (IsNetSimulating())
+	{
+		return;
+	}
+
+	if (RoundWaveData != InRound)
+	{
+		RoundWaveData = InRound;
+		Multicast_RoundWave(RoundWaveData);
+	}
+}
+
 void URoundComponent::TryNextRound(float Delay)
 {
 	UWorld* World = GetWorld();
@@ -215,7 +229,7 @@ void URoundComponent::StartWave()
 		++RoundWaveData.Wave;
 		RoundWaveData.NextWaveTime = World->GetGameState()->GetServerWorldTimeSeconds() + RoundInfo.WaveIntervalBase;
 
-		Multicast_Wave(RoundWaveData);
+		Multicast_RoundWave(RoundWaveData);
 	}
 }
 
@@ -240,7 +254,7 @@ bool URoundComponent::IsFinished() const
 	return bAllRoundFinished;
 }
 
-void URoundComponent::Multicast_Wave_Implementation(const FRound& InRound)
+void URoundComponent::Multicast_RoundWave_Implementation(const FRound& InRound)
 {
 	const FRoundInfo& RoundInfo = GetRoundTableData(InRound.Round);
 	if (RoundInfo.IsValid() == false)

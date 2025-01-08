@@ -23,7 +23,6 @@ public:
 	virtual bool PlayerCanRestart_Implementation(APlayerController* Player) override;
 	virtual bool ReadyToEndMatch_Implementation() override;
 
-
 public:
 	void PopItem(AActor* Popper, AActor* PopInstigator);
 	void DropItem(AActor* Dropper);

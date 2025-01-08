@@ -10,6 +10,7 @@
 #include "TestGame/MItem/DropItem.h"
 #include "TestGame/MCharacter/MCharacterEnum.h"
 #include "TestGame/MComponents/InventoryComponent.h"
+#include "MyPlayerState.h"
 #include "CharacterLevelSubSystem.h"
 
 void AMGameModeInGame::BeginPlay()

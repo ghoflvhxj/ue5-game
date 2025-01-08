@@ -18,9 +18,12 @@ public:
 	virtual void Init() override;
 
 public:
+	void IterateItemTable(TFunction<void(const FGameItemTableRow& GameItemTableRow)> Function);
 	FGameItemTableRow* GetItemTableRow(FName InRowName);
 	FGameItemTableRow* GetItemTableRow(int32 InItemIndex);
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	UDataTable* ItemDataTable = nullptr;
+	UDataTable* ItemTable = nullptr;
+	//UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	//TSubclassOf<AActor> DropItemClass = nullptr;
 };
