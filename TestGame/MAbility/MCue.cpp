@@ -37,19 +37,7 @@ AGameplayCue_CounterAttack::AGameplayCue_CounterAttack()
 
 bool AGameplayCue_CounterAttack::OnExecute_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters)
 {
-	if (CueInstigator.IsValid())
-	{
-		FVector Offset = FVector::ZeroVector;
-		if (ACharacter* Character = Cast<ACharacter>(CueInstigator))
-		{
-			if (UCapsuleComponent* CapsuleComponent = Character->GetCapsuleComponent())
-			{
-				Offset.Z += CapsuleComponent->GetScaledCapsuleHalfHeight();
-			}
-		}
-
-		SetActorLocation(CueInstigator->GetActorLocation() + Offset);
-	}
+	SetActorLocation(Parameters.Location);
 
 	if (IsValid(NiagaraComponent))
 	{
