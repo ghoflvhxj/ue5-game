@@ -10,19 +10,26 @@ void UMAnimNotify_SpawnActor::Notify(USkeletalMeshComponent* MeshComp, UAnimSequ
 {
 	Super::Notify(MeshComp, Animation, EventReference);
 
-	UWorld* World = MeshComp->GetWorld();
-
-	if (IsValid(ActorClass) && IsValid(World) && IsValid(World->GetAuthGameMode()))
+	if (IsValid(MeshComp) == false || IsValid(ActorClass) == false)
 	{
+		return;
+	}
+
+	if (UWorld* World = MeshComp->GetWorld())
+	{
+		if (GIsEditor == false)
+		{
+			if (IsValid(World->GetAuthGameMode()) == false)
+			{
+				return;
+			}
+		}
+
 		FTransform SpawnTransform = GetSocketTransform(MeshComp);
 		SpawnTransform.SetRotation(FRotator::ZeroRotator.Quaternion());
 		SpawnTransform.AddToTranslation(SpawnOffset);
 
-		//FActorSpawnParameters SpawnParam;
-		//GetSpawnParam(MeshComp, SpawnParam);
-		UObject* ContextObject = GetContextObject(MeshComp);
-
-		if (AActor* NewActor = UGameplayStatics::BeginDeferredActorSpawnFromClass(ContextObject == nullptr ? World : ContextObject, ActorClass, SpawnTransform, ESpawnActorCollisionHandlingMethod::AlwaysSpawn))
+		if (AActor* NewActor = UGameplayStatics::BeginDeferredActorSpawnFromClass(World, ActorClass, SpawnTransform, ESpawnActorCollisionHandlingMethod::AlwaysSpawn))
 		{
 			OnSpawn(NewActor, MeshComp);
 			UGameplayStatics::FinishSpawningActor(NewActor, SpawnTransform);
@@ -33,14 +40,10 @@ void UMAnimNotify_SpawnActor::Notify(USkeletalMeshComponent* MeshComp, UAnimSequ
 
 void UMAnimNotify_SpawnActor::OnSpawn(AActor* InActor, USkeletalMeshComponent* MeshComp)
 {
-	if (IsValid(MeshComp) == false)
-	{
-		return;
-	}
-
 	if (AMCharacter* Character = Cast<AMCharacter>(MeshComp->GetOwner()))
 	{
 		InActor->SetOwner(bWeaponOwning ? Character->GetEquipItem<AActor>() : Character);
+		InActor->SetInstigator(Character);
 	}
 }
 
@@ -77,10 +80,7 @@ FTransform UMAnimNotify_SpawnActor::GetSocketTransform(USkeletalMeshComponent* M
 
 void UMAnimNotify_SpawnBullet::OnSpawn(AActor* InActor, USkeletalMeshComponent* MeshComp)
 {
-	if (IsValid(MeshComp) == false)
-	{
-		return;
-	}
+	Super::OnSpawn(InActor, MeshComp);
 
 	if (Particle)
 	{
