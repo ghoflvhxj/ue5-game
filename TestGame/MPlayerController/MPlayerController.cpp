@@ -75,11 +75,21 @@ void AMPlayerControllerInGame::PlayerTick(float DeltaTime)
 {
 	Super::PlayerTick(DeltaTime);
 
+	ULocalPlayer* LocalPlayer = Cast<ULocalPlayer>(Player);
 	APawn* PlayerPawn = GetPawn();
-	if (IsLocalController() && IsValid(PlayerPawn))
+	if (IsValid(LocalPlayer) && IsValid(PlayerPawn))
 	{
-		YawToMouseFromPawn = YawToMouseFromWorldLocation(PlayerPawn->GetActorLocation());
-		Server_SetYawToMouse(YawToMouseFromPawn);
+		if (IsInViewportClient(LocalPlayer->ViewportClient))
+		{
+			YawToMouseFromPawn = YawToMouseFromWorldLocation(PlayerPawn->GetActorLocation());
+
+			if (FMath::IsNearlyEqual(LastSendYawToMouseFromPawn, YawToMouseFromPawn, 0.1f) == false)
+			{
+				Server_SetYawToMouse(YawToMouseFromPawn);
+				LastSendYawToMouseFromPawn = YawToMouseFromPawn;
+				UE_LOG(LogTemp, VeryVerbose, TEXT("Client send yaw to server."));
+			}
+		}
 	}
 
 	AActor* NewPicking = CurrentClickablePrimitive.IsValid() ? CurrentClickablePrimitive->GetOwner() : nullptr;

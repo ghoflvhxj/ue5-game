@@ -65,6 +65,7 @@ public:
 	UFUNCTION(BlueprintPure)
 	float GetYawToMouse() { return YawToMouseFromPawn; }
 	float YawToMouseFromPawn = 0.f;
+	float LastSendYawToMouseFromPawn = 0.f;
 
 public:
 	bool IsReady() const { return bReady; }
