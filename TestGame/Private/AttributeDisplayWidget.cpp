@@ -1,5 +1,6 @@
 #include "AttributeDisplayWidget.h"
 #include "AbilitySystemComponent.h"
+#include "Blueprint/WidgetTree.h"
 
 bool UActorBindWidget::BindActor(AActor* InActor)
 {
@@ -7,6 +8,21 @@ bool UActorBindWidget::BindActor(AActor* InActor)
 	{
 		AActor* Old = BoundActor;
 		BoundActor = InActor;
+		
+		// 액터 자동 업데이트가 꺼져있다면 자식 ActorBindWidget은 수동으로 해줘야 함
+		if (IsValid(WidgetTree))
+		{
+			WidgetTree->ForWidgetAndChildren(GetRootWidget(), [this, InActor](UWidget* Widget) {
+				if (UActorBindWidget* ActorBindWidget = Cast<UActorBindWidget>(Widget))
+				{
+					if (ActorBindWidget->IsAutoUpdate())
+					{
+						ActorBindWidget->BindActor(InActor);
+					}
+				}
+			});
+		}
+
 		OnBoundActorChanged(Old, BoundActor);
 
 		return true;
@@ -33,6 +49,33 @@ void UAttributeDisplayWidget::OnMaxAttributeValueChanged(const FOnAttributeChang
 	UpdateMaxAttributeValue(AttributeChangeData.OldValue, AttributeChangeData.NewValue);
 }
 
+
+float UAttributeDisplayWidget::GetMax()
+{
+	if (UAbilitySystemComponent* AbilitySystemComponent = BoundActor->GetComponentByClass<UAbilitySystemComponent>())
+	{
+		if (MaxAttribute.IsValid())
+		{
+			return AbilitySystemComponent->GetNumericAttribute(MaxAttribute);
+		}
+	}
+
+	return 0.f;
+}
+
+
+float UAttributeDisplayWidget::GetCurrent()
+{
+	if (UAbilitySystemComponent* AbilitySystemComponent = BoundActor->GetComponentByClass<UAbilitySystemComponent>())
+	{
+		if (CurrentAttribute.IsValid())
+		{
+			return AbilitySystemComponent->GetNumericAttribute(CurrentAttribute);
+		}
+	}
+
+	return 0.f;
+}
 
 void UAttributeDisplayWidget::OnBoundActorChanged_Implementation(AActor* Old, AActor* New)
 {

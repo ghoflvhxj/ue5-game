@@ -10,17 +10,17 @@ void UMActionComponent::BeginPlay()
 	}
 }
 
-UAnimMontage* UMActionComponent::GetActionMontage(FGameplayTag ActionGameplayTag)
+UAnimMontage* UMActionComponent::GetActionMontage(FGameplayTag ActionGameplayTag) const
 {
 	return GetAnimAsset<UAnimMontage>(ActionGameplayTag);
 }
 
-UAnimSequence* UMActionComponent::GetActionSequence(FGameplayTag ActionGameplayTag)
+UAnimSequence* UMActionComponent::GetActionSequence(FGameplayTag ActionGameplayTag) const
 {
 	return GetAnimAsset<UAnimSequence>(ActionGameplayTag);
 }
 
-UObject* UMActionComponent::GetAction(FGameplayTag ActionGameplayTag)
+UObject* UMActionComponent::GetAction(FGameplayTag ActionGameplayTag) const
 {
 	return GetAnimAsset<UObject>(ActionGameplayTag);
 }

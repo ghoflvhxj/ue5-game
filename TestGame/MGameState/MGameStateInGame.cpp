@@ -5,7 +5,13 @@
 #include "GameFramework/PlayerState.h"
 #include "Engine/DataTable.h"
 #include "Kismet/GameplayStatics.h"
+#include "Materials/MaterialParameterCollection.h"
+#include "Materials/MaterialParameterCollectionInstance.h"
 
+#include "MGameInstance.h"
+#include "MyPlayerState.h"
+#include "TestGame/MCharacter/MCharacter.h"
+#include "TestGame/MItem/ItemBase.h"
 #include "TestGame/MSpawner/MonsterSpawner.h"
 #include "TestGame/MPlayerController/MPlayerController.h"
 
@@ -14,6 +20,8 @@ DECLARE_LOG_CATEGORY_CLASS(LogReward, Log, Log);
 
 AMGameStateInGame::AMGameStateInGame()
 {
+	PrimaryActorTick.bCanEverTick = true;
+
 	RoundComponent = CreateDefaultSubobject<URoundComponent>(TEXT("RoundComponent"));
 }
 
@@ -34,6 +42,26 @@ void AMGameStateInGame::BeginPlay()
 	}
 }
 
+void AMGameStateInGame::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	UWorld* World = GetWorld();
+	if (IsValid(World) == false)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Invalid World."));
+		return;
+	}
+
+	for (const TPair<FName, float> Pair : MPCParamToStart)
+	{
+		FName MPCParamName = Pair.Key;
+		MPCParamToElpasedTime.FindOrAdd(MPCParamName) = World->GetTimeSeconds() - Pair.Value;
+
+		SetMPCParamValue(MPCParamName, MPCParamToElpasedTime[MPCParamName]);
+	}
+}
+
 void AMGameStateInGame::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -45,25 +73,33 @@ void AMGameStateInGame::HandleMatchHasStarted()
 {
 	Super::HandleMatchHasStarted();
 
-	if (HasAuthority() && IsValid(RoundComponent))
+	if (IsValid(RoundComponent))
 	{
-		GetWorldTimerManager().SetTimer(GameStartTimerHandle, FTimerDelegate::CreateWeakLambda(this, [this]() {
-			
-			for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It) 
-			{
-				if (AMPlayerControllerInGame* PlayerController = Cast<AMPlayerControllerInGame>(It->Get()))
-				{
-					if (PlayerController->IsReady() == false)
-					{
-						return;
-					}
-				}
-			}
-
+		if (HasAuthority())
+		{
 			RoundComponent->TryNextRound(3.f);
-			GetWorldTimerManager().ClearTimer(GameStartTimerHandle);
+		}
+	}
+	
+	for (APlayerState* PlayerState : PlayerArray)
+	{
+		if (IsValid(PlayerState) == false)
+		{
+			continue;
+		}
 
-		}), 1.f, true);
+		AMCharacter* Character = PlayerState->GetPawn<AMCharacter>();
+		if (IsValid(Character) == false)
+		{
+			continue;
+		}
+
+		if (UAbilitySystemComponent* AbilitySystemComponent = Character->GetAbilitySystemComponent())
+		{
+			AbilitySystemComponent->OnActiveGameplayEffectAddedDelegateToSelf.AddUObject(this, &AMGameStateInGame::ApplyItemEvent);
+			AbilitySystemComponent->OnAnyGameplayEffectRemovedDelegate().AddUObject(this, &AMGameStateInGame::RemoveItemEvent);
+		}
+
 	}
 }
 
@@ -106,9 +142,121 @@ bool AMGameStateInGame::RevivePlayer(APlayerState* PlayerState)
 	return true;
 }
 
+int32 AMGameStateInGame::GetAlivePlayerNum()
+{
+	int32 AliveNum = 0;
+
+	for (APlayerState* PlayerState : PlayerArray)
+	{
+		AMPlayerState* MPlayerState = Cast<AMPlayerState>(PlayerState);
+		if (IsValid(MPlayerState) == false)
+		{
+			continue;
+		}
+
+		if (MPlayerState->IsDead() == false)
+		{
+			++AliveNum;
+		}
+	}
+
+	return AliveNum;
+}
+
 void AMGameStateInGame::Multicast_GameOver_Implementation()
 {
 	GameOverDynamicDelegate.Broadcast();
+}
+
+const TSet<AActor*>& AMGameStateInGame::GetMonsters()
+{
+	if (MonsterSpawner.IsValid())
+	{
+		return MonsterSpawner->GetSpawnedActors();
+	}
+
+	static const TSet<AActor*> Empty;
+	return Empty;
+}
+
+void AMGameStateInGame::RegistMPCParam(FName InParamName)
+{
+	UWorld* World = GetWorld();
+	if (IsValid(World) == false)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Invalid World."));
+		return;
+	}
+
+	MPCParamToStart.FindOrAdd(InParamName) = World->GetTimeSeconds();
+
+	if (InParamName == TEXT("Test"))
+	{
+		RoundComponent->Pause();
+	}
+}
+
+void AMGameStateInGame::UnregistMPCParam(FName InParamName)
+{
+	MPCParamToStart.Remove(InParamName);
+	MPCParamToElpasedTime.Remove(InParamName);
+	
+	SetMPCParamValue(InParamName, 0.f);
+}
+
+void AMGameStateInGame::SetMPCParamValue(FName InParamName, float InValue)
+{
+	UWorld* World = GetWorld();
+	if (IsValid(World) == false)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Invalid World."));
+		return;
+	}
+
+	UMaterialParameterCollectionInstance* MaterialParameterCollectionInst = World->GetParameterCollectionInstance(MaterialParameterCollection);
+	if (IsValid(MaterialParameterCollectionInst) == false)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Invalid UMaterialParameterCollectionInstance."));
+		return;
+	}
+
+	if (MaterialParameterCollectionInst->SetScalarParameterValue(InParamName, InValue) == false)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Invalid parameter [%s]."), *InParamName.ToString());
+	}
+}
+
+void AMGameStateInGame::ApplyItemEvent(int32 InItemIndex)
+{
+
+}
+
+void AMGameStateInGame::ApplyItemEvent(UAbilitySystemComponent* InAbilitySystemComponent, const FGameplayEffectSpec& InEffectSpec, FActiveGameplayEffectHandle InActiveEffectHandle)
+{
+	FGameplayTagContainer GETagContainer;
+	InEffectSpec.GetAllAssetTags(GETagContainer);
+
+	if (GETagContainer.HasTag(FGameplayTag::RequestGameplayTag("Event.TimeStop")))
+	{
+		if (IsValid(RoundComponent))
+		{
+			RoundComponent->Pause();
+		}
+	}
+}
+
+void AMGameStateInGame::RemoveItemEvent(const FActiveGameplayEffect& InActiveGameplayEffect)
+{
+	FGameplayTagContainer GETagContainer;
+	InActiveGameplayEffect.Spec.GetAllAssetTags(GETagContainer);
+
+	if (GETagContainer.HasTag(FGameplayTag::RequestGameplayTag("Event.TimeStop")))
+	{
+		if (IsValid(RoundComponent))
+		{
+			RoundComponent->Resume();
+		}
+	}
 }
 
 URoundComponent::URoundComponent()
@@ -142,6 +290,30 @@ bool URoundComponent::IsLastRound() const
 	return false;
 }
 
+void URoundComponent::Pause()
+{
+	UWorld* World = GetWorld();
+	if (IsValid(World) == false)
+	{
+		return;
+	}
+
+	World->GetTimerManager().PauseTimer(NextWaveTimerHandle);
+	World->GetTimerManager().PauseTimer(NextRoundTimerHandle);
+}
+
+void URoundComponent::Resume()
+{
+	UWorld* World = GetWorld();
+	if (IsValid(World) == false)
+	{
+		return;
+	}
+
+	World->GetTimerManager().UnPauseTimer(NextWaveTimerHandle);
+	World->GetTimerManager().UnPauseTimer(NextRoundTimerHandle);
+}
+
 FRoundInfo URoundComponent::GetRoundTableData(int32 InRound) const
 {
 	if (IsValid(RoundTable))
@@ -172,6 +344,7 @@ void URoundComponent::SetRoundWave(const FRound& InRound)
 void URoundComponent::TryNextRound(float Delay)
 {
 	UWorld* World = GetWorld();
+	UE_LOG(LogTemp, Warning, TEXT("HandleMatchHasStarted World validation: %d"), (int)IsValid(World));
 	if (IsValid(World) == false)
 	{
 		return;
@@ -189,11 +362,10 @@ void URoundComponent::TryNextRound(float Delay)
 	}
 	else
 	{
+		Multicast_WaitNextRound();
 		World->GetTimerManager().SetTimer(NextRoundTimerHandle, FTimerDelegate::CreateWeakLambda(this, [this]() {
 			NextRound();
 		}), Delay, false);
-
-		Multicast_WaitNextRound();
 	}
 }
 
@@ -231,6 +403,11 @@ void URoundComponent::StartWave()
 
 		Multicast_RoundWave(RoundWaveData);
 	}
+}
+
+void URoundComponent::FinishRound()
+{
+	Multicast_FinishRound();
 }
 
 bool URoundComponent::IsLastWave() const
@@ -281,6 +458,11 @@ void URoundComponent::Multicast_WaitNextRound_Implementation()
 	OnWaitNextRoundEvent.Broadcast();
 }
 
+void URoundComponent::Multicast_FinishRound_Implementation()
+{
+	OnRoundFinishedEvent.Broadcast();
+}
+
 void ARoundReward::BeginPlay()
 {
 	Super::BeginPlay();
@@ -322,4 +504,44 @@ void ARoundReward::SpawnReward()
 	{
 		UGameplayStatics::FinishSpawningActor(Reward, Transform);
 	}
+}
+
+void ARoundReceiveActor::BeginPlay()
+{
+	Super::BeginPlay();
+	if (AGameStateBase* GameState = UGameplayStatics::GetGameState(this))
+	{
+		if (URoundComponent* RoundComponent = GameState->GetComponentByClass<URoundComponent>())
+		{
+			RoundComponent->GetRoundFinishedEvenet().AddWeakLambda(this, [this, RoundComponent]() {
+				if (RoundComponent->GetRound() == BoundRound.Round)
+				{
+					ReceiveRoundFinish();
+				}
+			});
+			RoundComponent->GetWaitNextRoundEvent().AddWeakLambda(this, [this, RoundComponent]() {
+				if (RoundComponent->GetRound() == BoundRound.Round)
+				{
+					ReceiveWaitNextRound();
+				}
+			});
+
+			RoundComponent->GetRoundChangeEvent().AddUObject(this, &ARoundReceiveActor::ReceiveRound);
+		}
+	}
+}
+
+void ARoundReceiveActor::ReceiveWaitNextRound_Implementation()
+{
+
+}
+
+void ARoundReceiveActor::ReceiveRoundFinish_Implementation()
+{
+
+}
+
+void ARoundReceiveActor::ReceiveRound_Implementation(const FRound& InRound)
+{
+
 }

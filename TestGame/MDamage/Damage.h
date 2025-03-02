@@ -23,12 +23,12 @@ struct FDamageRecord : public FTableRowBase
 {
 	GENERATED_BODY()
 
-	UPROPERTY(BlueprintReadWrite)
-	float ThrustPower;
+	//UPROPERTY(BlueprintReadWrite)
+	//float ThrustPower;
 
-	UPROPERTY(BlueprintReadWrite)
-	FVector ThrustFactor;
+	//UPROPERTY(BlueprintReadWrite)
+	//FVector ThrustFactor;
 
-	UPROPERTY(BlueprintReadWrite)
-	EThrustCoord ThrustCoord;
+	//UPROPERTY(BlueprintReadWrite)
+	//EThrustCoord ThrustCoord;
 };

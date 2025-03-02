@@ -20,7 +20,7 @@ public:
 	void Interaction(AActor* Interactor);
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 	void OnTargeted(AActor* Interactor);
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)   
 	void OnUnTargeted(AActor* Interactor);
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 	bool IsInteractable(AActor* Interactor);

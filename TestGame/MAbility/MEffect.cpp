@@ -9,25 +9,28 @@ DECLARE_LOG_CATEGORY_CLASS(LogEffect, Log, Log);
 
 UGameplayEffect_Damage::UGameplayEffect_Damage()
 {
-	//FGameplayModifierInfo ModifierInfo;
-	//ModifierInfo.Attribute = UMAttributeSet::GetHealthAttribute();
-	//ModifierInfo.ModifierOp = EGameplayModOp::Additive;
-
-	//FSetByCallerFloat SetByCaller;
-	//SetByCaller.DataTag = EffectParamTag;
-	//ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
-	//ModifierInfo.TargetTags.IgnoreTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Ability.DamageImmune"));
-	//Modifiers.Add(ModifierInfo);
-
 	FGameplayEffectExecutionDefinition EffectExeutionDef;
 	EffectExeutionDef.CalculationClass = UMGameplayEffectExecutionCalculation_Damage::StaticClass();
 	Executions.Add(EffectExeutionDef);
 
 	FGameplayEffectCue EffectCue;
 	EffectCue.GameplayCueTags.AddTag(FGameplayTag::RequestGameplayTag("GameplayCue.UI.Floater.Deal"));
-	EffectCue.GameplayCueTags.AddTag(FGameplayTag::RequestGameplayTag("GameplayCue.Effect.Hit.Default"));
+	//EffectCue.GameplayCueTags.AddTag(FGameplayTag::RequestGameplayTag("GameplayCue.Effect.Hit.Default")); // 이펙트 경우는 주체가 무엇이냐에 따라 나올 이펙트가 다른 경우가 많음. 서브 클래스에서 설정해줘야 함.
 	EffectCue.MagnitudeAttribute = UMAttributeSet::GetHealthAttribute();
 	GameplayCues.Add(EffectCue);
+}
+
+void UGameplayEffect_Damage::UpdateCueParams(AActor* InCauser, AActor* InTarget, FGameplayCueParameters& InParam)
+{
+	if (CueLocationRule > 0)
+	{
+		InParam.Location = InTarget->GetActorLocation();
+
+		if (USkeletalMeshComponent* SkeletalMeshComponent = InTarget->GetComponentByClass<USkeletalMeshComponent>())
+		{
+			InParam.Location = SkeletalMeshComponent->GetSocketLocation("FX_Root");
+		}
+	}
 }
 
 UGameplayEffect_ConsumeAmmo::UGameplayEffect_ConsumeAmmo()
@@ -113,6 +116,18 @@ UGameplayEffect_AddHealth::UGameplayEffect_AddHealth()
 	EffectCue.GameplayCueTags.AddTag(FGameplayTag::RequestGameplayTag("GameplayCue.UI.Floater.Heal"));
 	EffectCue.MagnitudeAttribute = UMAttributeSet::GetHealthAttribute();
 	GameplayCues.Add(EffectCue);
+}
+
+UGameplayEffect_AddProjectileScale::UGameplayEffect_AddProjectileScale()
+{
+	FGameplayModifierInfo ModifierInfo;
+	FSetByCallerFloat SetByCaller;
+
+	ModifierInfo.Attribute = Attribute = UMAttributeSet::GetProjectileScaleAttribute();
+	ModifierInfo.ModifierOp = EGameplayModOp::Additive;
+	SetByCaller.DataTag = GetEffectValueTag();
+	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
+	Modifiers.Add(ModifierInfo);
 }
 
 UGameplayEffect_SetHealth::UGameplayEffect_SetHealth()

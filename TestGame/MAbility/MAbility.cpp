@@ -3,6 +3,7 @@
 #pragma once
 
 #include "MAbility.h"
+#include "Net/UnrealNetwork.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "AbilitySystemBlueprintLibrary.h"
 #include "GameFramework/Pawn.h"
@@ -13,18 +14,48 @@
 #include "Abilities/Tasks/AbilityTask_Repeat.h"
 #include "NavigationSystem.h"
 
+#include "CharacterLevelSubSystem.h"
 #include "TestGame/MCharacter/Component/ActionComponent.h"
+#include "TestGame/MComponents/DamageComponent.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MCharacter/MPlayer.h"
 #include "TestGame/MWeapon/Weapon.h"
 #include "TestGame/MAttribute/MAttribute.h"
 #include "TestGame/MAbility/MEffect.h"
 #include "TestGame/MItem/ItemBase.h"
+#include "TestGame/MFunctionLibrary/MContainerFunctionLibrary.h"
 
 DECLARE_LOG_CATEGORY_CLASS(LogAbility, Log, Log);
 
+void UMAbilityDataAsset::PostLoad()
+{
+	Super::PostLoad();
+
+	for (const FMAbilityBindInfo& AbilityBindInfo : Abilities)
+	{
+		AbilityMap.FindOrAdd(AbilityBindInfo.GameplayTag) = AbilityBindInfo;
+	}
+}
+
 void UMAbilityDataAsset::GiveAbilities(UAbilitySystemComponent* AbilitySystemComponent, TMap<FGameplayTag, FGameplayAbilitySpecHandle>& Handles) const
 { 
+	FGameplayTagContainer FilterTagContainer;
+	for (const FMAbilityBindInfo& AbilityBindInfo : Abilities)
+	{
+		FilterTagContainer.AddTag(AbilityBindInfo.GameplayTag);
+	}
+
+	GiveAbilities(AbilitySystemComponent, Handles, FilterTagContainer);
+}
+
+void UMAbilityDataAsset::GiveAbilities(UAbilitySystemComponent* AbilitySystemComponent, TMap<FGameplayTag, FGameplayAbilitySpecHandle>& Handles, FGameplayTagContainer Filter) const
+{
+	if (IsValid(AbilitySystemComponent) == false)
+	{
+		UE_LOG(LogAbility, Warning, TEXT("Attempt to use invalid abilitycomponent."));
+		return;
+	}
+
 	if (AbilitySystemComponent->IsNetSimulating())
 	{
 		return;
@@ -32,21 +63,30 @@ void UMAbilityDataAsset::GiveAbilities(UAbilitySystemComponent* AbilitySystemCom
 
 	for (const FMAbilityBindInfo& BindInfo : Abilities)
 	{
-		if (IsValid(BindInfo.GameplayAbilityClass) == false)
+		FGameplayTag AbilityTag = BindInfo.GameplayTag;
+
+		if (IsValid(BindInfo.GameplayAbilityClass) == false || Filter.HasTag(AbilityTag) == false)
 		{
 			continue;
 		}
 
-		FGameplayTag GameplayTag = BindInfo.GameplayTag;
-		if (Handles.Contains(GameplayTag))
+		if (Handles.Contains(AbilityTag))
 		{
-			AbilitySystemComponent->ClearAbility(Handles[GameplayTag]);
+			FGameplayAbilitySpec* AbilitySpec = AbilitySystemComponent->FindAbilitySpecFromHandle(Handles[AbilityTag]);
+			if (AbilitySpec != nullptr && AbilitySpec->Ability != nullptr && AbilitySpec->Ability->GetClass() == BindInfo.GameplayAbilityClass)
+			{
+				++AbilitySpec->Level;
+				AbilitySystemComponent->MarkAbilitySpecDirty(*AbilitySpec);
+				continue;
+			}
+
+			AbilitySystemComponent->ClearAbility(Handles[AbilityTag]);
 		}
-		
-		Handles.Emplace(GameplayTag, AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(BindInfo.GameplayAbilityClass, -1, -1)));
-		if (BindInfo.bActivate && Handles.Contains(GameplayTag))
+
+		Handles.Emplace(AbilityTag, AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(BindInfo.GameplayAbilityClass, 1, BindInfo.InputID)));
+		if (BindInfo.bActivate && Handles.Contains(AbilityTag))
 		{
-			AbilitySystemComponent->TryActivateAbility(Handles[GameplayTag], true);
+			AbilitySystemComponent->TryActivateAbility(Handles[AbilityTag], true);
 		}
 	}
 }
@@ -61,6 +101,37 @@ void UMAbilityDataAsset::ClearAbilities(UAbilitySystemComponent* AbilitySystemCo
 			Handles.Remove(BindInfo.GameplayTag);
 		}
 	}
+}
+
+void UMAbilityDataAsset::ConverToMap(TMap<FGameplayTag, TSubclassOf<UGameplayAbility>>& TagToAbilityClassMap) const
+{
+	for (const FMAbilityBindInfo& AbilityBindInfo : Abilities)
+	{
+		TagToAbilityClassMap.FindOrAdd(AbilityBindInfo.GameplayTag) = AbilityBindInfo.GameplayAbilityClass;
+	}
+}
+
+FMAbilityBindInfo UMAbilityDataAsset::GetBindInfo(FGameplayTag InTag)
+{
+	if (AbilityMap.Contains(InTag))
+	{
+		return AbilityMap[InTag];
+	}
+
+	return FMAbilityBindInfo();
+}
+
+bool UMAbilityDataAsset::HasAbilityTag(FGameplayTag InTag) const
+{
+	for (const FMAbilityBindInfo& AbilityBindInfo : Abilities)
+	{
+		if (AbilityBindInfo.GameplayTag == InTag)
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
 UGameplayAbility_MoveToMouse::UGameplayAbility_MoveToMouse()
@@ -137,114 +208,6 @@ void UGameplayAbility_MoveToMouse::MoveToMouse(FGameplayEventData Payload)
 	}
 }
 
-
-UGameplayAbility_Skill::UGameplayAbility_Skill()
-{
-	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
-	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
-	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
-
-	FAbilityTriggerData TriggerData;
-	TriggerData.TriggerTag = FGameplayTag::RequestGameplayTag("Controller.MouseLeftClick");
-	AbilityTriggers.Add(TriggerData);
-
-	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Skill"));
-	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag(FName("Character.Dead")));
-	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Move"));
-}
-
-void UGameplayAbility_Skill::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
-{
-	if (CommitAbility(Handle, ActorInfo, ActivationInfo) == false)
-	{
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-		return;
-	}
-
-	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
-
-	for (const FBuffInfo& BuffInfo : GetSkillInfo()->BuffInfos)
-	{
-		FGameplayEffectSpecHandle SpecHandle = MakeOutgoingGameplayEffectSpec(BuffInfo.EffectClass);
-		if (SpecHandle.IsValid() == false)
-		{
-			continue;
-		}
-
-		for (const TPair<FGameplayTag, float>& BuffParams : BuffInfo.TagToValue)
-		{
-			FGameplayTag BuffParamTag = BuffParams.Key;
-			if (BuffInfo.TagToValue.Contains(BuffParamTag) == false)
-			{
-				UE_LOG(LogAbility, Error, TEXT("SkillID[%d], %s Can't not find %s In BuffInfo"), SkillIndex, *GetName(), *(BuffParamTag.ToString()));
-				continue;
-			}
-
-			SpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(SpecHandle, BuffParamTag, BuffInfo.TagToValue[BuffParamTag]);
-			ActiveEffectHandles.Add(ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, SpecHandle));
-		}
-	}
-
-	if (bEndInstantly)
-	{
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
-	}
-}
-
-bool UGameplayAbility_Skill::CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags /*= nullptr*/)
-{
-	if (Super::CommitAbility(Handle, ActorInfo, ActivationInfo, OptionalRelevantTags))
-	{
-		Character = Cast<AMCharacter>(GetAvatarActorFromActorInfo());
-		return GetSkillInfo() != nullptr && IsValid(Character);
-	}
-
-	return false;
-}
-
-void UGameplayAbility_Skill::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
-{
-	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
-	
-	for (const FActiveGameplayEffectHandle& ActiveEffectHandle : ActiveEffectHandles)
-	{
-		BP_RemoveGameplayEffectFromOwnerWithHandle(ActiveEffectHandle);
-	}
-}
-
-float UGameplayAbility_Skill::GetSkillParam(FGameplayTag GameplayTag)
-{
-	if (FSkillTableRow * SkillTableRow = GetSkillInfo())
-	{
-		if (SkillTableRow->Params.Contains(GameplayTag))
-		{
-			return SkillTableRow->Params[GameplayTag];
-		}
-	}
-
-	return 0.f;
-}
-
-FSkillTableRow UGameplayAbility_Skill::BP_GetSkillInfo()
-{
-	if (FSkillTableRow* SkillTableRow = GetSkillInfo())
-	{
-		return *SkillTableRow;
-	}
-
-	return FSkillTableRow();
-}
-
-FSkillTableRow* UGameplayAbility_Skill::GetSkillInfo()
-{
-	if (IsValid(SkillTable))
-	{
-		return SkillTable->FindRow<FSkillTableRow>(*FString::Printf(TEXT("%d"), SkillIndex), TEXT("SkillTable"));
-	}
-
-	return nullptr;
-}
-
 UGameplayAbility_CollideDamage::UGameplayAbility_CollideDamage()
 {
 	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateNo;
@@ -254,15 +217,15 @@ UGameplayAbility_CollideDamage::UGameplayAbility_CollideDamage()
 
 void UGameplayAbility_CollideDamage::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
-	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
-	 
 	if (CommitAbility(Handle, ActorInfo, ActivationInfo) == false)
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, false, true);
+		return;
 	}
 
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+
 	AActor* AbilityOwer = GetAvatarActorFromActorInfo();
-	AbilityOwer->OnActorBeginOverlap.AddDynamic(this, &UGameplayAbility_CollideDamage::OnCollide);
 	CueTag = FGameplayTag::RequestGameplayTag("GameplayCue.Effect.Hit.Default");
 	if (AWeapon* Weapon = Cast<AWeapon>(AbilityOwer))
 	{
@@ -283,6 +246,8 @@ void UGameplayAbility_CollideDamage::ActivateAbility(const FGameplayAbilitySpecH
 			}
 		}
 	}
+
+	AbilityOwer->OnActorBeginOverlap.AddDynamic(this, &UGameplayAbility_CollideDamage::OnCollide);
 
 	if (UAbilitySystemComponent* AbilityComponent = GetAbilitySystemComponentFromActorInfo())
 	{
@@ -308,7 +273,25 @@ void UGameplayAbility_CollideDamage::EndAbility(const FGameplayAbilitySpecHandle
 		{
 			AbilityOwer->OnActorBeginOverlap.RemoveDynamic(this, &UGameplayAbility_CollideDamage::OnCollide);
 		}
+
+		//if (AbilityOwer->OnActorHit.IsAlreadyBound(this, &UGameplayAbility_CollideDamage::OnHit))
+		//{
+		//	AbilityOwer->OnActorHit.RemoveDynamic(this, &UGameplayAbility_CollideDamage::OnHit);
+		//}
 	}
+}
+
+void UGameplayAbility_CollideDamage::OnHit(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	//if (UAbilitySystemComponent* OtherAbilityComponent = OtherActor->GetComponentByClass<UAbilitySystemComponent>())
+	//{
+	//	FGameplayEffectContextHandle EffectContext = OtherAbilityComponent->MakeEffectContext();
+	//	FGameplayCueParameters CueParams(EffectContext);
+	//	CueParams.Location = SweepResult.Location;
+	//	OtherAbilityComponent->ExecuteGameplayCue(CueTag, CueParams);
+	//}
+
+	//OnCollide(GetAvatarActorFromActorInfo(), OtherActor);
 }
 
 void UGameplayAbility_CollideDamage::OnCollide(AActor* OverlappedActor, AActor* OtherActor)
@@ -337,81 +320,22 @@ void UGameplayAbility_CollideDamage::OnCollide(AActor* OverlappedActor, AActor* 
 			if (OtherCharacter->IsDead() == false && OtherCharacter->IsPlayerControlled() != MyCharacter->IsPlayerControlled())
 			{
 				FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(UGameplayEffect_Damage::StaticClass());
-				//EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, FGameplayTag::RequestGameplayTag("Attribute.Damage"), -Damage);
- 
 				ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, EffectSpecHandle, UAbilitySystemBlueprintLibrary::AbilityTargetDataFromActor(OtherActor));
 
-				//if (UAbilitySystemComponent* OtherAbilityComponent = OtherCharacter->GetComponentByClass<UAbilitySystemComponent>())
-				//{
-				//	FGameplayEffectContextHandle EffectContext = OtherAbilityComponent->MakeEffectContext();
-				//	FGameplayCueParameters CueParams(EffectContext);
-				//	OtherAbilityComponent->ExecuteGameplayCue(CueTag, CueParams);
-				//}
-			}
-		}
-	}
-}
-
-UGameplayAbility_DamageImmune::UGameplayAbility_DamageImmune()
-{
-	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateNo;
-	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::ServerOnly;
-	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
-
-	FAbilityTriggerData TriggerData;
-	TriggerData.TriggerTag = FGameplayTag::RequestGameplayTag("Character.Event.Damaged");
-	AbilityTriggers.Add(TriggerData);
-
-	ActivationOwnedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Ability.DamageImmune"));
-}
-
-void UGameplayAbility_DamageImmune::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
-{
-	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
-
-	if (CommitAbility(Handle, ActorInfo, ActivationInfo))
-	{
-		if (TriggerEventData != nullptr)
-		{
-			CachedInstigator = TriggerEventData->Instigator.Get();
-		}
-
-		// 태스크에 1000횟수를 넣어도, 어빌리티가 3초 뒤에 끝나기 때문에, 0.1초가 30번 하면 태스크도 끝남
-		if (UWorld* World = GetWorld())
-		{
-			World->GetTimerManager().SetTimer(TimerHandle, FTimerDelegate::CreateWeakLambda(this, [this]() {
-				EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
-			}), 3.f, false);
-		}
-	}
-}
-
-void UGameplayAbility_DamageImmune::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
-{
-	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
-
-	if (AActor* Actor = GetAvatarActorFromActorInfo())
-	{
-		//UE_LOG(LogTemp, Warning, TEXT("DamageImmune::EndAbility Clearoverlap "));
-
-		//Actor->ClearComponentOverlaps();
-		if (CachedInstigator.IsValid())
-		{
-			TArray<UPrimitiveComponent*> PrimitiveComponents;
-			Actor->GetComponents(PrimitiveComponents);
-			for (UPrimitiveComponent* const PrimComp : PrimitiveComponents)
-			{
-				TArray<FOverlapInfo> OverlapInfos = PrimComp->GetOverlapInfos();
-				for (FOverlapInfo& OverlapInfo : OverlapInfos)
+				if (UAbilitySystemComponent* OtherAbilityComponent = OtherActor->GetComponentByClass<UAbilitySystemComponent>())
 				{
-					if (OverlapInfo.OverlapInfo.GetActor() == CachedInstigator)
+					FGameplayEffectContextHandle EffectContext = OtherAbilityComponent->MakeEffectContext();
+					FGameplayCueParameters CueParams(EffectContext);
+					CueParams.Location = OtherCharacter->GetActorLocation();
+					if (UCapsuleComponent* CapsuleComponent = OtherCharacter->GetCapsuleComponent())
 					{
-						PrimComp->EndComponentOverlap(OverlapInfo);
+						CueParams.Location.Z += CapsuleComponent->GetScaledCapsuleHalfHeight();
 					}
+
+					OtherAbilityComponent->ExecuteGameplayCue(CueTag, CueParams);
 				}
 			}
 		}
-		Actor->UpdateOverlaps();
 	}
 }
 
@@ -548,7 +472,8 @@ UGameplayAbility_Move::UGameplayAbility_Move()
 	TriggerData.TriggerTag = FGameplayTag::RequestGameplayTag("Controller.Move");
 	AbilityTriggers.Add(TriggerData);
 
-	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag(FName("Character.Move")));
+	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Move"));
+	ActivationOwnedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Move")); // Trigger로 동작해서 적용되지 않는듯?
 
 	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag(FName("Character.Dead")));
 	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag(FName("Character.Move.Block")));
@@ -566,12 +491,32 @@ void UGameplayAbility_Move::ActivateAbility(const FGameplayAbilitySpecHandle Han
 		return;
 	}
 
-	if (ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo()))
+	if (AMCharacter* Character = Cast<AMCharacter>(GetAvatarActorFromActorInfo()))
 	{
 		Character->AddMovementInput(FVector(Foward, Strafe, 0.f));
+		Character->SetMoving(true);
 	}
 
+	//if (ReleaseHandle.IsValid())
+	//{
+	//	GetWorld()->GetTimerManager().ClearTimer(ReleaseHandle);
+	//	ReleaseHandle.Invalidate();
+	//}
+
 	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+}
+
+void UGameplayAbility_Move::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+{
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+
+	//ReleaseHandle = GetWorld()->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateWeakLambda(this, [this]() {
+		if (AMCharacter* Character = Cast<AMCharacter>(GetAvatarActorFromActorInfo()))
+		{
+			UE_CLOG(HasAuthority(&CurrentActivationInfo), LogTemp, Warning, TEXT("ghoflvhxj SetMoving False"));
+			Character->SetMoving(false);
+		}
+	//}));
 }
 
 UGameplayAbility_Move_KeepBasicAttack::UGameplayAbility_Move_KeepBasicAttack()
@@ -763,17 +708,281 @@ void UGameplayAbility_Reload::OnMontageFinished()
 	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 }
 
+UGameplayAbility_CharacterBase::UGameplayAbility_CharacterBase()
+{
+	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
+	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
+}
+
+void UGameplayAbility_CharacterBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(UGameplayAbility_CharacterBase, SerializedParamsMap);
+}
+
+void UGameplayAbility_CharacterBase::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
+{
+	Super::OnGiveAbility(ActorInfo, Spec);
+	Character = Cast<AMCharacter>(GetAvatarActorFromActorInfo());
+}
+
+bool UGameplayAbility_CharacterBase::CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags /*= nullptr*/)
+{
+	if (Super::CommitAbility(Handle, ActorInfo, ActivationInfo, OptionalRelevantTags))
+	{
+		// 캐릭터 유효성이 반드시 보장되도록 함
+		return Character.IsValid();
+	}
+
+	return false;
+}
+
+AMCharacter* UGameplayAbility_CharacterBase::GetCharacter()
+{
+	return Character.Get();
+}
+
+FVector UGameplayAbility_CharacterBase::GetCharacterLocation(bool bIncludeCapsuleHeight)
+{
+	FVector OutLocation = FVector::ZeroVector;
+	if (Character.IsValid())
+	{
+		OutLocation = Character->GetActorLocation();
+		if (bIncludeCapsuleHeight)
+		{
+			if (UCapsuleComponent* CapsuleComponent = Character->GetCapsuleComponent())
+			{
+				OutLocation.Z += CapsuleComponent->GetScaledCapsuleHalfHeight();
+			}
+		}
+	}
+	else
+	{
+		UE_LOG(LogAbility, Warning, TEXT("%s failed. Character is invalid."), *FString(__FUNCTION__));
+	}
+
+	return OutLocation;
+}
+
+FRotator UGameplayAbility_CharacterBase::GetCharacterRotation()
+{
+	FRotator OutRotator = FRotator::ZeroRotator;
+
+	if (Character.IsValid())
+	{
+		OutRotator.Yaw = Character->GetActorRotation().Yaw;
+	}
+
+	return OutRotator;
+}
+
+void UGameplayAbility_CharacterBase::InitAbilitySpawnedActor(AActor* InActor)
+{
+	if (IsValid(InActor) == false)
+	{
+		return;
+	}
+
+	if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
+	{
+		if (InActor->IsA<ABullet>())
+		{
+			float ProjectileScale = AbilitySystemComponent->GetNumericAttribute(UMAttributeSet::GetProjectileScaleAttribute());
+			InActor->SetActorScale3D(FVector(ProjectileScale));
+		}
+	}
+
+	if (UMDamageComponent* DamageComponent = InActor->GetComponentByClass<UMDamageComponent>())
+	{
+		DamageComponent->GetOnDamageEvent().AddUObject(this, &UGameplayAbility_CharacterBase::ApplyEffect);
+	}
+}
+
+void UGameplayAbility_CharacterBase::ApplyEffect(AActor* InEffectCauser, AActor* InTarget)
+{
+	if (IsValid(InEffectCauser) == false)
+	{
+		return;
+	}
+
+	if (IsValid(InTarget) == false)
+	{
+		return;
+	}
+
+	FGameplayAbilityTargetDataHandle TargetDataHandle = UAbilitySystemBlueprintLibrary::AbilityTargetDataFromActor(InTarget);
+	UpdateDynamicParams(InTarget);
+
+	ApplyEffectToTarget(InEffectCauser, InTarget, TargetDataHandle);
+}
+
+void UGameplayAbility_CharacterBase::ApplyEffectToTarget(AActor* InCauser, AActor* InTarget, const FGameplayAbilityTargetDataHandle& InTargetDataHandle)
+{
+	UAbilitySystemComponent* TargetASC = InTarget->GetComponentByClass<UAbilitySystemComponent>();
+
+	if (IsValid(TargetASC) == false)
+	{
+		return;
+	}
+
+	if (IsValid(DamageEffectClass) == false)
+	{
+		return;
+	}
+
+	// DamageGE 적용 로직
+	FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(TSubclassOf<UGameplayEffect>(DamageEffectClass));
+	for (const auto& ParamToValuePair : MapParamToValue)
+	{
+		if (ParamToValuePair.Key.MatchesTag(FGameplayTag::RequestGameplayTag("DamageParam")) == false)
+		{
+			continue;
+		}
+
+		UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, ParamToValuePair.Key, ParamToValuePair.Value);
+	}
+	for (const auto& DynamicParamToValuePair : DynamicParamToValue)
+	{
+		if (DynamicParamToValuePair.Key.MatchesTag(FGameplayTag::RequestGameplayTag("DamageParam")) == false)
+		{
+			continue;
+		}
+
+		UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, DynamicParamToValuePair.Key, DynamicParamToValuePair.Value);
+	}
+
+	EffectSpecHandle.Data.Get()->Period = GetParamUsingName("DamageParam.Period");
+	ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, EffectSpecHandle, InTargetDataHandle);
+
+	// HitGC 로직. 특정 위치에 표시하려면 CueParam의 Location을 채우고 사용하려면 직접 ExecutePlayCue를 호출해야 함
+	FGameplayCueParameters CueParams;
+	CueParams.EffectCauser = InCauser;
+	CueParams.Instigator = GetAvatarActorFromActorInfo();
+	CueParams.Location = InCauser->GetActorLocation() + (InTarget->GetActorLocation() - InCauser->GetActorLocation()) / 2.f;
+
+	FGameplayTag SourceTag = AbilityTags.Filter(FGameplayTag::RequestGameplayTag("Ability").GetSingleTagContainer()).Last();
+	if (SourceTag == FGameplayTag::EmptyTag)
+	{
+		SourceTag = AbilityTags.Last();
+	}
+	CueParams.AggregatedSourceTags.AddTag(SourceTag);
+
+	FGameplayTag DamageCueTag = FGameplayTag::RequestGameplayTag("GameplayCue.Effect.Hit.Default");
+	if (UGameplayEffect_Damage* GEDamageCDO = Cast<UGameplayEffect_Damage>(DamageEffectClass->GetDefaultObject()))
+	{
+		DamageCueTag = GEDamageCDO->GetDamageCue();
+		GEDamageCDO->UpdateCueParams(InCauser, InTarget, CueParams);
+	}
+
+	TargetASC->ExecuteGameplayCue(DamageCueTag, CueParams);
+}
+
+void UGameplayAbility_CharacterBase::UpdateDynamicParams_Implementation(AActor* OtherActor)
+{
+
+}
+
+void UGameplayAbility_CharacterBase::AddParam(const FGameplayTag& InTag, float InValue)
+{
+	if (HasAuthority(&CurrentActivationInfo) == false)
+	{
+		return;
+	}
+
+	MapParamToValue.FindOrAdd(InTag) += InValue;
+
+	UContainerFunctionLibrary::SerializeMap(MapParamToValue, SerializedParamsMap);
+}
+
+void UGameplayAbility_CharacterBase::AddParams(const TMap<FGameplayTag, float>& InParams)
+{
+	if (HasAuthority(&CurrentActivationInfo) == false)
+	{
+		return;
+	}
+
+	for (const TPair<FGameplayTag, float>& InitialAttribute : InParams)
+	{
+		MapParamToValue.FindOrAdd(InitialAttribute.Key) += InitialAttribute.Value;
+	}
+
+	UContainerFunctionLibrary::SerializeMap(MapParamToValue, SerializedParamsMap);
+}
+
+void UGameplayAbility_CharacterBase::SetParams(const TMap<FGameplayTag, float>& InParams)
+{
+	MapParamToValue.Empty();
+
+	AddParams(InParams);
+}
+
+float UGameplayAbility_CharacterBase::GetParam(FGameplayTag InTag)
+{
+	return MapParamToValue.FindOrAdd(InTag);
+}
+
+float UGameplayAbility_CharacterBase::GetParamUsingName(FName InName)
+{
+	return GetParam(FGameplayTag::RequestGameplayTag(InName));
+}
+
+void UGameplayAbility_CharacterBase::OnRep_Params()
+{
+	UContainerFunctionLibrary::DeserializeMap(MapParamToValue, SerializedParamsMap);
+}
+
+void UGameplayAbility_CharacterBase::SetDynamicParam(FGameplayTag InTag, float InValue)
+{
+	DynamicParamToValue.FindOrAdd(InTag) = InValue;
+}
+
+void UGameplayAbility_CharacterBase::SerializeAttributeMap(FArchive& Archive)
+{
+	if (Archive.IsSaving())
+	{
+		int32 Num = MapParamToValue.Num();
+		Archive << Num;
+
+		for (auto& Elem : MapParamToValue)
+		{
+			Archive << Elem.Key;
+			Archive << Elem.Value;
+		}
+	}
+	else if (Archive.IsLoading())
+	{
+		MapParamToValue.Empty();
+		int32 Num;
+		Archive << Num;
+
+		for (int32 i = 0; i < Num; ++i)
+		{
+			FGameplayTag Key;
+			float Value;
+			Archive << Key;
+			Archive << Value;
+			MapParamToValue.FindOrAdd(Key) = Value;
+		}
+	}
+}
+
+void UGameplayAbility_WeaponBase::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
+{
+	Super::OnGiveAbility(ActorInfo, Spec);
+
+	if (Character.IsValid())
+	{
+		Character->OnWeaponChangedEvent.AddUObject(this, &UGameplayAbility_WeaponBase::UpdateWeapon);
+	}
+}
+
 bool UGameplayAbility_WeaponBase::CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags /*= nullptr*/)
 {
 	if (Super::CommitAbility(Handle, ActorInfo, ActivationInfo, OptionalRelevantTags))
 	{
-		if (AMCharacter* NewCharacter = Cast<AMCharacter>(GetAvatarActorFromActorInfo()))
-		{
-			// 여기서 캐싱하여 ActivateAbility 호출할 때는 반드시 유효성이 보장이 되도록
-			Character = NewCharacter;
-			Weapon = NewCharacter->GetEquipItem<AWeapon>();
-			return Character.IsValid() && Weapon.IsValid();
-		}
+		return Weapon.IsValid();
 	}
 
 	return false;
@@ -811,123 +1020,24 @@ void UGameplayAbility_WeaponBase::EndAbility(const FGameplayAbilitySpecHandle Ha
 			WeaponChangedDelegateHandle.Reset();
 		}
 	}
-
-	if (bClearCacheIfEnd)
-	{
-		ClearCachedData();
-	}
 }
 
-void UGameplayAbility_WeaponBase::ClearCachedData()
+void UGameplayAbility_WeaponBase::UpdateWeapon(AActor* Old, AActor* New)
 {
-	Weapon = nullptr;
-	Character = nullptr;
-}
-
-FVector UGameplayAbility_WeaponBase::GetCharacterLocation(bool bIncludeCapsuleHeight)
-{
-	FVector OutLocation = FVector::ZeroVector;
-	if (Character.IsValid())
+	if (WeaponDamageDelegateHandle.IsValid())
 	{
-		OutLocation = Character->GetActorLocation();
-		if (bIncludeCapsuleHeight)
+		if (UMDamageComponent* DamageComponent = Old->GetComponentByClass<UMDamageComponent>())
 		{
-			if (UCapsuleComponent* CapsuleComponent = Character->GetCapsuleComponent())
-			{
-				OutLocation.Z += CapsuleComponent->GetScaledCapsuleHalfHeight();
-			}
+			DamageComponent->GetOnDamageEvent().Remove(WeaponDamageDelegateHandle);
 		}
+		WeaponDamageDelegateHandle.Reset();
 	}
-	else
+
+	Weapon = Cast<AWeapon>(New);
+	if (UMDamageComponent* DamageComponent = Weapon->GetComponentByClass<UMDamageComponent>())
 	{
-		UE_LOG(LogAbility, Warning, TEXT("%s failed. Character is invalid."), *FString(__FUNCTION__));
+		WeaponDamageDelegateHandle = DamageComponent->GetOnDamageEvent().AddUObject(this, &UGameplayAbility_WeaponBase::ApplyEffect);
 	}
-
-	return OutLocation;
-}
-
-FRotator UGameplayAbility_WeaponBase::GetCharacterRotation()
-{
-	FRotator OutRotator = FRotator::ZeroRotator;
-
-	if (Character.IsValid())
-	{
-		OutRotator.Yaw = Character->GetActorRotation().Yaw;
-	}
-
-	return OutRotator;
-}
-
-UGameplayAbility_Dash::UGameplayAbility_Dash()
-{
-	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
-	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
-	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
-
-	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Dash"));
-	ActivationOwnedTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Dash"));
-
-	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Attack"));
-	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Reload"));
-
-	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Dead"));
-	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Dash"));
-}
-
-void UGameplayAbility_Dash::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
-{
-	if (CommitAbility(Handle, ActorInfo, ActivationInfo) == false)
-	{
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-		return;
-	}
-
-	if (AMCharacter* Character = Cast<AMCharacter>(GetAvatarActorFromActorInfo()))
-	{
-		// 로컬 입력이 있는 경우에만...
-		if (Character->IsLocallyControlled())
-		{
-			FVector InputVector = FVector::ZeroVector;
-			if (UInputCacheComponent* InputCacheComponent = Character->GetComponentByClass<UInputCacheComponent>())
-			{
-				InputVector = InputCacheComponent->GetInput();
-			}
-			else if (UCharacterMovementComponent* MovementComponent = Character->GetCharacterMovement())
-			{
-				InputVector = MovementComponent->GetLastInputVector();
-			}
-
-			// 대시 방향이 이상한 경우가 있던데, Unreliable RPC라 가끔씩 씹히는 경우로 확인됨. 어떻게 해결할지는 이후에 생각함
-			if (bool bForward = InputVector.X != 0.f)
-			{
-				Character->SetActorRotation(FRotator(0.0, InputVector.X >= 0.0 ? 0.0 : 180.0, 0.0));
-				Character->Server_SetTargetAngle(InputVector.X >= 0.0 ? 0.0 : 180.0, true);
-			}
-			if (bool bStrafe = InputVector.Y != 0.f)
-			{
-				Character->SetActorRotation(FRotator(0.0, InputVector.Y >= 0.0 ? 90.0 : 270.0, 0.0));
-				Character->Server_SetTargetAngle(InputVector.Y >= 0.0 ? 90.0 : 270.0, true);
-			}
-		}
-
-		if (UMActionComponent* ActionComponent = Character->GetComponentByClass<UMActionComponent>())
-		{
-			if (UAnimMontage* Montage = ActionComponent->GetActionMontage(AbilityTags.GetByIndex(0)))
-			{
-				UAbilityTask_PlayMontageAndWait* PlayMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, "Dash", Montage, 1.f, NAME_None, true, 1.f, 0.f);
-				PlayMontageTask->OnCompleted.AddDynamic(this, &UGameplayAbility_Dash::OnMontageFinished);
-				PlayMontageTask->ReadyForActivation();
-				return;
-			}
-		}
-	}
-
-	EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-}
-
-void UGameplayAbility_Dash::OnMontageFinished()
-{
-	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 }
 
 UGameplayAbility_SpinalReflex::UGameplayAbility_SpinalReflex()
@@ -1061,4 +1171,123 @@ void UGameplayAbility_DamageToOne::ActivateAbility(const FGameplayAbilitySpecHan
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
+}
+
+UGameplayAbility_Start::UGameplayAbility_Start()
+{
+	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
+	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
+
+	FGameplayTag StartTag = FGameplayTag::RequestGameplayTag("Ability.Start");
+
+	AbilityTags.AddTag(StartTag);
+	//ActivationOwnedTags.AddTag(StartTag);
+	ActivationBlockedTags.AddTag(StartTag);
+}
+
+void UGameplayAbility_Start::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	if (CommitAbility(Handle, ActorInfo, ActivationInfo) == false)
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+
+	if (AMCharacter* Character = Cast<AMCharacter>(GetAvatarActorFromActorInfo()))
+	{
+		Character->SetActorHiddenInGame(false);
+		USkeletalMeshComponent* Mesh = Character->GetMesh();
+		UAnimInstance* AnimInstance = IsValid(Mesh) ? Mesh->GetAnimInstance() : nullptr;
+		if (IsValid(AnimInstance))
+		{
+			if (UAnimMontage* StartMontage = GetStartAnim())
+			{
+				GetAbilitySystemComponentFromActorInfo()->PlayMontage(this, ActivationInfo, StartMontage, 1.f);
+				AnimInstance->OnMontageEnded.AddDynamic(Character, &AMCharacter::OnStartAnimFinished);
+			}
+		}
+
+		//if (UAnimMontage* StartMontage = GetStartAnim())
+		//{
+		//	if (UAbilityTask_PlayMontageAndWait* PlayMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, "Start", StartMontage))
+		//	{
+		//		PlayMontageTask->ReadyForActivation();
+		//	}
+		//}
+	}
+	
+	// 계속 StartTag를 가지고 있어야 하니 끝내지 않음
+}
+
+void UGameplayAbility_Start::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+{
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+
+	if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
+	{
+		AbilitySystemComponent->StopMontageIfCurrent(*GetStartAnim());
+	}
+}
+
+UAnimMontage* UGameplayAbility_Start::GetStartAnim()
+{
+	if (AActor* Actor = GetAvatarActorFromActorInfo())
+	{
+		if (UMActionComponent* ActionComponent = Actor->GetComponentByClass<UMActionComponent>())
+		{
+			return ActionComponent->GetActionMontage(FGameplayTag::RequestGameplayTag("Action.Start"));
+		}
+	}
+
+	return nullptr;
+}
+
+void UGameplayAbility_LevelUp::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
+{
+	Super::OnGiveAbility(ActorInfo, Spec);
+	
+	if (Character.IsValid())
+	{
+		if (ULevelComponent* LevelComponent = Character->GetComponentByClass<ULevelComponent>())
+		{
+			LevelComponent->GetOnLevelUpEvent().AddUObject(this, &UGameplayAbility_LevelUp::UpdateMesh);
+		}
+	}
+}
+
+void UGameplayAbility_LevelUp::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	if (CommitAbility(Handle, ActorInfo, ActivationInfo) == false)
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+	}
+
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+}
+
+void UGameplayAbility_LevelUp::UpdateMesh(int32 InLevel)
+{
+	if (Character.IsValid() == false)
+	{
+		return;
+	}
+
+	FSoftObjectPath MeshPath;
+	for (const auto& LevelToMeshPair : LevelToMesh)
+	{
+		if (LevelToMeshPair.Key <= InLevel)
+		{
+			MeshPath = LevelToMeshPair.Value;
+		}
+	}
+
+	if (MeshPath.IsValid() == false)
+	{
+		return;
+	}
+
+	Character->GetMesh()->SetSkeletalMesh(Cast<USkeletalMesh>(MeshPath.TryLoad()));
 }

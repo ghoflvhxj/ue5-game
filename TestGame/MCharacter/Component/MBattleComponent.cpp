@@ -1,6 +1,7 @@
 #include "MBattleComponent.h"
-#include "TestGame/MCharacter/MCharacter.h"
+#include "Net/UnrealNetwork.h"
 #include "Engine/OverlapResult.h"
+#include "TestGame/MCharacter/MCharacter.h"
 
 #include "TestGame/Bullet/Bullet.h"
 
@@ -44,7 +45,5 @@ bool UMTeamComponent::IsSameTeam(UMTeamComponent* OtherBattleComponent) const
 
 bool UMTeamComponent::IsSameTeam(int CheckTeamIndex) const
 {
-	UE_CLOG(TeamIndex == CheckTeamIndex, LogTemp, Warning, TEXT("같은 팀"));
-	UE_CLOG(TeamIndex != CheckTeamIndex, LogTemp, Warning, TEXT("다른 팀"));
 	return TeamIndex == CheckTeamIndex;
 }

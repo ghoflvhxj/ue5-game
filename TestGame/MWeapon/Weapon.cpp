@@ -7,6 +7,7 @@
 #include "MGameInstance.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MCharacter/Component/ActionComponent.h"
+#include "TestGame/MComponents/DamageComponent.h"
 #include "TestGame/MAttribute/MAttribute.h"
 
 DECLARE_LOG_CATEGORY_CLASS(LogWeapon, Log, Log);
@@ -15,7 +16,7 @@ AWeapon::AWeapon()
 {
 	ActionComponent = CreateDefaultSubobject<UMActionComponent>(TEXT("ActionComponent"));
 
-	//AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
+	DamageComponent = CreateDefaultSubobject<UMDamageComponent>(TEXT("DamageComponent"));
 
 	//bReplicates = true;
 }
@@ -61,32 +62,6 @@ void AWeapon::OnConstruction(const FTransform& Transform)
 	}
 }
 
-//void AWeapon::NotifyActorBeginOverlap(AActor* OtherActor)
-//{
-//	Super::NotifyActorBeginOverlap(OtherActor);
-//
-//	if (IsReactable(OtherActor) && HasAuthority() && IsValid(Owner))
-//	{
-//		if (UAbilitySystemComponent* AbilitySystemComponent = Owner->GetComponentByClass<UAbilitySystemComponent>())
-//		{
-//			FGameplayEffectSpecHandle GameplayEffectSpecHandle = AbilitySystemComponent->MakeOutgoingSpec(UGameplayEffect_Damage::StaticClass(), -1, AbilitySystemComponent->MakeEffectContext());
-//			AbilitySystemComponent->ApplyGameplayEffectSpecToTarget(*GameplayEffectSpecHandle.Data.Get(), OtherActor->GetComponentByClass<UAbilitySystemComponent>());
-//
-//			// 넉백 처리, 임시로 한거고 추후에 넉백저항 등이 들어가면 어트리뷰트에 기반해야 할 듯?
-//			FVector Offset = FVector::ZeroVector;
-//			if (UCapsuleComponent* CapsuleComponent = Owner->GetComponentByClass<UCapsuleComponent>())
-//			{
-//				Offset.Z = CapsuleComponent->GetScaledCapsuleHalfHeight();
-//			}
-//			if (UCharacterMovementComponent* MovementComponent = OtherActor->GetComponentByClass<UCharacterMovementComponent>())
-//			{
-//				MovementComponent->StopMovementImmediately();
-//				MovementComponent->AddRadialImpulse(Owner->GetActorLocation() + Offset, 1000.f, 150000.f, ERadialImpulseFalloff::RIF_Linear, false);
-//			}
-//		}
-//	}
-//}
-
 void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -106,11 +81,6 @@ void AWeapon::BeginPlay()
 		}
 	}
 
-	//if (const FWeaponData* WeaponData = GetWeaponData())
-	//{
-	//	AbilitySystemComponent->InitStats(GetAttributeSet(), WeaponData->Attributes);
-	//}
-
 	SetActorEnableCollision(false);
 }
 
@@ -123,25 +93,35 @@ void AWeapon::SetEquipActor(AActor* EquipActor)
 {
 	if (IsValid(EquipActor))
 	{
-		if (const FWeaponData* WeaponData = GetWeaponData())
+		FName SocketName;
+		if (AMCharacter* Character = Cast<AMCharacter>(EquipActor))
 		{
-			FString SocketName;
-			switch (WeaponData->WeaponType)
+			SocketName = Character->GetEquipSocketName();
+		}
+		else
+		{
+			if (const FWeaponData* WeaponData = GetWeaponData())
 			{
-			default:
-			case EWeaponType::Sword:
-			{
-				SocketName = TEXT("hand_rSocket");
+				switch (WeaponData->WeaponType)
+				{
+				default:
+				case EWeaponType::Sword:
+				{
+					SocketName = TEXT("hand_rSocket");
+				}
+				break;
+				case EWeaponType::Gun:
+				{
+					SocketName = TEXT("hand_rSocket_FPS");
+				}
+				break;
+				}
 			}
-			break;
-			case EWeaponType::Gun:
-			{
-				SocketName = TEXT("hand_rSocket_FPS");
-			}
-			break;
-			}
+		}
 
-			AttachToActor(EquipActor, FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), *SocketName);
+		if (SocketName != NAME_None)
+		{
+			AttachToActor(EquipActor, FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), SocketName);
 		}
 	}
 
@@ -282,21 +262,20 @@ void AWeapon::NextCombo()
 	float OwnerAttackSpeed = 1.f;
 	if (UAbilitySystemComponent* CharacterAbilityComponent = Character->GetAbilitySystemComponent())
 	{
-		bool bFound = false;
-		CharacterAbilityComponent->GetGameplayAttributeValue(UMAttributeSet::GetAttackSpeedAttribute(), bFound);
-		if (bFound == false)
-		{
-			UE_LOG(LogWeapon, Warning, TEXT("Need attribute AttackSpeed. Failed to attack"));
-			return;
-		}
+		CharacterAbilityComponent->GetNumericAttribute(UMAttributeSet::GetAttackSpeedAttribute());
+	}
+
+	if (IsValid(DamageComponent))
+	{
+		DamageComponent->Reset();
 	}
 
 	// 임시작업, 공격속도 어트리뷰트를 가져오도록 변경해야 함
 	// 공격속도가 빨라진다 = AttackSpeed 증가를 의미하는데 이게 맞는건가?
-	if (WeaponData->AttackSpeed > 0.f)
-	{
-		GetWorldTimerManager().SetTimer(AttackTimerHandle, this, &AWeapon::OnAttackCoolDownFinished, WeaponData->AttackSpeed, false);
-	}
+	//if (WeaponData->AttackSpeed > 0.f)
+	//{
+	//	GetWorldTimerManager().SetTimer(AttackTimerHandle, this, &AWeapon::OnAttackCoolDownFinished, WeaponData->AttackSpeed, false);
+	//}
 
 	if (WeaponData->WeaponType == EWeaponType::Sword)
 	{
@@ -382,7 +361,7 @@ void AWeapon::Charge()
 
 void AWeapon::UnCharge()
 {
-	if (IsCharged())
+	if (IsCharged())	
 	{
 		ChargeValue = 0.f;
 		OnChargeChangedEvent.Broadcast(false);

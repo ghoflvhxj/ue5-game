@@ -1,6 +1,7 @@
 #pragma once
 
 #include "TestGame/TestGame.h"
+#include "GameplayEffect.h"
 #include "MEffect.generated.h"
 
 class UGameplayAbility;
@@ -20,7 +21,6 @@ public:
 	}
 };
 
-
 UCLASS()
 class TESTGAME_API UGameplayEffect_Damage : public UGameplayEffect_Base
 {
@@ -28,6 +28,20 @@ class TESTGAME_API UGameplayEffect_Damage : public UGameplayEffect_Base
 
 public:
 	UGameplayEffect_Damage();
+
+public:
+	void UpdateCueParams(AActor* InCauser, AActor* InTarget, FGameplayCueParameters& InParam);
+
+public:
+	FGameplayTag GetDamageCue() const { return HitEffectCue; }
+protected:
+	// Damage시 회전, 위치 등의 요소를 직접 구해 Cue를 발생시킬 때 사용합니다.
+	// 위 사항에 해당하지 않는 경우에는 사용할 필요가 없습니다.
+	UPROPERTY(EditDefaultsOnly)
+	FGameplayTag HitEffectCue = FGameplayTag::RequestGameplayTag("GameplayCue.Effect.Hit.Default");
+	// HitEffectCue의 위치 규칙
+	UPROPERTY(EditDefaultsOnly)
+	int32 CueLocationRule = 0;
 };
 
 /* 사격 후 탄약 감소 */
@@ -100,6 +114,15 @@ class TESTGAME_API UGameplayEffect_AddHealth : public UGameplayEffect_AddAttribu
 
 public:
 	UGameplayEffect_AddHealth();
+};
+
+UCLASS()
+class TESTGAME_API UGameplayEffect_AddProjectileScale : public UGameplayEffect_AddAttribute
+{
+	GENERATED_BODY()
+
+public:
+	UGameplayEffect_AddProjectileScale();
 };
 
 UCLASS(Abstract)

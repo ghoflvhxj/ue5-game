@@ -5,9 +5,19 @@
 
 DEFINE_LOG_CATEGORY(LogAttribute);
 
-void UMAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
+void UMAttributeSet::PreAttributeBaseChange(const FGameplayAttribute& Attribute, float& NewValue) const
 {
 	Super::PreAttributeBaseChange(Attribute, NewValue);
+
+	if (Attribute == GetHealthAttribute())
+	{
+		NewValue = FMath::Clamp(NewValue, 0.f, MaxHealth.GetCurrentValue());
+	}
+}
+
+void UMAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
+{
+	Super::PreAttributeChange(Attribute, NewValue);
 }
 
 void UMAttributeSet::PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue)
@@ -49,6 +59,11 @@ void UMAttributeSet::OnRep_MoveSpeed(const FGameplayAttributeData& OldData)
 void UMAttributeSet::OnRep_WeaponScale(const FGameplayAttributeData& OldData)
 {
 	GAMEPLAYATTRIBUTE_REPNOTIFY(UMAttributeSet, WeaponScale, OldData);
+}
+
+void UMAttributeSet::OnRep_ProjectileScale(const FGameplayAttributeData& OldData)
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(UMAttributeSet, ProjectileScale, OldData);
 }
 
 void UMWeaponAttributeSet::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const

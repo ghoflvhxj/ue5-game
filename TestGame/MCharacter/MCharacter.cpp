@@ -9,6 +9,8 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "EnhancedInputComponent.h"
 #include "NiagaraComponent.h"
+#include "Net/UnrealNetwork.h"
+#include "GameFramework/PlayerState.h"
 // 임시
 #include "BehaviorTree/BehaviorTreeComponent.h"
 
@@ -16,11 +18,12 @@
 #include "Component/MBattleComponent.h"
 #include "Component/StateMachineComponent.h"
 #include "Component/ActionComponent.h"
+#include "TestGame/MComponents/InventoryComponent.h"
 #include "TestGame/MGameMode/MGameModeInGame.h"
 #include "TestGame/MCharacter/Component/InteractorComponent.h"
 #include "TestGame/MAttribute/MAttribute.h"
 #include "TestGame/MAbility/MAbility.h"
-#include "TestGame/Mcharacter/MCharacterEnum.h"
+#include "TestGame/MCharacter/MCharacterEnum.h"
 #include "TestGame/MWeapon/Weapon.h"
 #include "TestGame/MPlayerController/MPlayerController.h"
 #include "CharacterState/MCharacterState.h"
@@ -28,7 +31,7 @@
 // Sets default values
 AMCharacter::AMCharacter()
 {
- 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
 	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
@@ -47,29 +50,43 @@ AMCharacter::AMCharacter()
 	ActionComponent = CreateDefaultSubobject<UMActionComponent>(TEXT("ActionComponent"));
 }
 
+UMInventoryComponent* AMCharacter::GetInventoryComponent() const
+{
+	if (IsValid(InventoryComponent))
+	{
+		return InventoryComponent;
+	}
+
+	if (APlayerState* TempPlayerState = GetPlayerState())
+	{
+		return TempPlayerState->GetComponentByClass<UMInventoryComponent>();
+	}
+
+	return nullptr;
+}
+
 // Called when the game starts or when spawned
 void AMCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (IsValid(AbilitySystemComponent))
+	if (IsValid(AbilitySystemComponent) && IsValid(AbilitySetData))
 	{
 		if (HasAuthority())
 		{
 			AbilitySystemComponent->SetAvatarActor(this);
-
-			if (IsValid(AbilitySetData))
-			{
-				AbilitySetData->GiveAbilities(AbilitySystemComponent, AblitiyHandles);
-			}
+			AbilitySetData->GiveAbilities(AbilitySystemComponent, AblitiyHandles);
 		}
-		else
-		{
+		 
+		AbilitySystemComponent->RegisterGameplayTagEvent(FGameplayTag::RequestGameplayTag("Character.Freeze"), EGameplayTagEventType::NewOrRemoved).AddUObject(this, &AMCharacter::Freeze);
 
+		if (AbilitySetData->HasAbilityTag(FGameplayTag::RequestGameplayTag("Ability.Start")) == false)
+		{
+			OnStartAnimFinished(nullptr, false);
 		}
 
 		AttributeSet = const_cast<UMAttributeSet*>(AbilitySystemComponent->GetSet<UMAttributeSet>());
-		if (ensure(AttributeSet))
+		if (IsValid(AttributeSet))
 		{
 			AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(AttributeSet->GetMoveSpeedAttribute()).AddUObject(this, &AMCharacter::OnMoveSpeedChanged);
 			AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(AttributeSet->GetHealthAttribute()).AddUObject(this, &AMCharacter::OnHealthChanged);
@@ -88,6 +105,18 @@ void AMCharacter::BeginPlay()
 
 				AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(Attribute).Broadcast(AttributeChangeData);
 			}
+		}
+	}
+
+	if (USkeletalMeshComponent* SkeletalmeshComponent = GetMesh())
+	{
+		SkeletalmeshComponent->SetAllBodiesSimulatePhysics(false);
+
+		if (UAnimInstance* AnimInst = SkeletalmeshComponent->GetAnimInstance())
+		{
+			AnimInst->OnMontageStarted.AddDynamic(this, &AMCharacter::OnMontageStarted);
+			AnimInst->OnMontageBlendingOut.AddDynamic(this, &AMCharacter::OnMontageEnded);
+			AnimInst->OnMontageEnded.AddDynamic(this, &AMCharacter::OnMontageEnded);
 		}
 	}
 }
@@ -123,6 +152,14 @@ void AMCharacter::Tick(float DeltaTime)
 			}
 		}
 	}
+
+	if (UCharacterMovementComponent* MovementComponent = GetCharacterMovement())
+	{
+		if (IsPlayerControlled() && IsLocallyControlled())
+		{
+			SetMoving(MovementComponent->GetLastInputVector() != FVector::ZeroVector);
+		}
+	}
 }
 
 // Called to bind functionality to input
@@ -138,8 +175,8 @@ void AMCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponen
 		// 마우스 왼쪽 때면 공격
 		EnhancedInputComponent->BindAction(InputAction2, ETriggerEvent::Completed, this, &AMCharacter::BasicAttack);
 		// 마우스 왼쪽 1초 누르면 차징
-		EnhancedInputComponent->BindAction(InputAction3, ETriggerEvent::Started, this, &AMCharacter::ChargeInputPressed);
-		EnhancedInputComponent->BindAction(InputAction3, ETriggerEvent::Triggered, this, &AMCharacter::ChargeLightAttack);
+		//EnhancedInputComponent->BindAction(InputAction3, ETriggerEvent::Started, this, &AMCharacter::ChargeInputPressed);
+		//EnhancedInputComponent->BindAction(InputAction3, ETriggerEvent::Triggered, this, &AMCharacter::ChargeLightAttack);
 		// 마우스 왼쪽 1초 누른거 때면 차징 공격
 		EnhancedInputComponent->BindAction(InputAction, ETriggerEvent::Completed, this, &AMCharacter::LightChargeAttack);
 	}
@@ -149,9 +186,27 @@ void AMCharacter::NotifyActorBeginOverlap(AActor* OtherActor)
 {
 	Super::NotifyActorBeginOverlap(OtherActor);
 
-	if (IsInteractableActor(OtherActor))
+	if (IsValid(OtherActor) == false)
 	{
-		InteractTargets.AddUnique(OtherActor);
+		return;
+	}
+
+	if (IsPlayerControlled())
+	{
+		if (UMInteractorComponent* InteractComponent = OtherActor->GetComponentByClass<UMInteractorComponent>())
+		{
+			if (InteractComponent->IsInteractable())
+			{
+				if (InteractComponent->IsChannel(EInteractChannel::Unique))
+				{
+					InteractTargets.AddUnique(OtherActor);
+				}
+				else
+				{
+					InteractComponent->Interact(this);
+				}
+			}
+		}
 	}
 }
 
@@ -194,6 +249,8 @@ void AMCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifet
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION(AMCharacter, TargetAngle, COND_SimulatedOnly);
+	DOREPLIFETIME_CONDITION(AMCharacter, bAimMode, COND_SimulatedOnly);
+	DOREPLIFETIME_CONDITION(AMCharacter, bMoving, COND_SimulatedOnly);
 	//DOREPLIFETIME_CONDITION(AMCharacter, bRotateToTargetAngle, COND_SimulatedOnly);
 	DOREPLIFETIME(AMCharacter, Item);
 }
@@ -219,14 +276,6 @@ void AMCharacter::OnAbilityInputReleased(int32 InInputID)
 	}
 }
 
-void AMCharacter::AddAbilities(UMAbilityDataAsset* AbilityDataAsset)
-{
-	if (IsValid(AbilityDataAsset))
-	{
-		AbilityDataAsset->GiveAbilities(AbilitySystemComponent, AblitiyHandles);
-	}
-}
-
 void AMCharacter::RemoveAbilities(UMAbilityDataAsset* AbilityDataAsset)
 {
 	if (IsValid(AbilityDataAsset))
@@ -235,12 +284,61 @@ void AMCharacter::RemoveAbilities(UMAbilityDataAsset* AbilityDataAsset)
 	}
 }
 
-void AMCharacter::ChargeInputPressed()
+FGameplayAbilitySpecHandle AMCharacter::GetAbilitySpecHandle(FGameplayTag InTag)
+{
+	FGameplayAbilitySpecHandle FoundAbilitySpecHandle;
+	if (AblitiyHandles.Contains(InTag))
+	{
+		FoundAbilitySpecHandle = AblitiyHandles[InTag];
+	}
+	else
+	{
+		TArray<FGameplayAbilitySpecHandle> AbilitySpecHandles;
+		AbilitySystemComponent->FindAllAbilitiesWithTags(AbilitySpecHandles, InTag.GetSingleTagContainer());
+
+		if (AbilitySpecHandles.Num() > 0)
+		{
+			FoundAbilitySpecHandle = AbilitySpecHandles[0];
+		}
+	}
+
+	return FoundAbilitySpecHandle;
+}
+
+UGameplayAbility* AMCharacter::GetAbility(FGameplayTag InTag)
 {
 	if (IsValid(AbilitySystemComponent))
 	{
-		bChargeInput = AbilitySystemComponent->GetTagCount(FGameplayTag::RequestGameplayTag("Action.Attack.Block")) == 0;
+		FGameplayAbilitySpecHandle AbilitySpecHandle = GetAbilitySpecHandle(InTag);
+
+		if (AbilitySpecHandle.IsValid())
+		{
+			if (FGameplayAbilitySpec* AbilitySpec = AbilitySystemComponent->FindAbilitySpecFromHandle(AbilitySpecHandle))
+			{
+				return AbilitySpec->GetPrimaryInstance();
+			}
+		}
 	}
+
+	return nullptr;
+}
+
+void AMCharacter::ChargeInputPressed()
+{
+	//if (IsValid(AbilitySystemComponent))
+	//{
+	//	bChargeInput = AbilitySystemComponent->GetTagCount(FGameplayTag::RequestGameplayTag("Action.Attack.Block")) == 0;
+	//}
+}
+
+void AMCharacter::AddAbilities(UMAbilityDataAsset* InAbilitySet)
+{
+	if (IsValid(InAbilitySet) == false)
+	{
+		return;
+	}
+
+	InAbilitySet->GiveAbilities(AbilitySystemComponent, AblitiyHandles);
 }
 
 void AMCharacter::OnMoveSpeedChanged(const FOnAttributeChangeData& AttributeChangeData)
@@ -268,40 +366,54 @@ void AMCharacter::OnHealthChanged(const FOnAttributeChangeData& AttributeChangeD
 
 	if (AttributeChangeData.NewValue <= 0.f)
 	{
-		if (HasAuthority())
+		if (IsDead() == false)
 		{
-			if (IsValid(StateComponent))
-			{
-				StateComponent->ChangeState<ECharacterVitalityState>(ECharacterVitalityState::Die);
-			}
-
 			if (AMGameModeInGame* GameMode = Cast<AMGameModeInGame>(UGameplayStatics::GetGameMode(this)))
 			{
-				if (AttributeChangeData.GEModData)
-				{
-					GameMode->OnPawnKilled(DamageInstigator, this);
-				}
+				GameMode->OnPawnKilled(DamageInstigator, this);
+			}
+		}
+
+		if (AController* MyController = GetController())
+		{
+			if (UBehaviorTreeComponent* BrainComponent = MyController->GetComponentByClass<UBehaviorTreeComponent>())
+			{
+				BrainComponent->StopLogic(TEXT("Dead"));
+			}
+			MyController->StopMovement();
+		}
+
+		if (IsPlayerControlled() == false && HasAuthority())
+		{
+			SetLifeSpan(3.f);
+		}
+
+		if (UCapsuleComponent* CapsuleComp = GetCapsuleComponent())
+		{
+			CapsuleComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		}
+
+		if (UCharacterMovementComponent* MovementComponent = GetCharacterMovement())
+		{
+			MovementComponent->DisableMovement();
+		}
+
+		if (IsValid(StateComponent))
+		{
+			StateComponent->ChangeState<ECharacterVitalityState>(ECharacterVitalityState::Die);
+		}
+
+		if (USkeletalMeshComponent* SkeletalmeshComponent = GetMesh())
+		{
+			if (UAnimInstance* AnimInstance = SkeletalmeshComponent->GetAnimInstance())
+			{
+				AnimInstance->StopAllMontages(0.f);
 			}
 
-			if (AController* MyController = GetController())
-			{
-				if (UBehaviorTreeComponent* BrainComponent = MyController->GetComponentByClass<UBehaviorTreeComponent>())
-				{
-					BrainComponent->StopLogic(TEXT("Dead"));
-				}
-				
-				MyController->StopMovement();
-			}
-
-			if (UAnimMontage* Montage = GetCurrentMontage())
-			{
-				StopAnimMontage(Montage);
-			}
-
-			if (IsPlayerControlled() == false)
-			{
-				SetLifeSpan(3.f);
-			}
+			FTimerHandle RagdollStartTimerHandle;
+			GetWorldTimerManager().SetTimer(RagdollStartTimerHandle, FTimerDelegate::CreateWeakLambda(this, [this, SkeletalmeshComponent]() {
+				Ragdoll();
+			}), 1.f, false);
 		}
 
 		TArray<UPrimitiveComponent*> Primitives;
@@ -318,10 +430,10 @@ void AMCharacter::OnHealthChanged(const FOnAttributeChangeData& AttributeChangeD
 		}
 	}
 
-	if (IsNetMode(NM_DedicatedServer) == false)
-	{
-		UpdateHealthbarWidget(AttributeChangeData.OldValue, AttributeChangeData.NewValue);
-	}
+	//if (IsNetMode(NM_DedicatedServer) == false)
+	//{
+		//UpdateHealthbarWidget(AttributeChangeData.OldValue, AttributeChangeData.NewValue);
+	//}
 }
 
 void AMCharacter::OnDamaged(AActor* DamageInstigator)
@@ -393,6 +505,24 @@ bool AMCharacter::IsSameTeam(AActor* OtherCharacter) const
 	return false;
 }
 
+UPrimitiveComponent* AMCharacter::GetWeaponCollision()
+{
+	if (AWeapon* Weapon = GetEquipItem<AWeapon>())
+	{
+		return Weapon->GetComponentByClass<UCapsuleComponent>();
+	}
+
+	return nullptr;
+}
+
+void AMCharacter::SetWeaponCollisionEnable_Implementation(bool bInEnable)
+{
+	if (AWeapon* Weapon = GetEquipItem<AWeapon>())
+	{
+		Weapon->SetActorEnableCollision(bInEnable);
+	}
+}
+
 bool AMCharacter::GetWeaponMuzzleTransform(FTransform& OutTransform)
 {
 	if (AWeapon* Weapon = GetEquipItem<AWeapon>())
@@ -428,6 +558,11 @@ void AMCharacter::EquipItem(AActor* InItem)
 	}
 }
 
+FName AMCharacter::GetEquipSocketName()
+{
+	return EquipTypeToSocektName.Contains(TEXT("Weapon")) ? EquipTypeToSocektName[TEXT("Weapon")] : NAME_None;
+}
+
 bool AMCharacter::GetWeaponData(FWeaponData& OutWeaponData)
 {
 	if (AWeapon* Weapon = GetEquipItem<AWeapon>())
@@ -454,6 +589,22 @@ void AMCharacter::OnRep_Weapon(AActor* OldWeapon)
 	}
 
 	OnWeaponChangedEvent.Broadcast(OldWeapon, Item);
+}
+
+void AMCharacter::AddItem(int32 InIndex, int32 InNum)
+{
+	UMInventoryComponent* InventoryComp = GetInventoryComponent();
+	if (IsValid(InventoryComp) == false)
+	{
+		return;
+	}
+
+	InventoryComp->AddItem(InIndex, InNum);
+}
+
+void AMCharacter::UseItem(int32 InIndex)
+{
+	OnItemUsedEvent.Broadcast(InIndex);
 }
 
 void AMCharacter::Aim()
@@ -495,6 +646,11 @@ void AMCharacter::Aim()
 
 void AMCharacter::BasicAttack()
 {
+	if (AbilitySystemComponent->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag("Character.Attack.Block")))
+	{
+		return;
+	}
+
 	AWeapon* Weapon = GetEquipItem<AWeapon>();
 	if (IsValid(Weapon) == false || Weapon->IsCoolDown())
 	{
@@ -537,25 +693,25 @@ void AMCharacter::FinishBasicAttack()
 
 void AMCharacter::ChargeLightAttack()
 {
-	if (bChargeInput == false)
-	{
-		return;
-	}
+	//if (bChargeInput == false)
+	//{
+	//	return;
+	//}
 
-	AWeapon* Weapon = GetEquipItem<AWeapon>();
-	if (IsValid(Weapon) == false || Weapon->IsCharged())
-	{
-		return;
-	}
+	//AWeapon* Weapon = GetEquipItem<AWeapon>();
+	//if (IsValid(Weapon) == false || Weapon->IsCharged())
+	//{
+	//	return;
+	//}
 
-	if (IsValid(AbilitySystemComponent) == false || AbilitySystemComponent->GetTagCount(FGameplayTag::RequestGameplayTag("Action.Attack.Block")))
-	{
-		return;
-	}
+	//if (IsValid(AbilitySystemComponent) == false || AbilitySystemComponent->GetTagCount(FGameplayTag::RequestGameplayTag("Action.Attack.Block")))
+	//{
+	//	return;
+	//}
 
-	AbilitySystemComponent->AbilityLocalInputPressed(5);
+	//AbilitySystemComponent->AbilityLocalInputPressed(5);
 
-	UE_LOG(LogTemp, Warning, TEXT("Charge"));
+	//UE_LOG(LogTemp, Warning, TEXT("Charge"));
 }
 
 void AMCharacter::LightChargeAttack()
@@ -599,9 +755,13 @@ void AMCharacter::LookMouse(float TurnSpeed)
 
 	float ResultAngle = TurnSpeed < 0.f ? Angle : FMath::FInterpTo(CurrentAngle, CurrentAngle + DeltaAngle, GetWorld()->GetDeltaSeconds(), TurnSpeed);
 
-	if (GetLocalRole() == ENetRole::ROLE_AutonomousProxy)
+	if (IsLocallyControlled())
 	{
 		Server_SetTargetAngle(ResultAngle, true);
+
+		FVector Line = { 300.f, 0.f, 0.f };
+		Line = UKismetMathLibrary::RotateAngleAxis(Line, Angle, FVector::UpVector);
+		DrawDebugLine(GetWorld(), GetActorLocation(), GetActorLocation() + Line, FColor::Cyan, false, 3.f, 0, 3.f);
 	}
 
 	SetActorRotation(FRotator(0.f, ResultAngle, 0.f));
@@ -614,8 +774,6 @@ void AMCharacter::Server_SetTargetAngle_Implementation(float InTargetAngle, bool
 	{
 		SetActorRotation(FRotator(0.f, InTargetAngle, 0.f));
 	}
-
-	UE_LOG(LogTemp, Warning, TEXT("Server Set TargetAngle"));
 }
 
 void AMCharacter::SetRotateToTargetAngle(bool bNewValue)
@@ -682,6 +840,16 @@ void AMCharacter::RotateToTargetAngle()
 	//}
 }
 
+void AMCharacter::AddMovementInput(FVector WorldDirection, float ScaleValue /*= 1.0f*/, bool bForce /*= false*/)
+{
+	if (AbilitySystemComponent->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag("Character.Move.Block")) && bForce == false)
+	{
+		return;
+	}
+
+	Super::AddMovementInput(WorldDirection, ScaleValue, bForce);
+}
+
 void AMCharacter::MoveToLocation()
 {
 	FGameplayEventData GameplayEventData;
@@ -691,16 +859,38 @@ void AMCharacter::MoveToLocation()
 	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, FGameplayTag::RequestGameplayTag(FName("Controller.MouseRightClick")), GameplayEventData);
 }
 
-bool AMCharacter::IsInteractableActor(AActor* OtherActor)
+void AMCharacter::SetMoving(bool bInMoving)
+{
+	if (bMoving == bInMoving)
+	{
+		return;
+	}
+
+	bMoving = bInMoving;
+	if (GetLocalRole() < ROLE_Authority)
+	{
+		Server_SetMoving(bInMoving);
+	}
+}
+
+void AMCharacter::Server_SetMoving_Implementation(bool bInMoving)
+{
+	UE_LOG(LogTemp, Warning, TEXT("ghoflvhxj Server SerMove : %d"), (int)bInMoving);
+	bMoving = bInMoving;
+}
+
+bool AMCharacter::IsInteractableActor(AActor* OtherActor, UMInteractorComponent** OutInteractComponent)
 {
 	if (IsValid(OtherActor))
 	{
-		//if (IInteractInterface * InteractInterface = GetInteractInterface(OtherActor))
-		//{
-		//	return InteractInterface->Execute_IsInteractable(OtherActor, this);
-		//}
-
-		return IsValid(OtherActor->FindComponentByClass<UMInteractorComponent>());
+		if (UMInteractorComponent* InteractComponent = OtherActor->FindComponentByClass<UMInteractorComponent>())
+		{
+			*OutInteractComponent = OtherActor->FindComponentByClass<UMInteractorComponent>();
+			if (IsValid(InteractComponent->GetInteractor<AActor>()) == false)
+			{
+				return true;
+			}
+		}
 	}
 
 	return false;
@@ -714,6 +904,105 @@ IInteractInterface* AMCharacter::GetInteractInterface(AActor* Actor)
 	}
 
 	return nullptr;
+}
+
+void AMCharacter::Ragdoll()
+{
+	USkeletalMeshComponent* SkeletalMeshComponent = GetMesh();
+	if (IsValid(SkeletalMeshComponent) && SkeletalMeshComponent->IsSimulatingPhysics() == false)
+	{
+		if (SkeletalMeshComponent->GetSingleNodeInstance())
+		{
+			SkeletalMeshComponent->Stop();
+		}
+		else if (UAnimInstance* AnimInstance = SkeletalMeshComponent->GetAnimInstance())
+		{
+			AnimInstance->StopAllMontages(0.f);
+		}
+		SkeletalMeshComponent->SetCollisionProfileName(TEXT("Ragdoll"));
+		SkeletalMeshComponent->SetAllBodiesSimulatePhysics(true);
+		SkeletalMeshComponent->SetSimulatePhysics(true);
+		SkeletalMeshComponent->WakeAllRigidBodies();
+		SkeletalMeshComponent->bBlendPhysics = true;
+	}
+}
+
+void AMCharacter::PlayStartAnim()
+{
+	AbilitySystemComponent->TryActivateAbilitiesByTag(FGameplayTagContainer(FGameplayTag::RequestGameplayTag("Ability.Start")));
+}
+
+void AMCharacter::OnStartAnimFinished_Implementation(UAnimMontage* Montage, bool bInterrupted)
+{
+	//bLevelStartFinished = true;
+	OnStartFinishedDelegate.Broadcast();
+}
+
+void AMCharacter::Server_HasBegunPlay_Implementation()
+{
+	//if (IsValid(AbilitySystemComponent))
+	//{
+	//	AbilitySystemComponent->TryActivateAbilitiesByTag(FGameplayTagContainer(FGameplayTag::RequestGameplayTag("Ability.Start")));
+	//}
+}
+
+void AMCharacter::AddEffectStack_Implementation(FGameplayTag InTag)
+{
+
+}
+
+void AMCharacter::Server_AimMode_Implementation(bool InAimMode)
+{
+	bAimMode = InAimMode;
+	OnRep_AimMode();
+}
+
+void AMCharacter::AimMode()
+{
+	bAimMode = true;
+	OnRep_AimMode();
+
+	if (GetLocalRole() < ROLE_Authority)
+	{
+		Server_AimMode(true);
+	}
+}
+
+void AMCharacter::MoveMode()
+{
+	bAimMode = false;
+	OnRep_AimMode();
+
+	if (GetLocalRole() < ROLE_Authority)
+	{
+		Server_AimMode(false);
+	}
+}
+
+void AMCharacter::OnRep_AimMode()
+{
+	if (bAimMode)
+	{
+		//bUseControllerRotationYaw = true;
+		GetCharacterMovement()->bUseControllerDesiredRotation = true;
+		GetCharacterMovement()->bOrientRotationToMovement = false;
+	}
+	else
+	{
+		//bUseControllerRotationYaw = false;
+		GetCharacterMovement()->bUseControllerDesiredRotation = false;
+		GetCharacterMovement()->bOrientRotationToMovement = true;
+	}
+}
+
+void AMCharacter::OnMontageStarted(UAnimMontage* InMontage)
+{
+	bUpper = InMontage->IsValidSlot("UpperBody");
+}
+
+void AMCharacter::OnMontageEnded(UAnimMontage* InMontage, bool bInterrupted)
+{
+	bUpper = false;
 }
 
 void AMCharacter::LeaderboardTest()

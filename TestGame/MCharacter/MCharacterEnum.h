@@ -13,32 +13,32 @@ enum class ECharacterVitalityState : uint8
 	Count
 };
 
-UENUM(BlueprintType)
-enum class ECharacterPoseState : uint8
-{
-	Stand,
-	Crouch,
-	Lie,
-	Airborne,
-	Count
-};
+//UENUM(BlueprintType)
+//enum class ECharacterPoseState : uint8
+//{
+//	Stand,
+//	Crouch,
+//	Lie,
+//	Airborne,
+//	Count
+//};
 
-UENUM(BlueprintType)
-enum class ECharacterMovementState : uint8
-{
-	Idle,
-	Move,
-	FastMove,
-	Fall,
-	Up,
-	Count
-};
+//UENUM(BlueprintType)
+//enum class ECharacterMovementState : uint8
+//{
+//	Idle,
+//	Move,
+//	FastMove,
+//	Fall,
+//	Up,
+//	Count
+//};
 
-UENUM(BlueprintType)
-enum class ECharacterActionState : uint8
-{
-	Attack,
-	Skill,
-	Attacked,
-	Count
-};
+//UENUM(BlueprintType)
+//enum class ECharacterActionState : uint8
+//{
+//	Attack,
+//	Skill,
+//	Attacked,
+//	Count
+//};

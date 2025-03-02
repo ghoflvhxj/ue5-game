@@ -4,11 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "TestGame/MCharacter/Component/ActionComponent.h"
-#include "TestGame/Bullet/Bullet.h" // DamageGiveActor 참조용
 #include "Weapon.generated.h"
 
 class UMAbilityDataAsset;
 class UMActionDataAsset;
+class UMDamageComponent;
 class UAttributeSet;
 class AMCharacter;
 struct FGameItemTableRow;
@@ -106,7 +106,7 @@ struct FWeaponTableRow : public FTableRowBase
 };
 
 UCLASS()
-class TESTGAME_API AWeapon : public ADamageGiveActor
+class TESTGAME_API AWeapon : public AActor
 {
 	GENERATED_BODY()
 
@@ -115,8 +115,8 @@ public:
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class UMActionComponent* ActionComponent = nullptr;
-	//UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	//class UAbilitySystemComponent* AbilitySystemComponent = nullptr;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UMDamageComponent* DamageComponent = nullptr;
 
 public:
 	virtual void OnConstruction(const FTransform& Transform) override;

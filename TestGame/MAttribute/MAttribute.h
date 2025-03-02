@@ -33,6 +33,7 @@ class UMAttributeSet : public UAttributeSet
 	GENERATED_BODY()
 
 public:
+	virtual void PreAttributeBaseChange(const FGameplayAttribute& Attribute, float& NewValue) const override;
 	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
 	virtual void PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue) override;
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty> & OutLifetimeProps) const override;
@@ -44,7 +45,6 @@ public:
 	UFUNCTION()
 	void OnRep_MaxHealth(const FGameplayAttributeData& OldData);
 	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, MaxHealth);
-
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing = OnRep_Health)
@@ -75,6 +75,18 @@ public:
 public:
 	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, WeaponScale);
 
+	// 투사체 크기
+protected:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, ReplicatedUsing = OnRep_ProjectileScale)
+	FGameplayAttributeData ProjectileScale;
+public:
+	UFUNCTION()
+	void OnRep_ProjectileScale(const FGameplayAttributeData& OldData);
+public:
+	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, ProjectileScale);
+
+
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated)
 	FGameplayAttributeData AttackPower;
 	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(UMAttributeSet, AttackPower);
@@ -85,8 +97,6 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FGameplayAttributeData KnockBackPower;
-
-
 };
 
 UCLASS(Blueprintable)

@@ -42,20 +42,21 @@ public:
 	virtual void BeginPlay() override;
 
 public:
+	UFUNCTION(BlueprintPure, meta=(BLueprintThreadSafe))
+	UAnimMontage* GetActionMontage(FGameplayTag ActionGameplayTag) const;
 	UFUNCTION(BlueprintPure)
-	UAnimMontage* GetActionMontage(FGameplayTag ActionGameplayTag);
+	UAnimSequence* GetActionSequence(FGameplayTag ActionGameplayTag) const;
 	UFUNCTION(BlueprintPure)
-	UAnimSequence* GetActionSequence(FGameplayTag ActionGameplayTag);
-	UFUNCTION(BlueprintPure)
-	UObject* GetAction(FGameplayTag ActionGameplayTag);
+	UObject* GetAction(FGameplayTag ActionGameplayTag) const;
 protected:
 	template <class T>
-	T* GetAnimAsset(FGameplayTag ActionGameplayTag)
+	T* GetAnimAsset(FGameplayTag ActionGameplayTag) const
 	{
-		return ActionMap.Contains(ActionGameplayTag) ? Cast<T>(ActionMap[ActionGameplayTag].Get()) : nullptr;
+		return ActionMap.Contains(ActionGameplayTag) ? Cast<T>(ActionMap[ActionGameplayTag]) : nullptr;
 	}
 
 public:
+	void CopyActions(TMap<FGameplayTag, UAnimationAsset*>& InActionMap) { InActionMap = ActionMap; }
 	void UpdateAction(UMActionComponent* InActionComponent);
 	void UpdateActionData(UMActionDataAsset* IntActionDataAsset);
 private:
@@ -64,5 +65,5 @@ private:
 protected:
 	UPROPERTY(EditDefaultsOnly)
 	UMActionDataAsset* ActionData;
-	TMap<FGameplayTag, TObjectPtr<UAnimationAsset>> ActionMap;
+	TMap<FGameplayTag, UAnimationAsset*> ActionMap;
 };

@@ -1,5 +1,6 @@
 #include "MAnimNotify.h"
 #include "AbilitySystemBlueprintLibrary.h"
+#include "DrawDebugHelpers.h"
 #include "TestGame/Bullet/Bullet.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MWeapon/Weapon.h"
@@ -25,37 +26,65 @@ void UMAnimNotify_SpawnActor::Notify(USkeletalMeshComponent* MeshComp, UAnimSequ
 			}
 		}
 
+		if (IsSpawnable(World) == false)
+		{
+			return;
+		}
+
+		// Replicated라면 클라는 스폰 생략
+		bool bShouldSpawn = true;
+		if (ActorClass->GetDefaultObject<AActor>()->GetIsReplicated() && World->IsNetMode(NM_Client))
+		{
+			bShouldSpawn = false;
+		}
+
 		FTransform SpawnTransform = GetSocketTransform(MeshComp);
 		SpawnTransform.SetRotation(FRotator::ZeroRotator.Quaternion());
 		SpawnTransform.AddToTranslation(SpawnOffset);
 
-		if (AActor* NewActor = UGameplayStatics::BeginDeferredActorSpawnFromClass(World, ActorClass, SpawnTransform, ESpawnActorCollisionHandlingMethod::AlwaysSpawn))
+		if (bShouldSpawn)
 		{
-			OnSpawn(NewActor, MeshComp);
-			UGameplayStatics::FinishSpawningActor(NewActor, SpawnTransform);
-			OnSpawnFinished(NewActor, MeshComp);
+			if (AActor* NewActor = UGameplayStatics::BeginDeferredActorSpawnFromClass(World, ActorClass, SpawnTransform, ESpawnActorCollisionHandlingMethod::AlwaysSpawn))
+			{
+				OnSpawn(NewActor, MeshComp);
+				UGameplayStatics::FinishSpawningActor(NewActor, SpawnTransform);
+				OnSpawnFinished(NewActor, MeshComp);
+			}
+		}
+
+		if (IsValid(Sound) && World->IsNetMode(NM_DedicatedServer) == false)
+		{
+			UGameplayStatics::PlaySoundAtLocation(MeshComp, Sound, SpawnTransform.GetLocation());
 		}
 	}
 }
 
 void UMAnimNotify_SpawnActor::OnSpawn(AActor* InActor, USkeletalMeshComponent* MeshComp)
 {
-	if (AMCharacter* Character = Cast<AMCharacter>(MeshComp->GetOwner()))
+	AActor* MeshOwner = MeshComp->GetOwner();
+
+	if (AMCharacter* Character = Cast<AMCharacter>(MeshOwner))
 	{
 		InActor->SetOwner(bWeaponOwning ? Character->GetEquipItem<AActor>() : Character);
 		InActor->SetInstigator(Character);
 	}
-}
-
-bool UMAnimNotify_SpawnActor::GetSpawnParam(USkeletalMeshComponent* MeshComp, FActorSpawnParameters& OutSpawnTransform)
-{
-	if (AMCharacter* Character = Cast<AMCharacter>(MeshComp->GetOwner()))
+	else
 	{
-		OutSpawnTransform.Instigator = Character;
-		return true;
+		InActor->SetOwner(MeshOwner);
+		APawn* Instigator = Cast<APawn>(MeshOwner);
+		while (Instigator)
+		{
+			APawn* NewInstigator = Instigator->GetInstigator();
+			if (IsValid(NewInstigator) && Instigator != NewInstigator)
+			{
+				Instigator = NewInstigator;
+			}
+			{
+				break;
+			}
+		}
+		InActor->SetInstigator(Instigator);
 	}
-
-	return false;
 }
 
 AActor* UMAnimNotify_SpawnActor::GetContextObject(USkeletalMeshComponent* MeshComp)
@@ -78,9 +107,30 @@ FTransform UMAnimNotify_SpawnActor::GetSocketTransform(USkeletalMeshComponent* M
 	return Transform;
 }
 
+bool UMAnimNotify_SpawnBullet::IsSpawnable(UWorld* World)
+{
+	return true;
+}
+
 void UMAnimNotify_SpawnBullet::OnSpawn(AActor* InActor, USkeletalMeshComponent* MeshComp)
 {
 	Super::OnSpawn(InActor, MeshComp);
+
+	if (IsValid(InActor) == false)
+	{
+		return;
+	}
+
+	if (IsValid(MeshComp) == false)
+	{
+		return;
+	}
+
+	AActor* Owner = MeshComp->GetOwner();
+	if (IsValid(Owner) == false)
+	{
+		return;
+	}
 
 	if (Particle)
 	{
@@ -88,12 +138,32 @@ void UMAnimNotify_SpawnBullet::OnSpawn(AActor* InActor, USkeletalMeshComponent* 
 		SpawnTransform.SetScale3D(ParticleScale);
 		UParticleSystemComponent* ReturnComp = UGameplayStatics::SpawnEmitterAtLocation(MeshComp->GetWorld(), Particle, SpawnTransform);
 	}
+
+	if (ABullet* Bullet = Cast<ABullet>(InActor))
+	{
+		if (Owner->GetClass()->ImplementsInterface(UBulletShooterInterface::StaticClass()))
+		{
+			IBulletShooterInterface::Execute_InitBullet(Owner, Bullet);
+		}
+	}
 }
 
 void UMAnimNotify_SpawnBullet::OnSpawnFinished(AActor* InActor, USkeletalMeshComponent* MeshComp)
 {
+	Super::OnSpawnFinished(InActor, MeshComp);
+
+	if (IsValid(InActor) == false)
+	{
+		return;
+	}
+
+	if (IsValid(MeshComp) == false)
+	{
+		return;
+	}
+
 	AActor* Owner = MeshComp->GetOwner();
-	if (IsValid(MeshComp) == false || IsValid(Owner) == false)
+	if (IsValid(Owner) == false)
 	{
 		return;
 	}
@@ -108,24 +178,15 @@ void UMAnimNotify_SpawnBullet::OnSpawnFinished(AActor* InActor, USkeletalMeshCom
 			Rotator.Yaw = Character->GetActorRotation().Yaw;
 			Direction = Rotator.Vector();
 		}
-
-		float Damage = 0.f;
-		Bullet->StartProjectile(Direction, Damage);
-	}
-}
-
-bool UMAnimNotify_SpawnBullet::GetSpawnParam(USkeletalMeshComponent* MeshComp, FActorSpawnParameters& OutSpawnTransform)
-{
-	if (Super::GetSpawnParam(MeshComp, OutSpawnTransform))
-	{
-		if (AMCharacter* Character = Cast<AMCharacter>(MeshComp->GetOwner()))
+		else if (SpawnSocketName != NAME_None)
 		{
-			OutSpawnTransform.Owner = Character->GetEquipItem<AActor>();
-			return true;
+			Direction = MeshComp->GetSocketLocation(SpawnSocketName) - MeshComp->GetSocketLocation("root");
+			Direction.Z = 0.f;
+			Direction = Direction.GetSafeNormal();
 		}
-	}
 
-	return false;
+		Bullet->StartProjectile(Direction, 0.f);
+	}
 }
 
 AActor* UMAnimNotify_SpawnBullet::GetContextObject(USkeletalMeshComponent* MeshComp)
@@ -159,10 +220,7 @@ void UMAnimNotifyState_WeaponActive::NotifyBegin(USkeletalMeshComponent* MeshCom
 
 	if (AMCharacter* Character = Cast<AMCharacter>(MeshComp->GetOwner()))
 	{
-		if (AActor* Weapon = Character->GetEquipItem<AActor>())
-		{
-			Weapon->SetActorEnableCollision(true);
-		}
+		Character->SetWeaponCollisionEnable(true);
 	}
 }
 
@@ -172,10 +230,7 @@ void UMAnimNotifyState_WeaponActive::NotifyEnd(USkeletalMeshComponent* MeshComp,
 
 	if (AMCharacter* Character = Cast<AMCharacter>(MeshComp->GetOwner()))
 	{
-		if (AActor* Weapon = Character->GetEquipItem<AActor>())
-		{
-			Weapon->SetActorEnableCollision(false);
-		}
+		Character->SetWeaponCollisionEnable(false);
 	}
 }
 
@@ -204,7 +259,7 @@ void UMAnimNotifyState_AddMovemntInput::NotifyTick(USkeletalMeshComponent* MeshC
 {
 	if (ACharacter* Character = Cast<ACharacter>(MeshComp->GetOwner()))
 	{
-		Character->AddMovementInput(Character->GetActorForwardVector(), Scale);
+		Character->AddMovementInput(Character->GetActorForwardVector(), Scale, bForce);
 	}
 }
 
@@ -218,5 +273,67 @@ void UAnimNotify_WeaponCharge::Notify(USkeletalMeshComponent* MeshComp, UAnimSeq
 		{
 			Weapon->Charge();
 		}
+	}
+}
+
+void UMAnimNotifyState_ActivateAbilityByTag::NotifyBegin(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, float TotalDuration, const FAnimNotifyEventReference& EventReference)
+{
+	Super::NotifyBegin(MeshComp, Animation, TotalDuration, EventReference);
+
+	for (FName BoneName : BoneNames)
+	{
+		MeshComp->SetAllBodiesBelowSimulatePhysics(BoneName, true, true);
+	}
+
+	Owner = MeshComp->GetOwner();
+	if (Owner.IsValid())
+	{
+		//DamageComponent = Owner->GetComponentByClass<UMDamageComponent>();
+		DrawDebugCircleArc(MeshComp->GetWorld(), Owner->GetActorLocation(), Range, Owner->GetActorForwardVector(), FMath::DegreesToRadians(Angle.X), 32, FColor::Red, false, 3.f);
+	}
+}
+
+void UMAnimNotifyState_ActivateAbilityByTag::NotifyEnd(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference)
+{
+	Super::NotifyEnd(MeshComp, Animation, EventReference);
+
+	for (FName BoneName : BoneNames)
+	{
+		MeshComp->SetAllBodiesBelowSimulatePhysics(BoneName, false, true);
+	}
+}
+
+void UMAnimNotifyState_ActivateAbilityByTag::NotifyTick(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, float FrameDeltaTime, const FAnimNotifyEventReference& EventReference)
+{
+	Super::NotifyTick(MeshComp, Animation, FrameDeltaTime, EventReference);
+
+	if (Owner.IsValid() == false)
+	{
+		return;
+	}
+
+	UWorld* World = MeshComp->GetWorld();
+
+	//if (DamageComponent.IsValid())
+	{
+		//TArray<FOverlapResult> OverlapResults;
+		//FCollisionObjectQueryParams ObjectQueryParams;
+		//ObjectQueryParams.AddObjectTypesToQuery(ECollisionChannel::ECC_Pawn);
+		//World->OverlapMultiByObjectType(OverlapResults, MeshComp->GetOwner()->GetActorLocation(), FRotator::ZeroRotator.Quaternion(), ObjectQueryParams, FCollisionShape::MakeSphere(Range));
+
+		//for (const FOverlapResult& OverlapResult : OverlapResults)
+		//{
+		//	AActor* Other = OverlapResult.GetActor();
+
+		//	FVector DirctionToOther = (Other->GetActorLocation() - Owner->GetActorLocation()).GetSafeNormal();
+		//	float Dot = Owner->GetActorForwardVector().Dot(DirctionToOther);
+		//	float AngleRadian = FMath::Acos(FMath::Clamp(Dot, -1.f, 1.f));
+		//	float AngleDegree = FMath::RadiansToDegrees(AngleRadian);
+
+		//	if (Angle.X <= AngleDegree && AngleDegree <= Angle.Y)
+		//	{
+		//		DamageComponent->GiveDamage(Other);
+		//	}
+		//}
 	}
 }

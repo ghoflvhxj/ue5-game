@@ -22,6 +22,8 @@ public:
 DECLARE_EVENT_OneParam(AMPlayerController, FOnSpectateModeChangedEvent, bool)
 DECLARE_EVENT_TwoParams(AMPlayerControllerInGame, FOnViewTargetChangedEvent, AActor*, AActor*);
 
+struct FSkillEnhanceData;
+
 UCLASS()
 class TESTGAME_API AMPlayerControllerInGame : public AMPlayerController
 {
@@ -57,6 +59,7 @@ protected:
 	FOnViewTargetChangedEvent OnViewTargetChangedEvent;
 	FOnSpectateModeChangedEvent OnSpectateModeChangedEvent;
 
+	// 폰->마우스로의 Yaw
 public:
 	UFUNCTION(Server, Unreliable)
 	void Server_SetYawToMouse(float InYaw);
@@ -64,15 +67,42 @@ public:
 	float YawToMouseFromWorldLocation(const FVector& InLocation);
 	UFUNCTION(BlueprintPure)
 	float GetYawToMouse() { return YawToMouseFromPawn; }
+	UFUNCTION(BlueprintPure)
+	FVector GetDirectionToMouse();
+	FVector DirectionToMouseFromPawn = FVector::ZeroVector;
 	float YawToMouseFromPawn = 0.f;
 	float LastSendYawToMouseFromPawn = 0.f;
+protected:
+#if WITH_EDITORONLY_DATA
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bDrawYaw = false;
+#endif
 
+	// 배경 오브젝트 투명화
+protected:
+	TSet<TWeakObjectPtr<UPrimitiveComponent>> MaskedPrimitives;
+
+	// 캐릭터 인덱스 관련
+public:
+	UFUNCTION(BlueprintCallable)
+	void SetCharacterIndex(int32 InIndex);
+	UFUNCTION(Server, Reliable)
+	void Server_CharacterSelect(int32 InIndex);
+	UFUNCTION(BlueprintPure)
+	int32 GetCharacterIndex() const;
+
+	// 준비 관련
 public:
 	bool IsReady() const { return bReady; }
 	UFUNCTION(Server, Reliable)
 	void Server_Ready();
 protected:
 	mutable bool bReady = false;
+
+	// 레벨업 관련
+public:
+	UFUNCTION(Client, Reliable)
+	void Client_SkillEnhance(const FSkillEnhanceData& InEnhanceData);
 };
 
 USTRUCT(BlueprintType)

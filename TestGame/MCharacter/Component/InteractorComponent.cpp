@@ -10,7 +10,7 @@ void UMInteractorComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME_CONDITION(UMInteractorComponent, InteratingActor, COND_SimulatedOnly);
+	DOREPLIFETIME(UMInteractorComponent, InteratingActor);
 }
 
 void UMInteractorComponent::Indicate(AActor* InActor)
@@ -20,98 +20,99 @@ void UMInteractorComponent::Indicate(AActor* InActor)
 
 bool UMInteractorComponent::Interact(AActor* InActor)
 {
-	if (IsValid(InteratingActor) && InteratingActor != InActor)
+	if (IsValid(InActor) == false)
 	{
 		return false;
 	}
 
+	if (IsValid(InteratingActor))
+	{
+		if (InteratingActor != InActor)
+		{
+			return false;
+		}
+
+		if (InteratingActor == InActor && InteractState == EInteractState::Doing)
+		{
+			return false;
+		}
+	}
+
 	if (UWorld* World = GetWorld())
 	{
-		ChangeInteractor(InActor);
+		AddInteractor(InActor);
 		if (InteractStartEvent.IsBound())
 		{
 			InteractStartEvent.Broadcast();
 		}
 
-		if (FMath::IsNearlyZero(InteractData.InteractingTime))
+		InteractState = EInteractState::Doing;
+
+		if (bFinishInstantly)
 		{
-			if (InteractFinishEvent.IsBound())
-			{
-				InteractFinishEvent.Broadcast();
-			}
+			SuccessInteract();
 		}
-		else
-		{
-			World->GetTimerManager().SetTimer(InteractTimerHandle, FTimerDelegate::CreateWeakLambda(this, [this]() {
-				if (InteractFinishEvent.IsBound())
-				{
-					InteractFinishEvent.Broadcast();
-				}
-				ChangeInteractor(nullptr);
-			}), FMath::Max(0.1f, InteractData.InteractingTime), false);
-		}
+
 		return true;
 	}
 
 	return false;
 }
 
+void UMInteractorComponent::SuccessInteract()
+{
+	FinishInteract(true);
+}
+
 void UMInteractorComponent::CancelInteract()
 {
-	ChangeInteractor(nullptr);
+	AddInteractor(nullptr);
 	if (UWorld* World = GetWorld())
 	{
 		World->GetTimerManager().ClearTimer(InteractTimerHandle);
 	}
+
+	FinishInteract(false);
 }
 
-void UMInteractorComponent::ChangeInteractor(AActor* InActor)
+void UMInteractorComponent::FinishInteract(bool bSuccess)
 {
-	InteratingActor = InActor;
+	InteractState = EInteractState::Wait;
 
+	if (InteractFinishEvent.IsBound())
+	{
+		InteractFinishEvent.Broadcast(bSuccess);
+	}
+}
+
+void UMInteractorComponent::AddInteractor(AActor* InActor)
+{
+	if (IsNetSimulating() == false)
+	{
+		InteratingActor = InActor;
+	}
+	
 	if (GetOwnerRole() == ENetRole::ROLE_AutonomousProxy)
 	{
 		Server_ChangeInteractor(InActor);
 	}
-
-	//if (IsInteractableActor(OtherActor))
-	//{
-	//	TWeakObjectPtr<AActor> ClosetTarget = OtherActor;
-	//	if (InteractTargets.Num() > 0)
-	//	{
-	//		for (auto Iterator = InteractTargets.CreateIterator(); Iterator; ++Iterator)
-	//		{
-	//			if (Iterator->IsValid() == false)
-	//			{
-	//				Iterator.RemoveCurrent();
-	//				continue;
-	//			}
-
-	//			if ((*Iterator)->GetDistanceTo(this) < ClosetTarget->GetDistanceTo(this))
-	//			{
-	//				ClosetTarget = *Iterator;
-	//			}
-	//		}
-	//	}
-
-	//	InteractTargets.AddUnique(OtherActor);
-
-	//	if (ClosetTarget.IsValid())
-	//	{
-	//		if (IInteractInterface* InteractInterface = GetInteractInterface(OtherActor))
-	//		{
-	//			InteractInterface->Execute_OnTargeted(OtherActor, this);
-	//		}
-	//	}
-	//}
 }
 
 void UMInteractorComponent::Server_ChangeInteractor_Implementation(AActor* InActor)
 {
-	ChangeInteractor(InActor);
+	// 클라가 요청한 거면 거리 검사라도 추가 해야함. 일단 아래 코드는 주석처리
+	//AddInteractor(InActor);
 }
 
 bool UMInteractorComponent::IsInteractingActor(AActor* InActor)
 {
 	return InActor == InteratingActor;
+}
+
+void UMInteractorComponent::OnRep_Interactor()
+{
+	if (InteractState == EInteractState::Wait)
+	{
+		Interact(InteratingActor);
+	}
 }

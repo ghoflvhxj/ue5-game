@@ -6,6 +6,7 @@
 #include "NavigationSystem.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Engine/OverlapResult.h"
+#include "CollisionDebugDrawingPublic.h"
 
 #include "TestGame/MCharacter/Component/ActionComponent.h"
 #include "TestGame/MCharacter/MCharacter.h"
@@ -20,7 +21,7 @@ UGameplayAbility_AttackBase::UGameplayAbility_AttackBase()
 {
 	ActivationOwnedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Attack"));
 	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Dead"));
-	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Attack.Block"));
+	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Attack.Block"));
 }
 
 bool UGameplayAbility_AttackBase::CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags /*= nullptr*/)
@@ -134,6 +135,12 @@ void UGameplayAbility_AttackBase::MontageJumpToComboSection(int32 InComboIndex)
 void UGameplayAbility_AttackBase::OnMontageFinished()
 {
 	UE_LOG(LogAttack, Warning, TEXT("OnMontageFinished"));
+
+	if (Weapon.IsValid())
+	{
+		Weapon->OnAttackCoolDownFinished();
+	}
+
 	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 }
 
@@ -146,8 +153,8 @@ UGameplayAbility_BasicAttack::UGameplayAbility_BasicAttack()
 	AbilityTags.AddTag(GetLightAttackTag());
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("ActionType.Dynamic"));
 	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Reload"));
-	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Attack.DashLight")); // 공격 어빌리티가 시작되면 다른 공격 어빌리티는 모두 취소 되도록 해야함
-	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Attack.Light.Block"));
+	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Attack.DashLight"));		// 공격 어빌리티가 시작되면 다른 공격 어빌리티는 모두 취소 되도록 해야함
+	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Attack.Light.Block"));	// 약공격만 블락할 경우
 }
 
 void UGameplayAbility_BasicAttack::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
@@ -160,16 +167,6 @@ void UGameplayAbility_BasicAttack::ActivateAbility(const FGameplayAbilitySpecHan
 
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
-	FGameplayTagContainer TagContainer;
-	TagContainer.AddTag(FGameplayTag::RequestGameplayTag("Character.Move.Block"));
-	UAbilitySystemBlueprintLibrary::AddLooseGameplayTags(Character.Get(), TagContainer);
-	bMoveBlockReleased = false;
-
-	TimerHandle = Character->GetWorldTimerManager().SetTimerForNextTick(FTimerDelegate::CreateWeakLambda(GetWorld(), [this, TagContainer]() {
-		UAbilitySystemBlueprintLibrary::RemoveLooseGameplayTags(Character.Get(), TagContainer);
-		bMoveBlockReleased = true;
-	}));
-
 	if (const FWeaponData* WeaponData = Weapon->GetWeaponData())
 	{
 		// 임시작업. 무기마다 다른 이펙트가 들어갈 수 있음.
@@ -178,14 +175,6 @@ void UGameplayAbility_BasicAttack::ActivateAbility(const FGameplayAbilitySpecHan
 			FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(UGameplayEffect_AddMoveSpeed::StaticClass());
 			EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, GetEffectValueTag(), -300.f);
 			ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, EffectSpecHandle);
-		}
-
-		if (WeaponData->bBlockMovementRotate)
-		{
-			if (UCharacterMovementComponent* Movement = Character->GetCharacterMovement())
-			{
-				Movement->bOrientRotationToMovement = false;
-			}
 		}
 	}
 
@@ -215,22 +204,6 @@ void UGameplayAbility_BasicAttack::EndAbility(const FGameplayAbilitySpecHandle H
 				ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, EffectSpecHandle);
 			}
 		}
-	}
-
-	if (Character.IsValid())
-	{
-		if (UCharacterMovementComponent* Movement = Character->GetCharacterMovement())
-		{
-			Movement->bOrientRotationToMovement = true;
-		}
-	}
-
-	if (bMoveBlockReleased == false)
-	{
-		FGameplayTagContainer TagContainer;
-		TagContainer.AddTag(FGameplayTag::RequestGameplayTag("Character.Move.Block"));
-		UAbilitySystemBlueprintLibrary::RemoveLooseGameplayTags(Character.Get(), TagContainer);
-		bMoveBlockReleased = true;
 	}
 
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
@@ -310,106 +283,6 @@ void UGameplayAbility_LightChargeAttack::EndAbility(const FGameplayAbilitySpecHa
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
-UGameplayAbility_SwordWave::UGameplayAbility_SwordWave()
-{
-	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
-	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
-	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
-
-	bClearCacheIfEnd = false;
-}
-
-bool UGameplayAbility_SwordWave::CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags /* = nullptr */)
-{
-	if (UGameplayAbility::CommitAbility(Handle, ActorInfo, ActivationInfo, OptionalRelevantTags))
-	{
-		if (AMCharacter* AvatarCharacter = Cast<AMCharacter>(GetAvatarActorFromActorInfo()))
-		{
-			Character = AvatarCharacter;
-			Weapon = Character->GetEquipItem<AWeapon>();
-			AvatarCharacter->OnWeaponChangedEvent.AddWeakLambda(this, [this](AActor* Old, AActor* New) {
-				if (AWeapon* OldWeapon = Cast<AWeapon>(Old))
-				{
-					OldWeapon->OnComboChangedEvent.Remove(WeaponComboChangeDelegateHandle);
-					WeaponComboChangeDelegateHandle.Reset();
-				}
-
-				if (AWeapon* NewWeapon = Cast<AWeapon>(New))
-				{
-					Weapon = NewWeapon;
-					BindToWeaponCombo();
-				}
-			});
-
-			BindToWeaponCombo();
-
-			return true;
-		}
-	}
-
-	return false;
-}
-
-void UGameplayAbility_SwordWave::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
-{
-	Super::OnGiveAbility(ActorInfo, Spec);
-}
-
-void UGameplayAbility_SwordWave::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
-{
-	if (CommitAbility(Handle, ActorInfo, ActivationInfo, nullptr) == false)
-	{
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-		return;
-	}
-
-	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
-}
-
-void UGameplayAbility_SwordWave::SpawnSwordWave()
-{
-	if (IsValid(BulletClass) == false)
-	{
-		UE_LOG(LogAttack, Warning, TEXT("Failed to spawn bullet. Class is empty."));
-		return;
-	}
-
-	if (Character.IsValid() == false || Weapon.IsValid() == false)
-	{
-		UE_LOG(LogAttack, Warning, TEXT("Failed to spawn bullet. Cahce data is invalid."));
-		return;
-	}
-
-	if (UWorld* World = GetWorld())
-	{
-		FTransform SpawnTransform;
-		SpawnTransform.SetLocation(GetCharacterLocation(true));
-		SpawnTransform.SetRotation(GetCharacterRotation().Quaternion());
-
-		FActorSpawnParameters SpawnParams;
-		SpawnParams.Owner = Weapon.Get();
-		SpawnParams.Instigator = Character.Get();
-
-		if (ABullet* Bullet = World->SpawnActor<ABullet>(BulletClass, SpawnTransform, SpawnParams))
-		{
-			Bullet->StartProjectile(Character->GetActorForwardVector(), 10.f);
-		}
-	}
-}
-
-void UGameplayAbility_SwordWave::BindToWeaponCombo()
-{
-	if (Weapon.IsValid())
-	{
-		WeaponComboChangeDelegateHandle = Weapon->OnComboChangedEvent.AddWeakLambda(this, [this](int32 InCombo) {
-			if (InCombo == 2)
-			{
-				SpawnSwordWave();
-			}
-		});
-	}
-}
-
 UGameplayAbility_Batto::UGameplayAbility_Batto()
 {
 //	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
@@ -420,7 +293,7 @@ UGameplayAbility_Batto::UGameplayAbility_Batto()
 //	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("ActionType.Dynamic"));
 //	CancelAbilitiesWithTag.AddTag(LightAttack);
 
-	bClearCacheIfEnd = false;
+	//bClearCacheIfEnd = false;
 }
 
 void UGameplayAbility_Batto::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
@@ -459,8 +332,15 @@ void UGameplayAbility_Batto::MontageJumpToComboSection(int32 InComboIndex)
 	FVector LineTraceEnd = Character->GetActorLocation() - Trace;
 	FCollisionObjectQueryParams ObjectQueryParams(ECC_WorldStatic);
 	FCollisionQueryParams QueryParams;
+	QueryParams.TraceTag = TEXT("Batto");
 	QueryParams.AddIgnoredActor(Character.Get());
 	QueryParams.bDebugQuery = true;
+
+	if (GetWorld())
+	{
+		GetWorld()->DebugDrawSceneQueries(QueryParams.TraceTag);
+		GetWorld()->DebugDrawTraceTag = QueryParams.TraceTag;
+	}
 
 	FString ComboName = InComboIndex == INDEX_NONE ? TEXT("End") : FString::Printf(TEXT("Combo%d"), InComboIndex);
 	if (ComboName == TEXT("Combo0"))
@@ -495,12 +375,16 @@ void UGameplayAbility_Batto::MontageJumpToComboSection(int32 InComboIndex)
 						return;
 					}
 
-					FVector GoalLocatoin = Path->GetPathPoints().Last().Location;
-					FRotator RotateToGoal = UKismetMathLibrary::FindLookAtRotation(Character->GetActorLocation(), GoalLocatoin);
+					FVector GoalLocation = Path->GetPathPoints().Last().Location;
+					FRotator RotateToGoal = UKismetMathLibrary::FindLookAtRotation(Character->GetActorLocation(), GoalLocation);
 
 					TArray<FOverlapResult> OverlapResults;
-					FCollisionShape CapsuleShape = FCollisionShape::MakeCapsule(100.f, static_cast<float>((GoalLocatoin - Character->GetActorLocation()).Length() / 2.f));
-					if (World->OverlapMultiByObjectType(OverlapResults, Character->GetActorLocation(), FRotator(90.f + RotateToGoal.Pitch, RotateToGoal.Yaw, RotateToGoal.Roll).Quaternion(), FCollisionObjectQueryParams(ECC_Pawn), CapsuleShape, QueryParams))
+					FCollisionShape CapsuleShape = FCollisionShape::MakeCapsule(100.f, static_cast<float>((GoalLocation - Character->GetActorLocation()).Length() / 2.f));
+
+					FVector Location = Character->GetActorLocation() + (GoalLocation - Character->GetActorLocation()) / 2.f;
+					FRotator Rotation = { 90.f + RotateToGoal.Pitch, RotateToGoal.Yaw, RotateToGoal.Roll };
+					DrawCapsuleOverlap(World, Location, CapsuleShape.GetCapsuleHalfHeight(), CapsuleShape.GetCapsuleRadius(), Rotation.Quaternion(), OverlapResults, 5.f);
+					if (World->OverlapMultiByObjectType(OverlapResults, Location, Rotation.Quaternion(), FCollisionObjectQueryParams(ECC_Pawn), CapsuleShape, QueryParams))
 					{
 						TSet<AActor*> DamagedActor;
 						for (const FOverlapResult& OverlapResult : OverlapResults)
@@ -527,12 +411,12 @@ void UGameplayAbility_Batto::MontageJumpToComboSection(int32 InComboIndex)
 					{
 						FGameplayEffectContextHandle EffectContext = AbilityComponent->MakeEffectContext();
 						FGameplayCueParameters CueParams(EffectContext);
-						CueParams.Location = (Character->GetActorLocation() + GoalLocatoin) / 2.f;
+						CueParams.Location = (Character->GetActorLocation() + GoalLocation) / 2.f;
 						AbilityComponent->ExecuteGameplayCue(FGameplayTag::RequestGameplayTag("GameplayCue.Effect.Batto"), CueParams);
 					}
 
-					Character->SetActorLocation(GoalLocatoin);
-				});
+					Character->SetActorLocation(GoalLocation);
+					});
 
 				NavSystem->FindPathAsync(NavSystem->GetDefaultSupportedAgent().DefaultProperties, PathFindingQuery, PathQueryDelegate);
 			}

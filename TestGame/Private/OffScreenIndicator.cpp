@@ -117,40 +117,40 @@ void UOffScreenIndicateWidget::SetIndicateTarget(const FIndicatorData& InData)
 				}
 			});
 		}
-
-		IndicateData.Target->GetWorldTimerManager().SetTimer(TimerHandle, FTimerDelegate::CreateWeakLambda(this, [this]() {
-			APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
-			if (IsValid(PlayerController) == false)
-			{
-				return;
-			}
-
-			AActor* ViewTarget = PlayerController->GetViewTarget();
-			if (IsValid(ViewTarget) == false)
-			{
-				return;
-			}
-
-			// 가리킬 대상의 위치와 방향을 구함
-			FVector TargetLocation = IsValid(IndicateData.Target) ? IndicateData.Target->GetActorLocation() : IndicateData.TargetLocation;
-			FVector DirToTarget = (TargetLocation - ViewTarget->GetActorLocation()).GetSafeNormal2D();
-
-			// 뷰포트 사이즈와 기울기 
-			int32 Width = 0, Height = 0;
-			PlayerController->GetViewportSize(Width, Height);
-			FVector2D ViewportHalfSize = { Width / 2.0, Height / 2.0 };
-			double PivotSlope = static_cast<double>(Height) / Width;
-
-			FVector2D ViewportPos = ViewportHalfSize;
-			FVector2D TargetViewportLocation = FVector2D::ZeroVector;
-			Distance = FVector::Distance(ViewTarget->GetActorLocation(), TargetLocation);
-			double ClampedDistance = FMath::Min(Distance, FMath::Sqrt(static_cast<double>(Width * Width + Height * Height)) + 100.f);
-			if (PlayerController->ProjectWorldLocationToScreen(ViewTarget->GetActorLocation() + DirToTarget * ClampedDistance, TargetViewportLocation))
-			{
-				bOffScreen = TargetViewportLocation.X < 0 || TargetViewportLocation.X > Width || TargetViewportLocation.Y < 0 || TargetViewportLocation.Y > Height;
-			}
-
-			SetVisibility(bOffScreen ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
-		}), 1.f, true);
 	}
+
+	GetWorld()->GetTimerManager().SetTimer(TimerHandle, FTimerDelegate::CreateWeakLambda(this, [this]() {
+		APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
+		if (IsValid(PlayerController) == false)
+		{
+			return;
+		}
+
+		AActor* ViewTarget = PlayerController->GetViewTarget();
+		if (IsValid(ViewTarget) == false)
+		{
+			return;
+		}
+
+		// 가리킬 대상의 위치와 방향을 구함
+		FVector TargetLocation = IsValid(IndicateData.Target) ? IndicateData.Target->GetActorLocation() : IndicateData.TargetLocation;
+		FVector DirToTarget = (TargetLocation - ViewTarget->GetActorLocation()).GetSafeNormal2D();
+
+		// 뷰포트 사이즈와 기울기 
+		int32 Width = 0, Height = 0;
+		PlayerController->GetViewportSize(Width, Height);
+		FVector2D ViewportHalfSize = { Width / 2.0, Height / 2.0 };
+		double PivotSlope = static_cast<double>(Height) / Width;
+
+		FVector2D ViewportPos = ViewportHalfSize;
+		FVector2D TargetViewportLocation = FVector2D::ZeroVector;
+		Distance = FVector::Distance(ViewTarget->GetActorLocation(), TargetLocation);
+		double ClampedDistance = FMath::Min(Distance, FMath::Sqrt(static_cast<double>(Width * Width + Height * Height)) + 100.f);
+		if (PlayerController->ProjectWorldLocationToScreen(ViewTarget->GetActorLocation() + DirToTarget * ClampedDistance, TargetViewportLocation))
+		{
+			bOffScreen = TargetViewportLocation.X < 0 || TargetViewportLocation.X > Width || TargetViewportLocation.Y < 0 || TargetViewportLocation.Y > Height;
+		}
+
+		SetVisibility(bOffScreen ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
+	}), 1.f, true);
 }

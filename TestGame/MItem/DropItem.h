@@ -31,9 +31,10 @@ protected:
 	UNiagaraComponent* NiagaraComponent = nullptr;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	USkeletalMeshComponent* SkeletalMeshComponent = nullptr;
-
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	UMInteractorComponent* InteractorComponent;
+
+	UPrimitiveComponent* ActualPrimitiveComponent = nullptr;
 
 public:
 	virtual void OnConstruction(const FTransform& Transform) override;
@@ -45,8 +46,12 @@ protected:
 	virtual void BeginPlay() override;
 
 public:
+	TArray<UAbilitySystemComponent*> GetItemEffectTargets(const FGameplayEffectParam& InEffectParam);
+
+public:
 	virtual void OnRep_ItemIndex() override;
 protected:
+	UFUNCTION(BlueprintNativeEvent, CallInEditor)
 	void UpdateItemMesh();
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
@@ -56,12 +61,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TSubclassOf<AWeapon> WeaponClass = nullptr;
 
-public:
-	//virtual void Interaction_Implementation(AActor* Interactor);
-	//virtual void OnTargeted_Implementation(AActor* Interactor);
-	//virtual void OnUnTargeted_Implementation(AActor* Interactor);
-	//virtual bool IsInteractable_Implementation(AActor* Interactor);
 protected:
-	//UPROPERTY(BlueprintAssignable, BlueprintReadOnly)
-	//FOnInteractTargetedDelegate OnInteractTargetedDelegate;
+	bool bGoToInteractor = false;
+	float FollowingElapsedTime = 0.f;
+protected:
+	UPROPERTY(EditDefaultsOnly)
+	bool bTest = false;
 };

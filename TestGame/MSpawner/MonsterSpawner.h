@@ -6,14 +6,14 @@
 #include "GameplayTagContainer.h"
 #include "MonsterSpawner.generated.h"
 
+class URoundComponent;
 struct FRound;
 
 UENUM(BlueprintType)
-enum class ESpawnType : uint8
+enum class ESpawnerType : uint8
 {
 	None,
-	Fixed,
-	Probable,
+	Monster,
 };
 
 USTRUCT(BlueprintType)
@@ -24,18 +24,17 @@ struct FSpawnInfo : public FTableRowBase
 public:
 	bool IsValid() const
 	{
-		return SpawnNum != 0;
+		return SpawnClass != nullptr;
 	}
 
 public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	int32 SpawnNum = 0;
+	UPROPERTY(BlueprintReadOnly)
+	UClass* SpawnClass = nullptr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TMap<TSubclassOf<AActor>, float> SpawneeClassMap;
+	FGameplayTagContainer SpawnTags;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FGameplayTag GradeTag;
+	FTransform Transform;
 };	
 
 USTRUCT(BlueprintType)
@@ -46,25 +45,57 @@ struct FSpawnInfos : public FTableRowBase
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FSpawnInfo> SpawnInfos;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TMap<int32, int32> MonsterIndexToSpawnNum;
+};
+
+USTRUCT(BlueprintType)
+struct FRoundMonsterSpawnTableRow : public FTableRowBase
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TMap<int32, int32> MonsterIndexToSpawnNum;
 };
 
 UCLASS()
 class TESTGAME_API ASpawner : public AActor
 {
 	GENERATED_BODY()
+	
+public:
+	ASpawner();
 
 public:
-	virtual void Spawn(const FSpawnInfo& InSpawnInfo);
+	virtual void Tick(float DeltaTime) override;
+
+public:
+	virtual void AddSpawnInfo(const FSpawnInfo& InSpawnInfo);
+	virtual void AddSpawnInfo(const TArray<FSpawnInfo>& InSpawnInfos);
 	virtual FTransform GetSpawnTransform();
+	virtual void OnSpawnedActorConstruction(AActor* SpawnedActor) {}
 	virtual void OnSpawned(AActor* SpawnedActor) {}
 
+public:
+	UFUNCTION(BlueprintPure)
+	const TSet<AActor*>& GetSpawnedActors();
 protected:
 	TArray<TSubclassOf<AActor>> SpawneeClassArray;
-	TArray<TWeakObjectPtr<AActor>> SpawnedActors;
-
+	TSet<AActor*> SpawnedActors;
+	TArray<FSpawnInfo> SpawnPool;
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bActivated = true;
+
+	float LastSpawnTime = 0.f;
+
+public:
+	ESpawnerType GetSpawnerType() const { return SpawnerType; }
+protected:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	ESpawnerType SpawnerType = ESpawnerType::None;
 };
 
 UCLASS()
@@ -77,13 +108,20 @@ public:
 
 public:
 	UFUNCTION()
-	virtual void SpawnUsingRoundInfo(const FRound& InRound) {}
+	virtual void SpawnUsingRoundInfo(const FRound& InRound);
+
+protected:
+	URoundComponent* GetRoundComponent();
+	FRound CachedRound;
 };
 
 UCLASS()
 class TESTGAME_API AMonsterSpawner : public ARoundSpanwer
 {
 	GENERATED_BODY()
+
+protected:
+	virtual void BeginPlay() override;
 
 public:
 #if WITH_EDITOR
@@ -93,17 +131,19 @@ public:
 
 public:
 	virtual void SpawnUsingRoundInfo(const FRound& InRound) override;
+	virtual void OnSpawnedActorConstruction(AActor* SpawnedActor) override;
 	virtual void OnSpawned(AActor* SpawnedActor) override;
 	virtual FTransform GetSpawnTransform() override;
 public:
 	UFUNCTION()
 	void RemoveSpawnedActor(AActor* Actor, EEndPlayReason::Type EndPlayReason);
 
-protected:
-	URoundComponent* GetRoundComponent();
-
 public:
-	//bool IsClear_Implementation() override;
+	FRoundMonsterSpawnTableRow* GetRoundMonsterSpawn(const FRound& InRound);
+	FRoundMonsterSpawnTableRow* GetCurrentRoundMonsterSpawn(int32 RoundOffest = 0);
+	void LoadRoundMonsters(int32 InRound);
+protected:
+	TArray<int32> MonsterIndexPool;
 
 public:
 	DECLARE_EVENT_OneParam(AMonsterSpawner, FOnBossSpawnedEvent, AActor* /*BossMonster*/)
@@ -112,33 +152,24 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	UDataTable* MonsterSpawnTable = nullptr;
 	int32 LastSpawnWave = INDEX_NONE;
+	int32 LastMonsterIndex = INDEX_NONE;
 
 	UPROPERTY(EditAnywhere)
 	float MinRadius = 1000.f;
 	UPROPERTY(EditAnywhere)
 	float MaxRadius = 1500.f;
 
+public:
+	UFUNCTION(BlueprintPure)
+	static bool IsBossContain(const UObject* WorldContext, const FRoundMonsterSpawnTableRow& InSpawnInfos);
 protected:
 	UPROPERTY(BlueprintReadOnly)
 	AActor* BossMonster = nullptr;
+	FGameplayTag BossTag = FGameplayTag::RequestGameplayTag("Monster.Grade.Boss");
 
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(EditAnywhere)
 	int32 SpawnPositionNum = 0;
 #endif
 
-	UFUNCTION(BlueprintPure)
-	static bool IsBossContain(const FSpawnInfos& InSpawnInfos)
-	{
-		FGameplayTag BossTag = FGameplayTag::RequestGameplayTag("Monster.Grade.Boss");
-		for (const FSpawnInfo& SpawnInfo : InSpawnInfos.SpawnInfos)
-		{
-			if (SpawnInfo.GradeTag == BossTag)
-			{
-				return true;
-			}
-		}
-
-		return false;
-	}
 };

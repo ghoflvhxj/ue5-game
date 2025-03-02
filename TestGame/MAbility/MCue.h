@@ -6,6 +6,12 @@
 #include "GameplayCueNotify_Actor.h"
 #include "MCue.generated.h"
 
+class USphereComponent;
+class UNiagaraComponent;
+class UAbilitySystemComponent;
+class UMaterialParameterCollection;
+
+// 적절한 곳으로 옮기기
 USTRUCT(BlueprintType)
 struct TESTGAME_API FGameplayTagTextTableRow : public FTableRowBase
 {
@@ -26,18 +32,75 @@ public:
 	FText Text;
 };
 
+USTRUCT(BlueprintType)
+struct TESTGAME_API FGameplayCueUIData
+{
+	GENERATED_BODY()
+
+public:
+	// 이펙트의 타겟
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	AActor* Target = nullptr;
+
+	// 이펙트 스펙
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FGameplayEffectSpec GameplayEffectSpec;
+
+	// 활성화 중인 이펙트 핸들
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FActiveGameplayEffectHandle ActiveGameplayEffectHandle;
+	
+	// 큐 파라미터
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FGameplayCueParameters GameplayCueParams;
+
+	// 이펙트가 수정하는 값
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float Value = 0.f;
+};
+
+// 적절한 곳으로 옮기기
+UINTERFACE(BlueprintType)
+class TESTGAME_API UObjectByGameplayCue : public UInterface
+{
+	GENERATED_BODY()
+};
+
+class TESTGAME_API IObjectByGameplayCue
+{
+	GENERATED_BODY()
+
+public:
+	UFUNCTION(BlueprintNativeEvent)
+	void InitByGameplayCue(const FGameplayCueUIData& InEffectStatusData);
+};
+
+
 UCLASS()
 class TESTGAME_API UGameplayCue_FloatMessage : public UGameplayCueNotify_Static
 {
 	GENERATED_BODY()
 
 public:
-	virtual void HandleGameplayCue(AActor* MyTarget, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters) override;
+	virtual bool OnExecute_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const override;
 };
 
-class USphereComponent;
-class UNiagaraComponent;
-class UAbilitySystemComponent;
+UCLASS()
+class TESTGAME_API UGameplayCue_StatusEffect : public UGameplayCueNotify_Static
+{
+	GENERATED_BODY()
+
+public:
+	virtual bool OnExecute_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const override;
+	virtual bool OnActive_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const override;
+	virtual bool OnRemove_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const override;
+
+protected:
+	mutable FTimerHandle TimerHandle;
+	mutable TWeakObjectPtr<UUserWidget> Widget = nullptr;
+	UPROPERTY(EditDefaultsOnly)
+	bool bOnlyAutonomous = false;
+};
 
 UCLASS()
 class TESTGAME_API AGameplayCue_CounterAttack : public AGameplayCueNotify_Actor
@@ -54,4 +117,47 @@ protected:
 
 public:
 	virtual bool OnExecute_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) override;
+};
+
+// 레거시 이펙트인 Cascade 전용. NiagaraSystem을 사용한다면 GameplayCueNotify_Burst를 사용!
+UCLASS()
+class TESTGAME_API UGameplayCue_CascadeParticle : public UGameplayCueNotify_Static
+{
+	GENERATED_BODY()
+
+public:
+	virtual bool OnActive_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const override;
+	virtual bool OnRemove_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const override;
+
+protected:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UFXSystemAsset* Particle = nullptr;
+	mutable TMap<TWeakObjectPtr<AActor>, UFXSystemComponent*> Test;
+	mutable TMap<TWeakObjectPtr<AActor>, TWeakObjectPtr<AActor>> MapSoundHelper;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TSubclassOf<AActor> SoundHelperClass = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FName SocketName = NAME_None;
+};
+
+UCLASS()
+class TESTGAME_API UGameplayCue_SkillCoolDown : public UGameplayCueNotify_Static
+{
+	GENERATED_BODY()
+
+public:
+	virtual bool OnExecute_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const override;
+	virtual bool OnActive_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const override;
+};
+
+UCLASS()
+class TESTGAME_API UGamepalyCue_Freeze : public UGameplayCueNotify_Static
+{
+	GENERATED_BODY()
+
+public:
+	virtual bool OnActive_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const override;
+	virtual bool WhileActive_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const override;
+	virtual bool OnRemove_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const override;
 };

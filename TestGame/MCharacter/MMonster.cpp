@@ -1,40 +1,207 @@
 #include "MMonster.h"
 
+#include "AbilitySystemComponent.h"
+#include "BehaviorTree/BehaviorTreeComponent.h"
+
+#include "MGameInstance.h"
+#include "TestGame/MAttribute/MAttribute.h"
+#include "TestGame/MAbility/MActionStruct.h"
+#include "TestGame/MCharacter/Component/ActionComponent.h"
+#include "TestGame/Bullet/Bullet.h"
+
+const FMonsterTableRow FMonsterTableRow::Empty = FMonsterTableRow();
+
 void AMMonster::BeginPlay()
 {
 	Super::BeginPlay();
 
-	bool bPlayLevelStart = false;
-	if (IsValid(ActionComponent))
+	UMGameInstance* GameInstance = Cast<UMGameInstance>(GetGameInstance());
+	if (HasAuthority() && IsValid(GameInstance))
 	{
-		UAnimInstance* AnimInstance = IsValid(GetMesh()) ? GetMesh()->GetAnimInstance() : nullptr;
-		UAnimMontage* StartMontage = ActionComponent->GetActionMontage(FGameplayTag::RequestGameplayTag("Action.Start"));
-		if (IsValid(AnimInstance) && IsValid(StartMontage))
+		FMonsterTableRow MonsterTableRow = GetMonsterTableRow();
+		for (int32 ActionIndex : MonsterTableRow.MonsterData.ActionIndices)
 		{
-			PlayAnimMontage(StartMontage);
-			AnimInstance->OnMontageEnded.AddDynamic(this, &AMMonster::OnStartMontageFinished);
-			bPlayLevelStart = true;
+			const FActionTableRow& ActionTableRow = GameInstance->GetActionTableRow(ActionIndex);
+
+			FGameplayAbilitySpec AbilitySpec(ActionTableRow.AbilityClass);
+			AbilitySystemComponent->GiveAbility(AbilitySpec);
+		}
+
+		if (IsValid(AbilitySystemComponent))
+		{
+			if (UDataTable* AttributeData = Cast<UDataTable>(MonsterTableRow.MonsterData.AttributeData.TryLoad()))
+			{
+				AbilitySystemComponent->InitStats(UMAttributeSet::StaticClass(), AttributeData);
+			}
 		}
 	}
 
-	if (bPlayLevelStart == false)
+	//if (IsValid(AbilitySetData) && HasAuthority() == false)
+	//{
+	//	if (AbilitySetData->HasAbilityTag(FGameplayTag::RequestGameplayTag("Ability.Start")))
+	//	{
+	//		SetActorHiddenInGame(true);
+	//	}
+	//}
+}
+
+void AMMonster::NotifyActorBeginOverlap(AActor* OtherActor)
+{
+	Super::NotifyActorBeginOverlap(OtherActor);
+}
+
+void AMMonster::NotifyHit(UPrimitiveComponent* MyComp, AActor* Other, UPrimitiveComponent* OtherComp, bool bSelfMoved, FVector HitLocation, FVector HitNormal, FVector NormalImpulse, const FHitResult& Hit)
+{
+	Super::NotifyHit(MyComp, Other, OtherComp, bSelfMoved, HitLocation, HitNormal, NormalImpulse, Hit);
+
+	//if (MyComp == GetMesh())
+	//{
+	//	if (UMDamageComponent* DamageComponent = GetComponentByClass<UMDamageComponent>())
+	//	{
+	//		if (DamageComponent->IsReactable(Other))
+	//		{
+	//			DamageComponent->React(Other);
+	//		}
+	//	}
+	//}
+}
+
+void AMMonster::Freeze(const FGameplayTag InTag, int32 InStack)
+{
+	Super::Freeze(InTag, InStack);
+
+	if (InStack > 0)
 	{
-		OnStartMontageFinished(nullptr, false);
+		if (USkeletalMeshComponent* SkeletalMeshComponent = GetMesh())
+		{
+			SkeletalMeshComponent->bNoSkeletonUpdate = true;
+			SkeletalMeshComponent->bPauseAnims = true;
+		}
+
+		if (UCharacterMovementComponent* MovementComponent = GetCharacterMovement())
+		{
+			MovementComponent->RotationRate = FRotator::ZeroRotator;
+		}
+
+		if (AController* MyController = GetController())
+		{
+			if (UBehaviorTreeComponent* BrainComponent = MyController->GetComponentByClass<UBehaviorTreeComponent>())
+			{
+				BrainComponent->PauseLogic(TEXT("Pause"));
+			}
+			//MyController->StopMovement();
+		}
+	}
+	else
+	{
+		if (USkeletalMeshComponent* SkeletalMeshComponent = GetMesh())
+		{
+			SkeletalMeshComponent->bNoSkeletonUpdate = false;
+			SkeletalMeshComponent->bPauseAnims = false;
+		}
+
+		if (UCharacterMovementComponent* MovementComponent = GetCharacterMovement())
+		{
+			MovementComponent->RotationRate = FRotator(0.0, 360.0, 0.0);
+		}
+
+		if (AController* MyController = GetController())
+		{
+			if (UBehaviorTreeComponent* BrainComponent = MyController->GetComponentByClass<UBehaviorTreeComponent>())
+			{
+				BrainComponent->ResumeLogic(TEXT("Pause"));
+			}
+			//MyController->Movement();
+		}
 	}
 }
 
-void AMMonster::OnStartMontageFinished(UAnimMontage* Montage, bool bInterrupted)
+int32 AMMonster::GetDropIndex_Implementation()
 {
-	bLevelStartFinished = true;
+	const FMonsterTableRow& MonsterTableRow = GetMonsterTableRow();
+	return MonsterTableRow.MonsterData.DropIndex;
 }
 
-TSubclassOf<UGameplayAbility> AMMonster::GetSkill()
+const FMonsterTableRow& AMMonster::GetMonsterTableRow() const
 {
-	if (IsValid(AbilitySetData))
+	if (UMGameInstance* GameInstance = Cast<UMGameInstance>(GetGameInstance()))
 	{
-		// 일단 임시로 1번째가 스킬이라고 고정
-		return AbilitySetData->Abilities.IsValidIndex(1) ? AbilitySetData->Abilities[1].GameplayAbilityClass : nullptr;
+		return GameInstance->GetMonsterTableRow(MonsterIndex);
+	}
+
+	return FMonsterTableRow::Empty;
+}
+
+const FActionTableRow& AMMonster::GetActionTableRow() const
+{
+	if (UMGameInstance* GameInstance = Cast<UMGameInstance>(GetGameInstance()))
+	{
+		return GameInstance->GetActionTableRow(LoadedAction);
+	}
+
+	return FActionTableRow::Empty;
+}
+
+void AMMonster::SetWeaponCollisionEnable_Implementation(bool bInEnable)
+{
+	if (UPrimitiveComponent* WeaponCollision = GetWeaponCollision())
+	{
+		WeaponCollision->SetGenerateOverlapEvents(bInEnable);
+	}
+}
+
+UPrimitiveComponent* AMMonster::GetWeaponCollision()
+{
+	if (USkeletalMeshComponent* MeshComponent = GetMesh())
+	{
+		TArray<USceneComponent*> ChildComponents;
+		MeshComponent->GetChildrenComponents(false, ChildComponents);
+
+		for (USceneComponent* ChildComponent : ChildComponents)
+		{
+			if (ChildComponent->IsA<UShapeComponent>())
+			{
+				return Cast<UPrimitiveComponent>(ChildComponent);
+			}
+		}
 	}
 
 	return nullptr;
+}
+
+int32 AMMonster::GetLoadedAction()
+{
+	return LoadedAction;
+}
+
+TArray<int32> AMMonster::GetActions()
+{
+	FMonsterTableRow MonsterTableRow = GetMonsterTableRow();
+	TArray<int32> Actions;
+	for (int32 ActionIndex : MonsterTableRow.MonsterData.ActionIndices)
+	{
+		Actions.Add(ActionIndex);
+	}
+
+	return Actions;
+}
+
+void AMMonster::LoadAction()
+{
+	//FMonsterTableRow MonsterTableRow = GetMonsterTableRow();
+	//TArray<int32> Actions;
+	//for (int32 ActionIndex : MonsterTableRow.MonsterData.ActionIndices)
+	//{
+	//	Actions.Add(ActionIndex);
+	//}
+
+	//if (Actions.IsEmpty() == false)
+	//{
+	//	LoadedAction = Actions[FMath::Rand() % Actions.Num()];
+	//}
+}
+
+void AMMonster::SetAction(int32 InActionIndex)
+{
+	LoadedAction = InActionIndex;
 }

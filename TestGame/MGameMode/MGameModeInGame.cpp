@@ -7,9 +7,12 @@
 #include "TestGame/MGameState/MGameStateInGame.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MChest/Chest.h"
+#include "TestGame/MItem/Drop.h"
 #include "TestGame/MItem/DropItem.h"
 #include "TestGame/MCharacter/MCharacterEnum.h"
+#include "TestGame/MCharacter/MPlayer.h"
 #include "TestGame/MComponents/InventoryComponent.h"
+#include "TestGame/MPlayerController/MPlayerController.h"
 #include "MyPlayerState.h"
 #include "CharacterLevelSubSystem.h"
 
@@ -20,12 +23,16 @@ void AMGameModeInGame::BeginPlay()
 	if (UMGameInstance* GameInstance = GetGameInstance<UMGameInstance>())
 	{
 		GameInstance->IterateItemTable([this](const FGameItemTableRow& GameItemTableRow) {
-			if (GameItemTableRow.GameItemInfo.ItemType != EItemType::Common)
+			if (GameItemTableRow.GameItemInfo.ItemType != EItemType::Item)
 			{
 				return;
 			}
 
-			ItemPool.Add(GameItemTableRow.Index);
+			int32 ItemMaxLevel = GameItemTableRow.GameItemData.GetMaxLevel();
+			for (int32 i = 0; i < ItemMaxLevel; ++i)
+			{
+				ItemPool.Add(GameItemTableRow.Index);
+			}
 		});
 	}
 
@@ -36,6 +43,16 @@ void AMGameModeInGame::BeginPlay()
 	}
 	
 	UE_LOG(LogTemp, Warning, TEXT("GAAMEMODE BeginPlay"));
+}
+
+void AMGameModeInGame::PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
+{
+	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
+
+	if (IsMatchInProgress())
+	{
+		ErrorMessage += TEXT("Game already started, Can't join.");
+	}
 }
 
 void AMGameModeInGame::SetPlayerDefaults(APawn* PlayerPawn)
@@ -64,7 +81,7 @@ void AMGameModeInGame::SetPlayerDefaults(APawn* PlayerPawn)
 				{
 					PlayerState->Die();
 
-					//GameStateInGame->AddDeadPlayer(PlayerState);
+					GameStateInGame->AddDeadPlayer(PlayerState);
 					APlayerController* PlayerController = PlayerState->GetPlayerController();
 					if (PlayerCanRestart(PlayerController))
 					{
@@ -100,14 +117,46 @@ void AMGameModeInGame::SetPlayerDefaults(APawn* PlayerPawn)
 void AMGameModeInGame::RestartPlayer(AController* NewPlayer)
 {
 	Super::RestartPlayer(NewPlayer);
+}
 
-	if (IsValid(NewPlayer))
+void AMGameModeInGame::HandleMatchHasStarted()
+{
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 	{
-		if (AMGameStateInGame* GameStateInGame = GetGameState<AMGameStateInGame>())
+		RestartPlayer(It->Get());
+	}
+
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		if (APlayerController* PlayerController = It->Get())
 		{
-			GameStateInGame->RevivePlayer(NewPlayer->GetPlayerState<APlayerState>());
+			if (AMCharacter* PlayerCharacter = PlayerController->GetPawn<AMCharacter>())
+			{
+				PlayerCharacter->PlayStartAnim();
+			}
 		}
 	}
+}
+
+bool AMGameModeInGame::ReadyToStartMatch_Implementation()
+{
+	if (Super::ReadyToStartMatch_Implementation())
+	{
+		for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+		{
+			if (AMPlayerControllerInGame* PlayerController = Cast<AMPlayerControllerInGame>(It->Get()))
+			{
+				if (PlayerController->IsReady() == false)
+				{
+					return false;
+				}
+			}
+		}
+
+		return true;
+	}
+
+	return false;
 }
 
 bool AMGameModeInGame::ReadyToEndMatch_Implementation()
@@ -123,7 +172,25 @@ bool AMGameModeInGame::ReadyToEndMatch_Implementation()
 	return false;
 }
 
-void AMGameModeInGame::PopItem(AActor* Popper, AActor* PopInstigator)
+UClass* AMGameModeInGame::GetDefaultPawnClassForController_Implementation(AController* InController)
+{
+	AMPlayerControllerInGame* PlayerController = Cast<AMPlayerControllerInGame>(InController);
+
+	if (IsValid(PlayerController))
+	{
+		const FPlayerCharacterTableRow& PlayerCharTableRow = UMGameInstance::GetPlayerCharacterTableRow(GetWorld(), PlayerController->GetCharacterIndex());
+		if (IsValid(PlayerCharTableRow.PlayerCharacterClass) == false)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Using Invalid PlayerCharacterIndex[%d]."), PlayerController->GetCharacterIndex());
+		}
+
+		return PlayerCharTableRow.PlayerCharacterClass;
+	}
+
+	return Super::GetDefaultPawnClassForController_Implementation(InController);
+}
+
+void AMGameModeInGame::PopItem(const FVector& InLocation, AActor* PopInstigator)
 {
 	if (ItemPool.IsEmpty())
 	{
@@ -132,19 +199,17 @@ void AMGameModeInGame::PopItem(AActor* Popper, AActor* PopInstigator)
 	}
 
 	FTransform Transform = FTransform::Identity;
-	if (IsValid(Popper))
-	{
-		Transform = Popper->GetActorTransform();
-	}
-	else if(IsValid(PopInstigator))
-	{
-		Transform = PopInstigator->GetActorTransform();
-	}
-	else
-	{
-		UE_LOG(LogTemp, VeryVerbose, TEXT("Drop item failed. Invalid Dropper."));
-		return;
-	}
+	Transform.SetLocation(InLocation);
+
+	//if(IsValid(PopInstigator))
+	//{
+	//	Transform = PopInstigator->GetActorTransform();
+	//}
+	//else
+	//{
+	//	UE_LOG(LogTemp, VeryVerbose, TEXT("Pop failed."));
+	//	return;
+	//}
 
 	int32 ItemIndex = ItemPool.Pop();
 	SpawnItem(ItemIndex, Transform);
@@ -158,39 +223,96 @@ void AMGameModeInGame::DropItem(AActor* Dropper)
 		return;
 	}
 
-	int32 ItemIndex = ItemIndices.Pop(false);
+	TMap<int32, float> TestProbMap;
+	TestProbMap.Add(5, 0.7f);
+
+	int32 ItemIndex = INDEX_NONE;
+	float RandomFloat = FMath::FRand();
+
+	for (const TPair<int32, float>& Pair : TestProbMap)
+	{
+		if (RandomFloat < Pair.Value)
+		{
+			ItemIndex = Pair.Key;
+			break;
+		}
+
+		RandomFloat -= Pair.Value;
+	}
 
 	SpawnItem(ItemIndex, Dropper->GetActorTransform());
+}
+
+void AMGameModeInGame::DropItem(AActor* InDroppoer, int32 InIndex)
+{
+	if (IsValid(InDroppoer) == false)
+	{
+		UE_LOG(LogTemp, VeryVerbose, TEXT("Drop item failed. Invalid Dropper."));
+		return;
+	}
+
+	const FDropTableRow& DropTableRow = UMGameInstance::GetDropTableRow(this, InIndex);
+
+	int32 ItemIndex = INDEX_NONE;
+	float RandomFloat = FMath::FRand();
+	for (const TPair<int32, float>& Pair : DropTableRow.Porbs)
+	{
+		if (RandomFloat < Pair.Value)
+		{
+			ItemIndex = Pair.Key;
+			break;
+		}
+
+		RandomFloat -= Pair.Value;
+	}
+
+	SpawnItem(ItemIndex, InDroppoer->GetActorTransform());
 }
 
 void AMGameModeInGame::OnPawnKilled(APawn* Killer, APawn* Killed)
 {
 	bool bMonsterKilled = IsValid(Killed) && Killed->IsPlayerControlled() == false;
 
-	//if (IsValid(Killer) && Killer->IsPlayerControlled() && bMonsterKilled)
-	//{
-	//	GetWorld()->GetSubsystem<UCharacterLevelSubSystem>()->AddExperiance(Killer, 10);
-	//}
+	if (IsValid(Killer) && Killer->IsPlayerControlled() && bMonsterKilled)
+	{
+		//GetWorld()->GetSubsystem<UCharacterLevelSubSystem>()->AddExperiance(Killer, 1);
+	}
 
-	//if (bMonsterKilled)
-	//{
-	//	FTransform Transform = Killed->GetActorTransform();
-	//	Transform.SetScale3D(FVector::OneVector);
-	//	
-	//	if (UMGameInstance* GameInstance = Cast<UMGameInstance>(UGameplayStatics::GetGameInstance(this)))
-	//	{
-	//		if (FGameItemTableRow* MoneyItemInfo = GameInstance->GetItemTableRow(TEXT("Money")))
-	//		{
-	//			SpawnDropItem(MoneyItemInfo->Index, Transform);
-	//		}
-	//	}
-	//}
+	if (bMonsterKilled)
+	{
+		if (Killed->GetClass()->ImplementsInterface(UDropInterface::StaticClass()))
+		{
+			DropItem(Killed, IDropInterface::Execute_GetDropIndex(Killed));
+		}
+		else
+		{
+			DropItem(Killed);
+		}
+	}
 }
 
 void AMGameModeInGame::SpawnItem(int32 InItemIndex, const FTransform& InTransform)
 {
+	if (InItemIndex == INDEX_NONE)
+	{
+		return;
+	}
+
+	UClass* DropItemClass = DefaultDropItemClass;
+	if (UMGameInstance* GameInstance = GetGameInstance<UMGameInstance>())
+	{
+		if (FGameItemTableRow* ItemTableRow = GameInstance->GetItemTableRow(InItemIndex))
+		{
+			if (UClass* LoadedClass = ItemTableRow->GameItemInfo.DropItemClass.TryLoadClass<ADropItem>())
+			{
+				DropItemClass = LoadedClass;
+			}
+		}
+	}
+
 	if (IsValid(DropItemClass) == false)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Invalid DropItemClass."));
 		return;
 	}
 

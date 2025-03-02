@@ -5,19 +5,30 @@
 #include "EngineMinimal.h"
 #include "GameFramework/Actor.h"
 #include "GameplayTags.h"
+#include "SkillSubsystem.h"
 
 #include "ItemBase.generated.h"
 
 class UGameplayAbility;
 class UGameplayEffect;
+class UMAbilityDataAsset;
+
+UENUM()
+enum class EItemEvent : uint8
+{
+	None,
+	Pause,
+};
 
 UENUM()
 enum class EItemType : uint8
 {
 	None,
 	Common,
+	Item,
 	Weapon,
 	Money,
+	Exp,
 };
 
 UENUM(BlueprintType)
@@ -29,13 +40,15 @@ enum class EItemGrade : uint8
 	Unique,
 };
 
+// 아이템 레벨에 따른 파라미터 설정 테이블을 위해 만들었음, 범용적으로 사용하기 위해 이름을 추상적으로 만듬. 
 USTRUCT(BlueprintType)
-struct FGameplayEffectParam
+struct FGameplayParamsTableRow : public FTableRowBase							
 {
-	GENERATED_BODY()
+	GENERATED_BODY();
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TMap<FGameplayTag, float> ParamTagToValueMap;
+public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TMap<FGameplayTag, float> ParameterNameToValueMap;
 };
 
 USTRUCT(BlueprintType)
@@ -43,14 +56,53 @@ struct FGameItemData
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TSet<TSubclassOf<UGameplayAbility>> Abilities;
+public:
+	// 아이템 획득자에 추가되는 어빌리티 세트. 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UMAbilityDataAsset* AbilitySet = nullptr;									
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	UMAbilityDataAsset* AbilitySet;
+	// 아이템이 주는 Abilities의 초기 파라미터. 추후 Abiliity테이블을 만들어서 옮겨야 할 듯. DEPRECATED
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TMap<FGameplayTag, float> InitialParams;									
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TMap<TSubclassOf<UGameplayEffect>, FGameplayEffectParam> GameplayEffects;
+	// 아이템 획득 시 즉시 적용되는 GameplayEffect
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TMap<TSubclassOf<UGameplayEffect>, FGameplayEffectParam> GameplayEffects;	
+
+	//UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	//TMap<EItemEvent, float> Events;
+
+	// 아이템 어빌리티의 파라미터 테이블. 행은 레벨, 로우는 파라미터
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UDataTable* ParamTable = nullptr;											
+
+
+public:
+	TMap<FGameplayTag, float> GetParam(int32 InLevel = 1)
+	{
+		if (IsValid(ParamTable))
+		{
+			if (FGameplayParamsTableRow* ParamTableRow = ParamTable->FindRow<FGameplayParamsTableRow>(*FString::FromInt(InLevel), TEXT("AbilityParam")))
+			{
+				return ParamTableRow->ParameterNameToValueMap;
+			}
+		}
+		else if (InLevel == 1)
+		{
+			return InitialParams;
+		}
+
+		return TMap<FGameplayTag, float>();
+	}
+	int32 GetMaxLevel() const
+	{
+		if (IsValid(ParamTable))
+		{
+			return ParamTable->GetRowMap().Num();
+		}
+
+		return 1;
+	}
 };
 
 USTRUCT(BlueprintType)
@@ -74,10 +126,16 @@ struct FGameItemInfo
 	EItemGrade Grade = EItemGrade::None;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	class UPaperSprite* Icon = nullptr;
+	FSoftObjectPath Icon;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FSoftObjectPath DropMesh = nullptr;
+	FSoftObjectPath DropMesh;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FSoftClassPath DropItemClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FSoftObjectPath AcquireSound;
 
 public:
 	const FSoftObjectPath& GetWorldAssetPath() const
@@ -97,6 +155,9 @@ struct FGameItemTableRow : public FTableRowBase
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 Index = INDEX_NONE;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FText Description;									// 개발자 전용 설명
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FGameItemInfo GameItemInfo;

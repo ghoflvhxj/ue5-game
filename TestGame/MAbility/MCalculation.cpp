@@ -29,8 +29,13 @@ void UMGameplayEffectExecutionCalculation_Damage::Execute_Implementation(const F
 		return;
 	}
 
+	// 스킬은 공격력의 n%를 적용
+	FGameplayEffectSpec DamageEffectSpec = ExecutionParams.GetOwningSpec();
+	float DamageScale = DamageEffectSpec.GetSetByCallerMagnitude(FGameplayTag::RequestGameplayTag("DamageParam.DamageScale"), false, 1.f);
+	float AttackPowerScale = DamageEffectSpec.GetSetByCallerMagnitude(FGameplayTag::RequestGameplayTag("DamageParam.AttackPowerScale"), false, 1.f);
+	float Additive = DamageEffectSpec.GetSetByCallerMagnitude(FGameplayTag::RequestGameplayTag("DamageParam.AdditiveDamage"), false, 0.f);
 	float AttackPower = Source->GetNumericAttribute(UMAttributeSet::GetAttackPowerAttribute());
-	float Damage = AttackPower - (FMath::FRand() * AttackPower / 5.f);
+	float Damage = ((AttackPower * AttackPowerScale) + Additive) * DamageScale;
 	Damage = FMath::Max(0.f, Damage);
 	OutExecutionOutput.AddOutputModifier(FGameplayModifierEvaluatedData(UMAttributeSet::GetHealthAttribute(), EGameplayModOp::Additive, -Damage));
 }

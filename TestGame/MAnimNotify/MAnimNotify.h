@@ -16,9 +16,9 @@ class TESTGAME_API UMAnimNotify_SpawnActor : public UAnimNotify
 public:
 	virtual void Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference) override;
 public:
+	virtual bool IsSpawnable(UWorld* World) { return true; }
 	virtual void OnSpawn(AActor* InActor, USkeletalMeshComponent* MeshComp);
 	virtual void OnSpawnFinished(AActor* InActor, USkeletalMeshComponent* MeshComp) {}
-	virtual bool GetSpawnParam(USkeletalMeshComponent* MeshComp, FActorSpawnParameters& OutSpawnTransform);
 	virtual AActor* GetContextObject(USkeletalMeshComponent* MeshComp);
 	virtual FTransform GetSocketTransform(USkeletalMeshComponent* MeshComp);
 
@@ -31,6 +31,8 @@ protected:
 	FVector SpawnOffset;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	bool bWeaponOwning = false;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	USoundBase* Sound = nullptr;
 };
 
 UCLASS()
@@ -39,9 +41,9 @@ class TESTGAME_API UMAnimNotify_SpawnBullet : public UMAnimNotify_SpawnActor
 	GENERATED_BODY()
 
 public:
+	virtual bool IsSpawnable(UWorld* World);
 	virtual void OnSpawn(AActor* InActor, USkeletalMeshComponent* MeshComp) override;
 	virtual void OnSpawnFinished(AActor* InActor, USkeletalMeshComponent* MeshComp) override;
-	virtual bool GetSpawnParam(USkeletalMeshComponent* MeshComp, FActorSpawnParameters& OutSpawnTransform) override;
 	virtual AActor* GetContextObject(USkeletalMeshComponent* MeshComp) override;
 	virtual FTransform GetSocketTransform(USkeletalMeshComponent* MeshComp) override;
 
@@ -90,6 +92,8 @@ public:
 protected:
 	UPROPERTY(EditAnywhere)
 	float Scale = 1.f;
+	UPROPERTY(EditAnywhere)
+	bool bForce = false;
 };
 UCLASS()
 class TESTGAME_API UAnimNotify_WeaponCharge : public UAnimNotify
@@ -98,4 +102,29 @@ class TESTGAME_API UAnimNotify_WeaponCharge : public UAnimNotify
 
 public:
 	virtual void Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference) override;
+};
+
+class UMDamageComponent;
+UCLASS()
+class TESTGAME_API UMAnimNotifyState_ActivateAbilityByTag : public UAnimNotifyState
+{
+	GENERATED_BODY()
+
+public:
+	virtual void NotifyBegin(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, float TotalDuration, const FAnimNotifyEventReference& EventReference) override;
+	virtual void NotifyEnd(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference) override;
+	virtual void NotifyTick(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, float FrameDeltaTime, const FAnimNotifyEventReference& EventReference) override;
+
+protected:
+	UPROPERTY(EditAnywhere)
+	TArray<FName> BoneNames;
+
+protected:
+	UPROPERTY(EditAnywhere)
+	float Range = 1000.f;
+	UPROPERTY(EditAnywhere)
+	FVector2D Angle;
+
+	TWeakObjectPtr<AActor> Owner = nullptr;
+	//TWeakObjectPtr<UMDamageComponent> DamageComponent = nullptr;
 };
