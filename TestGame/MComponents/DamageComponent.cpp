@@ -9,6 +9,11 @@
 #include "TestGame/MAbility/MEffect.h"
 #include "TestGame/MCharacter/MCharacter.h"
 
+UMDamageComponent::UMDamageComponent()
+{
+	PrimaryComponentTick.bCanEverTick = true;
+}
+
 void UMDamageComponent::BeginPlay()
 {
 	Super::BeginPlay();
@@ -18,14 +23,11 @@ void UMDamageComponent::BeginPlay()
 
 	if (bApplyDamageOnOverlap)
 	{
-		GetOwner()->OnActorBeginOverlap.AddDynamic(this, &UMDamageComponent::Overlap);
+		GetOwner()->OnActorBeginOverlap.AddDynamic(this, &UMDamageComponent::TryGiveDamage);
+		GetOwner()->OnActorEndOverlap.AddDynamic(this, &UMDamageComponent::DiscardTarget);
 	}
 
 	OwnerCapsule = GetOwner()->GetComponentByClass<UCapsuleComponent>();
-	if (OwnerCapsule.IsValid())
-	{
-		GetOwner()->GetWorldTimerManager().SetTimer(DamageHoldUpdateTimerHandle, FTimerDelegate::CreateUObject(this, &UMDamageComponent::UpdateHold), 0.1f, true);
-	}
 
 	if (IsValid(DamageEffectClass) == false)
 	{
@@ -49,12 +51,9 @@ void UMDamageComponent::BeginPlay()
 	DamageInstigator = Cast<APawn>(TempInstigator);
 }
 
-void UMDamageComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+void UMDamageComponent::TryGiveDamage(AActor* OverlappedActor, AActor* OtherActor)
 {
-	Super::EndPlay(EndPlayReason);
-
-	GetOwner()->GetWorldTimerManager().ClearTimer(DamageHoldUpdateTimerHandle);
-	DamageHoldUpdateTimerHandle.Invalidate();
+	GiveDamage(OtherActor);
 }
 
 bool UMDamageComponent::GiveDamage(AActor* OtherActor)
@@ -68,90 +67,63 @@ bool UMDamageComponent::GiveDamage(AActor* OtherActor)
 	return false;
 }
 
-void UMDamageComponent::UpdateHold()
+void UMDamageComponent::DiscardTarget(AActor* OverlappedActor, AActor* OtherActor)
 {
-	for (auto Iterator = DamageHold.CreateIterator(); Iterator; ++Iterator)
+	AGameStateBase* GameState = UGameplayStatics::GetGameState(this);
+	if (IsValid(GameState) == false)
 	{
-		if (IsValid(*Iterator) == false)
-		{
-			Iterator.RemoveCurrent();
-			continue;
-		}
-
-		if (UCapsuleComponent* DamagedCapsule = (*Iterator)->GetComponentByClass<UCapsuleComponent>())
-		{
-			if (GetOwner()->GetDistanceTo(*Iterator) > OwnerCapsule->GetScaledCapsuleRadius() + DamagedCapsule->GetScaledCapsuleRadius() + HoldDistance)
-			{
-				Iterator.RemoveCurrent();
-				continue;
-			}
-		}
+		return;
 	}
-}
 
-void UMDamageComponent::Overlap(AActor* OverlappedActor, AActor* OtherActor)
-{
-	GiveDamage(OtherActor);
+	MapTargetToLastDamageTime.Remove(OtherActor);
+
+	// 멀티플레이 환경에서 대미지가 한번에 여러 번 들어가는 걸 방지하기 위함
+	// 주기가 없이 한번만 때리는 것은 홀딩하고
+	// 주기가 있다면 주기에 맡김 
+	if (Period == 0.f)
+	{
+		MapTargetToDamageHold.Add(OtherActor, GameState->GetServerWorldTimeSeconds());
+	}
 }
 
 void UMDamageComponent::React(AActor* InActor)
 {
-	AActor* OwnerActor = GetOwner();
+	AGameStateBase* GameState = UGameplayStatics::GetGameState(this);
+	if (IsValid(GameState) == false)
+	{
+		return;
+	}
 
-	// 아래 로직들 굳이 여기서 할 필요가 있을까?
-	// ApplyEffect 문은 어빌리티에서 GetDamageApplideEvent를 가져와 바인딩 시켜버리면 좋을듯?
+	AActor* OwnerActor = GetOwner();
+	if (IsValid(OwnerActor) == false)
+	{
+		return;
+	}
 
 	// 서버에서만 GAS 관련 처리를 함. 반응성을 위해 클라에서 따로 생성한 경우도 있어 HasAuthority는 안됨
 	if (IsNetMode(NM_Client) == false)
 	{
-		UAbilitySystemComponent* InstigatorASC = DamageInstigator->GetComponentByClass<UAbilitySystemComponent>();
-		UAbilitySystemComponent* OtherASC = InActor->GetComponentByClass<UAbilitySystemComponent>();
-		if (IsValid(InstigatorASC) && IsValid(OtherASC))
+		//// 넉백 처리, 임시로 한거고 추후에 넉백저항 등이 들어가면 어트리뷰트에 기반해야 할 듯?
+		//FVector Offset = FVector::ZeroVector;
+		//if (UCapsuleComponent* CapsuleComponent = DamageInstigator->GetComponentByClass<UCapsuleComponent>())
+		//{
+		//	Offset.Z = CapsuleComponent->GetScaledCapsuleHalfHeight();
+		//}
+		//if (UCharacterMovementComponent* MovementComponent = InActor->GetComponentByClass<UCharacterMovementComponent>())
+		//{
+		//	MovementComponent->StopMovementImmediately();
+		//	MovementComponent->AddRadialImpulse(DamageInstigator->GetActorLocation() + Offset, 1000.f, 150000.f, ERadialImpulseFalloff::RIF_Linear, false);
+		//}
+
+		MapTargetToLastDamageTime.FindOrAdd(InActor) = GameState->GetServerWorldTimeSeconds();
+
+		++MapTargetToDamageCount.FindOrAdd(InActor);
+
+		// 주기가 0이면 바로 홀딩 대상으로 인식
+		if (Period == 0.f)
 		{
-			// 대미지 테이블을 만들자.  이펙트, 넉백, 공격% 등이 설정될 수 있도록
-
-			//// 히트 이펙트 로직. 특정 위치에 표시하려면 CueParam의 Location을 채우고 사용하려면 직접 ExecutePlayCue를 호출해야 함
-			//FGameplayCueParameters CueParams;
-			//CueParams.EffectCauser = OwnerActor;
-			//CueParams.Instigator = DamageInstigator;
-			//CueParams.Location = InActor->GetActorLocation() + (OwnerActor->GetActorLocation() - InActor->GetActorLocation()) / 2.f;
-
-			//FGameplayTag HitEffectCueTag = FGameplayTag::RequestGameplayTag("GameplayCue.Effect.Hit.Default");
-			//if (UGameplayEffect_Damage* GEDamgeCDO = Cast<UGameplayEffect_Damage>(DamageEffectClass->GetDefaultObject()))
-			//{
-			//	HitEffectCueTag = GEDamgeCDO->GetHitEffectCue();
-			//}
-
-			//OtherASC->ExecuteGameplayCue(HitEffectCueTag, CueParams);
-
-			//// 대미지 GE 적용. DamageParam 을 설정함
-			//FGameplayEffectSpecHandle DamageEffectSpecHandle = InstigatorASC->MakeOutgoingSpec(DamageEffectClass, -1, InstigatorASC->MakeEffectContext());
-			//for (const TPair<FGameplayTag, float> ParamToValuePair : DamageParams)
-			//{
-			//	DamageEffectSpecHandle.Data.Get()->SetSetByCallerMagnitude(ParamToValuePair.Key, ParamToValuePair.Value);
-			//}
-			//InstigatorASC->ApplyGameplayEffectSpecToTarget(*DamageEffectSpecHandle.Data.Get(), OtherASC);
+			MapTargetToDamageHold.FindOrAdd(InActor) = GameState->GetServerWorldTimeSeconds();
 		}
-
-		// 넉백 처리, 임시로 한거고 추후에 넉백저항 등이 들어가면 어트리뷰트에 기반해야 할 듯?
-		FVector Offset = FVector::ZeroVector;
-		if (UCapsuleComponent* CapsuleComponent = DamageInstigator->GetComponentByClass<UCapsuleComponent>())
-		{
-			Offset.Z = CapsuleComponent->GetScaledCapsuleHalfHeight();
-		}
-		if (UCharacterMovementComponent* MovementComponent = InActor->GetComponentByClass<UCharacterMovementComponent>())
-		{
-			MovementComponent->StopMovementImmediately();
-			MovementComponent->AddRadialImpulse(DamageInstigator->GetActorLocation() + Offset, 1000.f, 150000.f, ERadialImpulseFalloff::RIF_Linear, false);
-		}
-
-		if (AGameStateBase* GameState = UGameplayStatics::GetGameState(this))
-		{
-			DamageTimeMap.FindOrAdd(InActor) = GameState->GetServerWorldTimeSeconds();
-		}
-
-		++DamageCountMap.FindOrAdd(InActor);
-		DamageHold.Add(InActor);
 	}
 
 	GetOnDamageEvent().Broadcast(OwnerActor, InActor);
@@ -159,6 +131,13 @@ void UMDamageComponent::React(AActor* InActor)
 
 bool UMDamageComponent::IsReactable(AActor* InActor)
 {
+	AGameStateBase* GameState = UGameplayStatics::GetGameState(this);
+
+	if (IsValid(GameState) == false)
+	{
+		return false;
+	}
+
 	if (bDamagable == false)
 	{
 		return false;
@@ -205,22 +184,19 @@ bool UMDamageComponent::IsReactable(AActor* InActor)
 		}
 	}
 
-	if (AGameStateBase* GameState = UGameplayStatics::GetGameState(this))
+	if (GameState->GetServerWorldTimeSeconds() - MapTargetToLastDamageTime.FindOrAdd(InActor) < Period)
 	{
-		if (GameState->GetServerWorldTimeSeconds() - DamageTimeMap.FindOrAdd(InActor) < Period)
-		{
-			return false;
-		}
+		return false;
+	}
 
-		if (DamageHold.Contains(InActor))
-		{
-			return false;
-		}
+	if (MapTargetToDamageHold.Contains(InActor))
+	{
+		return false;
+	}
 
-		if (DamageApplyMaxCount > 0 && DamageCountMap.FindOrAdd(InActor) >= DamageApplyMaxCount)
-		{
-			return false;
-		}
+	if (DamageApplyMaxCount > 0 && MapTargetToDamageCount.FindOrAdd(InActor) >= DamageApplyMaxCount)
+	{
+		return false;
 	}
 
 	return true;
@@ -228,8 +204,9 @@ bool UMDamageComponent::IsReactable(AActor* InActor)
 
 void UMDamageComponent::Reset()
 {
-	DamageCountMap.Empty();
-	DamageTimeMap.Empty();
+	MapTargetToDamageCount.Empty();
+	MapTargetToLastDamageTime.Empty();
+	MapTargetToDamageHold.Empty();
 
 	bDamagable = true;
 }
@@ -249,4 +226,44 @@ void UMDamageComponent::SetDamageParams(const TMap<FGameplayTag, float>& InParam
 void UMDamageComponent::AddGameplayEffect(TSubclassOf<UGameplayEffect> InEffectClass)
 {
 	Effects.Add(InEffectClass);
+}
+
+void UMDamageComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	AGameStateBase* GameState = UGameplayStatics::GetGameState(this);
+	if (IsValid(GameState) == false)
+	{
+		return;
+	}
+
+	// 홀딩 제거 로직
+	if (OwnerCapsule.IsValid())
+	{
+		for (auto Iterator = MapTargetToDamageHold.CreateIterator(); Iterator; ++Iterator)
+		{
+			AActor* Actor = Iterator.Key();
+			if (IsValid(Actor) == false)
+			{
+				Iterator.RemoveCurrent();
+				continue;
+			}
+
+			if (UCapsuleComponent* DamagedCapsule = Actor->GetComponentByClass<UCapsuleComponent>())
+			{
+				// 거리 검사
+				if (GetOwner()->GetHorizontalDistanceTo(Actor) > OwnerCapsule->GetScaledCapsuleRadius() + DamagedCapsule->GetScaledCapsuleRadius() + HoldDistance)
+				{
+					Iterator.RemoveCurrent();
+					continue;
+				}
+			}
+		}
+	}
+
+	for (auto& Pair : MapTargetToLastDamageTime)
+	{
+		GiveDamage(Pair.Key);
+	}
 }

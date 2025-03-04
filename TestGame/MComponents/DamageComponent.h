@@ -16,18 +16,25 @@ class TESTGAME_API UMDamageComponent : public UActorComponent
 	GENERATED_BODY()
 
 public:
+	UMDamageComponent();
+
+protected:
 	virtual void BeginPlay() override;
-	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+public:
+	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 public:
 	UFUNCTION(BlueprintCallable)
+	void TryGiveDamage(AActor* OverlappedActor, AActor* OtherActor);
+	UFUNCTION(BlueprintCallable)
 	bool GiveDamage(AActor* OtherActor);
 	UFUNCTION()
-	void Overlap(AActor* OverlappedActor, AActor* OtherActor);
+	void DiscardTarget(AActor* OverlappedActor, AActor* OtherActor);
 	virtual void React(AActor* InActor);
 	bool IsReactable(AActor* InActor);
 protected:
 	TArray<TWeakObjectPtr<AActor>> IgnoreActors;
+	// 오버랩을 이용해 대미지를 줄지 설정.
 	UPROPERTY(EditDefaultsOnly)
 	bool bApplyDamageOnOverlap = true;
 
@@ -38,27 +45,34 @@ protected:
 	FOnDamagEvent OnDamageEvent;
 
 public:
-	UFUNCTION()
-	void UpdateHold();
 	UFUNCTION(BlueprintCallable)
 	void Reset();
 protected:
 	// 대미지 입힐 수 있는지 여부. ex) 근접 무기는 활성화 전에는 대미지 적용되지 않게 만듬
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	bool bDamagable = false;
-	UPROPERTY()
-	TMap<AActor*, int32> DamageCountMap;
-	UPROPERTY()
-	TMap<AActor*, float> DamageTimeMap;
-	UPROPERTY()
-	TSet<AActor*> DamageHold;
+
+	// 입힌 대미지 횟수를 저장
+	TMap<AActor*, int32> MapTargetToDamageCount;
+
+	// 마지막으로 입힌 대미지 시간을 저장
+	TMap<AActor*, float> MapTargetToLastDamageTime;
+
+	// 대미지 주기
 	UPROPERTY(EditDefaultsOnly)
 	float Period = 0.1f;
+
+	// 대미지 최대 횟수로 0이면 무제한
 	UPROPERTY(EditDefaultsOnly)
 	int32 DamageApplyMaxCount = 1;
-	FTimerHandle DamageHoldUpdateTimerHandle;
+
+	// 멀티플레이 환경에서 대미지가 의도치 않게 여러 번 적용되는 경우을 방지하는 용도. 이 거리만큼 벌어져야 다시 대미지를 입힐 수 있음.
 	UPROPERTY(EditDefaultsOnly)
 	float HoldDistance = 20.f;
+	UPROPERTY(EditDefaultsOnly)
+	float HoldTime = 0.1f;
+	TMap<AActor*, float> MapTargetToDamageHold;
+
 	TWeakObjectPtr<UCapsuleComponent> OwnerCapsule = nullptr;
 
 public:
