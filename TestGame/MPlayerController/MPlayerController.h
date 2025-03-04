@@ -8,6 +8,17 @@ UCLASS()
 class TESTGAME_API AMPlayerController : public APlayerController
 {
 	GENERATED_BODY()
+
+public:
+	virtual void SetupInputComponent() override;
+
+public:
+	UFUNCTION()
+	void CloseUIOrOpenSystem();
+
+protected:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	class UInputAction* InputAction = nullptr;
 };
 
 UCLASS()

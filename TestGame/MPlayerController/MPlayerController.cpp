@@ -2,6 +2,7 @@
 #include "NavigationSystem.h"
 #include "AIController.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "EnhancedInputComponent.h"
 
 #include "MyPlayerState.h"
 #include "TestGame/MCharacter/MCharacter.h"
@@ -9,6 +10,27 @@
 #include "TestGame/MItem/DropItem.h" // 피킹 테스트를 위한 임시 Include
 
 DECLARE_LOG_CATEGORY_CLASS(LogPick, Log, Log);
+
+void AMPlayerController::SetupInputComponent()
+{
+	Super::SetupInputComponent();
+
+	if (UEnhancedInputComponent* EnhacnedInputComponent = Cast<UEnhancedInputComponent>(InputComponent))
+	{
+		EnhacnedInputComponent->BindAction(InputAction, ETriggerEvent::Completed, this, &AMPlayerController::CloseUIOrOpenSystem);
+	}
+}
+
+void AMPlayerController::CloseUIOrOpenSystem()
+{
+	AMHud* MHud = Cast<AMHud>(GetHUD());
+	if (IsValid(MHud) == false)
+	{
+		return;
+	}
+
+	MHud->CloseWidget();
+}
 
 AMPlayerControllerInGame::AMPlayerControllerInGame()
 {
