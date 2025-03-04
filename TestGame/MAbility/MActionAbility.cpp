@@ -9,6 +9,7 @@
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "Abilities/Tasks/AbilityTask_PlayAnimAndWait.h"
 #include "Abilities/Tasks/AbilityTask_Repeat.h"
+#include "CollisionDebugDrawingPublic.h"
 
 #include "TestGame/MCharacter/Component/ActionComponent.h"
 #include "TestGame/MCharacter/MCharacter.h"
@@ -511,7 +512,9 @@ void UGameplayAbility_BattoSkill::OnActive_Implementation()
 	FCollisionQueryParams QueryParams;
 	QueryParams.TraceTag = TEXT("Batto");
 	QueryParams.AddIgnoredActor(Character.Get());
+#if WITH_EDITOR
 	QueryParams.bDebugQuery = true;
+#endif
 
 	if (AMPlayerControllerInGame* PlayerController = Character->GetController<AMPlayerControllerInGame>())
 	{
@@ -551,7 +554,9 @@ void UGameplayAbility_BattoSkill::OnActive_Implementation()
 
 				FVector Location = Character->GetActorLocation() + (GoalLocation - Character->GetActorLocation()) / 2.f;
 				FRotator Rotation = { 90.f + RotateToGoal.Pitch, RotateToGoal.Yaw, RotateToGoal.Roll };
-				DrawCapsuleOverlap(World, Location, CapsuleShape.GetCapsuleHalfHeight(), CapsuleShape.GetCapsuleRadius(), Rotation.Quaternion(), OverlapResults, 5.f);
+#if WITH_EDITOR
+				//DrawCapsuleOverlap(World, Location, CapsuleShape.GetCapsuleHalfHeight(), CapsuleShape.GetCapsuleRadius(), Rotation.Quaternion(), OverlapResults, 5.f);
+#endif
 				if (World->OverlapMultiByObjectType(OverlapResults, Location, Rotation.Quaternion(), FCollisionObjectQueryParams(ECC_Pawn), CapsuleShape, QueryParams))
 				{
 					TSet<AActor*> DamagedActor;

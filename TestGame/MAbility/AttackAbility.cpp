@@ -334,12 +334,15 @@ void UGameplayAbility_Batto::MontageJumpToComboSection(int32 InComboIndex)
 	FCollisionQueryParams QueryParams;
 	QueryParams.TraceTag = TEXT("Batto");
 	QueryParams.AddIgnoredActor(Character.Get());
+
+#if WITH_EDITOR
 	QueryParams.bDebugQuery = true;
+#endif
 
 	if (GetWorld())
 	{
-		GetWorld()->DebugDrawSceneQueries(QueryParams.TraceTag);
-		GetWorld()->DebugDrawTraceTag = QueryParams.TraceTag;
+		//GetWorld()->DebugDrawSceneQueries(QueryParams.TraceTag);
+		//GetWorld()->DebugDrawTraceTag = QueryParams.TraceTag;
 	}
 
 	FString ComboName = InComboIndex == INDEX_NONE ? TEXT("End") : FString::Printf(TEXT("Combo%d"), InComboIndex);
@@ -383,7 +386,9 @@ void UGameplayAbility_Batto::MontageJumpToComboSection(int32 InComboIndex)
 
 					FVector Location = Character->GetActorLocation() + (GoalLocation - Character->GetActorLocation()) / 2.f;
 					FRotator Rotation = { 90.f + RotateToGoal.Pitch, RotateToGoal.Yaw, RotateToGoal.Roll };
+#if WITH_EDITOR
 					DrawCapsuleOverlap(World, Location, CapsuleShape.GetCapsuleHalfHeight(), CapsuleShape.GetCapsuleRadius(), Rotation.Quaternion(), OverlapResults, 5.f);
+#endif
 					if (World->OverlapMultiByObjectType(OverlapResults, Location, Rotation.Quaternion(), FCollisionObjectQueryParams(ECC_Pawn), CapsuleShape, QueryParams))
 					{
 						TSet<AActor*> DamagedActor;
