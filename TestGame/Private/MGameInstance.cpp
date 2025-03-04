@@ -1,10 +1,12 @@
 #include "MGameInstance.h"
+#include "Blueprint/UserWidget.h"
 
 #include "TestGame/MItem/Drop.h"
 #include "TestGame/MItem/ItemBase.h"
 #include "TestGame/MCharacter/MMonster.h"
 #include "TestGame/MAbility/MActionStruct.h"
 #include "TestGame/MCharacter/MPlayer.h"
+#include "TestGame/MFunctionLibrary/MMiscFunctionLibrary.h"
 #include "SkillSubsystem.h"
 
 void UMGameInstance::Init()
@@ -20,6 +22,17 @@ void UMGameInstance::Init()
 		//{
 		//	ItemIndexToNameMap.Emplace(ItemBaseInfo->Index, ItemBaseInfo->);
 		//}
+	}
+}
+
+
+void UMGameInstance::LoadComplete(const float LoadTime, const FString& MapName)
+{
+	Super::LoadComplete(LoadTime, MapName);
+
+	if (GetWorld()->IsNetMode(NM_DedicatedServer) == false)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ghoflvhxj LoadComplete %s"), *MapName);
 	}
 }
 
@@ -184,3 +197,51 @@ const FPlayerCharacterTableRow& UMGameInstance::GetPlayerCharacterTableRow(UObje
 	
 	return *Out;
 }
+
+void UMGameInstance::OpenLevel(FName InLevelName)
+{
+	UWorld* World = GetWorld();
+	if (IsValid(World) == false)
+	{
+		return;
+	}
+
+	if (UUserWidget* NewWidget = CreateWidget(this, LoadWidgetClass))
+	{
+		LoadWidget = NewWidget;
+		LoadWidget->AddToViewport(0);
+	}
+	
+	// 이건 단순히 궁금쓰해서 로그 넣어봄
+	if (World->IsNetMode(NM_Standalone))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ghoflvhxj OpenLevel Standalone"));
+	}
+	else if (World->IsNetMode(NM_Client))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ghoflvhxj OpenLevel Client"));
+	}
+
+	auto OpenLevelLambda = [this, InLevelName]() {
+		UGameplayStatics::OpenLevel(this, InLevelName);
+	};
+
+	if (InLevelName.ToString().Contains(UMMiscFunctionLibrary::GetServerIpAddress()))
+	{
+		OpenLevelLambda();
+	}
+	else
+	{
+		World->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateWeakLambda(this, [this, OpenLevelLambda]() {
+			OpenLevelLambda();
+		}));
+	}
+}
+
+//void UMGameInstance::ShowLoadingWidget()
+//{
+//	if (UUserWidget* NewWidget = CreateWidget(this, LoadingWidgetClass))
+//	{
+//		LoadingWidget = NewWidget;
+//	}
+//}
