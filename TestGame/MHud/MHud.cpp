@@ -129,22 +129,29 @@ void AMHudInGame::InitByGameplayEffect()
 
 void AMHudInGame::UpdateByGameplayEffect(UAbilitySystemComponent* InAbilitySystemComponent, const FActiveGameplayEffect& InGameplayEffect)
 {
+	// 모든 GE를 HUD가 처리할 필요는 없다. HUD가 알아서 필요한 것만 쓰자.
+	// 예를 들어 WolfCircle 어빌리티를 실행하면 GE_Cool, GE_Duration, GE_ActualCool 이렇게 3개의 GE가 순차적으로 실행됨
+	// Cue로 실행한다면 따로 구분해주지 않아도 되는데 CueParameter 관련 처리가 필요 vs 여기서 하기
+	// 관전해서 뷰 타겟이 변경된다면 여기서 초기화 하는 방법밖에 없긴 함
+
 	const FActiveGameplayEffectHandle& EffectHandle = InGameplayEffect.Handle;
 	const FGameplayEffectSpec& EffectSpec = InGameplayEffect.Spec;
 
 	FGameplayTagContainer EffectTags;
 	EffectSpec.GetAllAssetTags(EffectTags);
 
+	FGameplayTagContainer StatusableTags;
+	//StatusableTags.AddTag(FGameplayTag::RequestGameplayTag("Test.GenericTag"));
+	FGameplayTag AbilityTag = FGameplayTag::RequestGameplayTag("Ability");
+
 	const FGameplayTag& Tag = EffectTags.Last();
 
 	// 스킬 쿨
-	if (Tag.MatchesTag(FGameplayTag::RequestGameplayTag("GameplayCue.UI.SkillCool")))
+	if (Tag.MatchesTag(AbilityTag))
 	{
 		UpdateSkillCool(InAbilitySystemComponent, EffectSpec, EffectHandle, Tag.GetSingleTagContainer());
 	}
-
-	// Duration
-	if (Tag.MatchesTag(FGameplayTag::RequestGameplayTag("GameplayCue.AbilityDuration")))
+	else
 	{
 		// Duration인 버프/디버프 이펙트가 오는 경우 Status를 갱신
 		if (InGameplayEffect.GetDuration() != UGameplayEffect::INFINITE_DURATION && InGameplayEffect.GetDuration() != UGameplayEffect::INSTANT_APPLICATION)

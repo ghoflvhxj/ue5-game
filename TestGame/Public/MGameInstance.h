@@ -22,6 +22,7 @@ class TESTGAME_API UMGameInstance : public UGameInstance
 	
 public:
 	virtual void Init() override;
+	virtual void LoadComplete(const float LoadTime, const FString& MapName) override;
 
 protected:
 	template <class T>
@@ -98,4 +99,14 @@ public:
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	UDataTable* PlayerCharacterTable = nullptr;
+
+public:
+	UFUNCTION(BlueprintCallable)
+	void SetLoadWidget(UUserWidget* InWidget) { LoadWidget = InWidget; }
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TSubclassOf<UUserWidget> LoadWidgetClass = nullptr;
+	UUserWidget* LoadWidget = nullptr;
+	UFUNCTION(BlueprintCallable)
+	void OpenLevel(FName InLevelName);
+
 };
