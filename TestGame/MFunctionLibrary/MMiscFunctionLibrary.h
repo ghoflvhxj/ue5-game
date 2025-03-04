@@ -12,4 +12,7 @@ class TESTGAME_API UMMiscFunctionLibrary : public UBlueprintFunctionLibrary
 public:
 	UFUNCTION(BlueprintPure)
 	static bool CompareUniqueNetID(APlayerState* Lhs, APlayerState* Rhs);
+
+	UFUNCTION(BlueprintPure)
+	static FString GetServerIpAddress();
 };
