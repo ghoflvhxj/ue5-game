@@ -6,7 +6,6 @@
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetTree.h"
 #include "AbilitySystemComponent.h"
-#include "TestGame/MGameState/MGameStateInGame.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MComponents/InventoryComponent.h"
 #include "TestGame/MAttribute/MAttribute.h"
@@ -130,29 +129,22 @@ void AMHudInGame::InitByGameplayEffect()
 
 void AMHudInGame::UpdateByGameplayEffect(UAbilitySystemComponent* InAbilitySystemComponent, const FActiveGameplayEffect& InGameplayEffect)
 {
-	// 모든 GE를 HUD가 처리할 필요는 없다. HUD가 알아서 필요한 것만 쓰자.
-	// 예를 들어 WolfCircle 어빌리티를 실행하면 GE_Cool, GE_Duration, GE_ActualCool 이렇게 3개의 GE가 순차적으로 실행됨
-	// Cue로 실행한다면 따로 구분해주지 않아도 되는데 CueParameter 관련 처리가 필요 vs 여기서 하기
-	// 관전해서 뷰 타겟이 변경된다면 여기서 초기화 하는 방법밖에 없긴 함
-
 	const FActiveGameplayEffectHandle& EffectHandle = InGameplayEffect.Handle;
 	const FGameplayEffectSpec& EffectSpec = InGameplayEffect.Spec;
 
 	FGameplayTagContainer EffectTags;
 	EffectSpec.GetAllAssetTags(EffectTags);
 
-	FGameplayTagContainer StatusableTags;
-	//StatusableTags.AddTag(FGameplayTag::RequestGameplayTag("Test.GenericTag"));
-	FGameplayTag AbilityTag = FGameplayTag::RequestGameplayTag("Ability");
-
 	const FGameplayTag& Tag = EffectTags.Last();
 
 	// 스킬 쿨
-	if (Tag.MatchesTag(AbilityTag))
+	if (Tag.MatchesTag(FGameplayTag::RequestGameplayTag("GameplayCue.UI.SkillCool")))
 	{
 		UpdateSkillCool(InAbilitySystemComponent, EffectSpec, EffectHandle, Tag.GetSingleTagContainer());
 	}
-	else
+
+	// Duration
+	if (Tag.MatchesTag(FGameplayTag::RequestGameplayTag("GameplayCue.AbilityDuration")))
 	{
 		// Duration인 버프/디버프 이펙트가 오는 경우 Status를 갱신
 		if (InGameplayEffect.GetDuration() != UGameplayEffect::INFINITE_DURATION && InGameplayEffect.GetDuration() != UGameplayEffect::INSTANT_APPLICATION)
@@ -247,11 +239,11 @@ void AMHudInGame::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// 라운드 바인딩
 	if (AMGameStateInGame* GameStateInGame = Cast<AMGameStateInGame>(UGameplayStatics::GetGameState(this)))
 	{
 		GameStateInGame->GameOverDynamicDelegate.AddDynamic(this, &AMHudInGame::ShowGameOver);
 
+		// 라운드 바인딩
 		if (URoundComponent* RoundComponent = GameStateInGame->GetComponentByClass<URoundComponent>())
 		{
 			UpdateRoundInfo(RoundComponent->GetRoundWave());
@@ -274,23 +266,25 @@ void AMHudInGame::BeginPlay()
 		//PlayerController->OnPossessedPawnChanged.AddDynamic(this, &AMHudInGame::UpdatePawnBoundWidget); //ShowHudWidget에서 호출하고 있음
 
 		// 관전 시 대상으로 HUD위젯 업데이트
-		PlayerController->GetSpectateModeChangedEvent().AddUObject(this, &AMHudInGame::ShowSpectateInfo);
+		//PlayerController->GetSpectateModeChangedEvent().AddUObject(this, &AMHudInGame::ShowSpectateInfo);
 		PlayerController->GetViewTargetChangedEvent().AddWeakLambda(this, [this, PlayerController](AActor* Old, AActor* New) {
 			ShowHudWidget(nullptr, Cast<APawn>(New));
 
 			APlayerState* PlayerState = PlayerController->GetPlayerState<APlayerState>();
 			AGameStateBase* GameState = UGameplayStatics::GetGameState(this);
+			
 			if (IsValid(PlayerState) && IsValid(GameState) && PlayerState->IsSpectator())
 			{
-				for (APlayerState* Temp : GameState->PlayerArray)
-				{
-					if (Temp->GetPawn() == New)
-					{
-						continue;
-					}
+				//for (APlayerState* Temp : GameState->PlayerArray)
+				//{
+				//	if (Temp->GetPawn() == New)
+				//	{
+				//		continue;
+				//	}
 
-					AddOtherPlayer(Temp);
-				}
+				//	AddOtherPlayer(Temp);
+				//}
+				ShowSpectateInfo(true);
 			}
 		});
 		
@@ -308,7 +302,10 @@ bool AMHudInGame::InitializeUsingPlayerState(APlayerState* InPlayerState)
 
 		if (AMPlayerState* PlayerState = Cast<AMPlayerState>(InPlayerState))
 		{
-			PlayerState->GetPlayerDeadEvent().AddUObject(this, &AMHudInGame::ShowDieInfo);
+			if (PlayerOwner->GetPlayerState<APlayerState>() == InPlayerState)
+			{
+				PlayerState->GetPlayerDeadEvent().AddUObject(this, &AMHudInGame::ShowDieInfo);
+			}
 		}
 
 		return true;

@@ -4,6 +4,8 @@
 #include "GameFramework/Hud.h"
 #include "AbilitySystemComponent.h"
 
+#include "TestGame/MGameState/MGameStateInGame.h"
+
 #include "MHud.generated.h"
 
 class UUserWidget;
@@ -113,7 +115,7 @@ public:
 	// 활성화된 모든 GE로 HUD를 업데이트 함
 	UFUNCTION(BlueprintCallable)
 	void InitByGameplayEffect();
-	// GE로 HUD를 업데이트 함
+	// GE로 HUD를 업데이트함
 	UFUNCTION()
 	void UpdateByGameplayEffect(UAbilitySystemComponent* InAbilitySystemComponent, const FActiveGameplayEffect& InGameplayEffect);
 	// GE로 HUD 요소를 제거함
@@ -157,7 +159,7 @@ public:
 	// 게임 결과
 public:
 	UFUNCTION(BlueprintImplementableEvent)
-	void ShowGameFinish();
+	void ShowGameFinish(EEndMatchReason EndMatchReason);
 	UFUNCTION(BlueprintNativeEvent)
 	void ShowGameOver();
 

@@ -10,6 +10,14 @@
 class APlayerState;
 class AMonsterSpawner;
 
+UENUM(BlueprintType)
+enum class EEndMatchReason : uint8
+{
+	None,
+	Fail,
+	Clear
+};
+
 USTRUCT(BlueprintType)
 struct FRoundInfo : public FTableRowBase
 {
@@ -57,7 +65,7 @@ struct FRound
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnRoundStartedDynamicDelegate);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnGameOverDynamicDelegate);
-DECLARE_EVENT(AMGameStateInGame, FOnMatchEndEvent);
+DECLARE_EVENT_OneParam(AMGameStateInGame, FOnMatchEndEvent, EEndMatchReason);
 
 UCLASS()
 class TESTGAME_API AMGameStateInGame : public AGameState
@@ -79,7 +87,7 @@ public:
 	virtual void HandleMatchHasEnded() override;
 public:
 	FOnMatchEndEvent OnMatchEndEvent;
-	//FTimerHandle GameStartTimerHandle;
+	bool bMatchEndSuccess = false;
 
 	// 부활
 public:

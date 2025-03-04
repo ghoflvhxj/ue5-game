@@ -93,14 +93,13 @@ void AMGameModeInGame::SetPlayerDefaults(APawn* PlayerPawn)
 					}
 					else
 					{
-						PlayerController->StartSpectatingOnly();
-
-						//FTimerHandle DummyHandle;
-						//GetWorldTimerManager().SetTimer(DummyHandle, FTimerDelegate::CreateWeakLambda(this, [this, PlayerController]() {
-						//	PlayerController->ServerViewNextPlayer();
-						//}), 5.f, false);
+						GetWorldTimerManager().SetTimerForNextTick(FTimerDelegate::CreateWeakLambda(this, [PlayerController]() {
+							if (IsValid(PlayerController))
+							{
+								PlayerController->StartSpectatingOnly();
+							}
+						}));
 						
-						//GameStateInGame->Multicast_GameOver();
 					}
 				}
 				break;
@@ -163,10 +162,15 @@ bool AMGameModeInGame::ReadyToEndMatch_Implementation()
 {
 	if (AMGameStateInGame* GameStateInGame = GetGameState<AMGameStateInGame>())
 	{
+		bool bAllRoundFinished = false;
 		if (URoundComponent* RoundComponent = GameStateInGame->GetComponentByClass<URoundComponent>())
 		{
-			return RoundComponent->IsFinished();
+			bAllRoundFinished = RoundComponent->IsFinished();
 		}
+
+		bool bAllPlayerDead = GameStateInGame->IsAllPlayerDead();
+
+		return bAllRoundFinished || bAllPlayerDead;
 	}
 
 	return false;

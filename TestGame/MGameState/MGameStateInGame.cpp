@@ -60,6 +60,14 @@ void AMGameStateInGame::Tick(float DeltaTime)
 
 		SetMPCParamValue(MPCParamName, MPCParamToElpasedTime[MPCParamName]);
 	}
+
+	if (HasAuthority() == false)
+	{
+		if (bMatchEndSuccess == false && HasMatchEnded())
+		{
+			HandleMatchHasEnded();
+		}
+	}
 }
 
 void AMGameStateInGame::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -107,7 +115,16 @@ void AMGameStateInGame::HandleMatchHasEnded()
 {
 	Super::HandleMatchHasEnded();
 
-	OnMatchEndEvent.Broadcast();
+	if (IsAllPlayerDead())
+	{
+		OnMatchEndEvent.Broadcast(EEndMatchReason::Fail);
+		bMatchEndSuccess = true;
+	}
+	else if(RoundComponent->IsFinished())
+	{
+		OnMatchEndEvent.Broadcast(EEndMatchReason::Clear);
+		bMatchEndSuccess = true;
+	}
 }
 
 void AMGameStateInGame::AddDeadPlayer(APlayerState* DeadPlayerState)
@@ -122,7 +139,26 @@ void AMGameStateInGame::RemoveDeadPlayer(APlayerState* DeadPlayerState)
 
 bool AMGameStateInGame::IsAllPlayerDead()
 {
-	return PlayerArray.Num() == DeadPlayerArray.Num();
+	if (PlayerArray.Num() == 0)
+	{
+		return true;
+	}
+
+	for (APlayerState* PlayerState : PlayerArray)
+	{
+		AMPlayerState* MPlayerState = Cast<AMPlayerState>(PlayerState);
+		if (IsValid(MPlayerState) == false)
+		{
+			continue;
+		}
+
+		if (MPlayerState->IsDead() == false)
+		{
+			return false;
+		}
+	}
+
+	return true;
 }
 
 bool AMGameStateInGame::IsRevivalable()
