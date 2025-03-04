@@ -247,20 +247,23 @@ void UGameplayAbility_CollideDamage::ActivateAbility(const FGameplayAbilitySpecH
 		}
 	}
 
-	AbilityOwer->OnActorBeginOverlap.AddDynamic(this, &UGameplayAbility_CollideDamage::OnCollide);
-
-	if (UAbilitySystemComponent* AbilityComponent = GetAbilitySystemComponentFromActorInfo())
+	if (UMDamageComponent* DamageComponent = AbilityOwer->GetComponentByClass<UMDamageComponent>())
 	{
-		bool bFound = false;
-		float NewDamage = AbilityComponent->GetGameplayAttributeValue(UMWeaponAttributeSet::GetAttackPowerAttribute(), bFound);
-		if (bFound)
-		{
-			Damage = NewDamage;
-			AbilityComponent->GetGameplayAttributeValueChangeDelegate(UMWeaponAttributeSet::GetAttackPowerAttribute()).AddWeakLambda(this, [this](const FOnAttributeChangeData& AttributeChangeData) {
-				Damage = AttributeChangeData.NewValue;
-			});
-		}
+		DamageComponent->GetOnDamageEvent().AddUObject(this, &UGameplayAbility_CollideDamage::OnCollide);
 	}
+
+	//if (UAbilitySystemComponent* AbilityComponent = GetAbilitySystemComponentFromActorInfo())
+	//{
+	//	bool bFound = false;
+	//	float NewDamage = AbilityComponent->GetGameplayAttributeValue(UMWeaponAttributeSet::GetAttackPowerAttribute(), bFound);
+	//	if (bFound)
+	//	{
+	//		Damage = NewDamage;
+	//		AbilityComponent->GetGameplayAttributeValueChangeDelegate(UMWeaponAttributeSet::GetAttackPowerAttribute()).AddWeakLambda(this, [this](const FOnAttributeChangeData& AttributeChangeData) {
+	//			Damage = AttributeChangeData.NewValue;
+	//		});
+	//	}
+	//}
 }
 
 void UGameplayAbility_CollideDamage::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
@@ -313,30 +316,7 @@ void UGameplayAbility_CollideDamage::OnCollide(AActor* OverlappedActor, AActor* 
 		Owner = Owner->GetOwner();
 	}
 
-	if (IsValid(MyCharacter) && HasAuthority(&CurrentActivationInfo))
-	{
-		if (AMCharacter* OtherCharacter = Cast<AMCharacter>(OtherActor))
-		{
-			if (OtherCharacter->IsDead() == false && OtherCharacter->IsPlayerControlled() != MyCharacter->IsPlayerControlled())
-			{
-				FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(UGameplayEffect_Damage::StaticClass());
-				ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, EffectSpecHandle, UAbilitySystemBlueprintLibrary::AbilityTargetDataFromActor(OtherActor));
-
-				if (UAbilitySystemComponent* OtherAbilityComponent = OtherActor->GetComponentByClass<UAbilitySystemComponent>())
-				{
-					FGameplayEffectContextHandle EffectContext = OtherAbilityComponent->MakeEffectContext();
-					FGameplayCueParameters CueParams(EffectContext);
-					CueParams.Location = OtherCharacter->GetActorLocation();
-					if (UCapsuleComponent* CapsuleComponent = OtherCharacter->GetCapsuleComponent())
-					{
-						CueParams.Location.Z += CapsuleComponent->GetScaledCapsuleHalfHeight();
-					}
-
-					OtherAbilityComponent->ExecuteGameplayCue(CueTag, CueParams);
-				}
-			}
-		}
-	}
+	ApplyEffect(MyCharacter, OtherActor);
 }
 
 UGameplayAbility_KnockBack::UGameplayAbility_KnockBack()
