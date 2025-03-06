@@ -36,7 +36,6 @@ void UMAnimInstance::NativeBeginPlay()
 					ActionComponent->CopyActions(Animations);
 				}
 			});
-			//ActionComponent->CopyActions(Animations);
 		}
 	}
 }
@@ -60,23 +59,24 @@ void UMAnimInstance::AnimNotify_Ragdoll()
 	}
 }
 
-//void UMonsterAnimInstnace::NativeInitializeAnimation()
-//{
-//	Super::NativeInitializeAnimation();
-//
-//#if WITH_EDITOR
-//	if (GIsEditor && IsValid(MonsterTable))
-//	{
-//		if (FMonsterTableRow* MonsterTableRow = MonsterTable->FindRow<FMonsterTableRow>(*FString::FromInt(MonsterIndex), TEXT("MonsterTable")))
-//		{
-//			if (UClass* MonsterClass = MonsterTableRow->MonsterData.MonsterClass.TryLoadClass<AMMonster>())
-//			{
-//				if (AMMonster* Monster = MonsterClass->GetDefaultObject<AMMonster>())
-//				{
-//					SetMesh(Monster->GetMesh());
-//				}
-//			}
-//		}
-//	}
-//#endif
-//}
+void UMAnimInstance::AnimNotify_FootStep()
+{
+	AMCharacter* Character = Cast<AMCharacter>(TryGetPawnOwner());
+	if (IsValid(Character) == false)
+	{
+		return;
+	}
+
+	FHitResult HitResult;
+	TArray<TEnumAsByte<EObjectTypeQuery>> TraceObjects;
+	TraceObjects.Add(UEngineTypes::ConvertToObjectType(ECC_WorldStatic));
+	TArray<AActor*> IgnoreActors;
+	
+	if (UKismetSystemLibrary::LineTraceSingleForObjects(Character, Character->GetActorLocation(), Character->GetActorLocation() - FVector(0.f, 0.f, 1000.f), TraceObjects, false, IgnoreActors, EDrawDebugTrace::None, HitResult, true))
+	{
+		if (HitResult.PhysMaterial.IsValid())
+		{
+			Character->FootStep(HitResult.PhysMaterial->SurfaceType);
+		}
+	}
+}

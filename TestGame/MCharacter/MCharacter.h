@@ -352,4 +352,6 @@ protected:
 
 
 public:
+	UFUNCTION(BlueprintImplementableEvent)
+	void FootStep(EPhysicalSurface InPhysicalSurface);
 };

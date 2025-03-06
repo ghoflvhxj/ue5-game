@@ -24,30 +24,18 @@ public:
 	UFUNCTION()
 	void AnimNotify_Ragdoll();
 
+public:
+	UFUNCTION()
+	void AnimNotify_FootStep();
+
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TMap<FGameplayTag, UAnimationAsset*> Animations;
 
 #if WITH_EDITORONLY_DATA
 protected:
+	// 에디터 전용 애니메이션 셋팅
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	UMActionDataAsset* Actions = nullptr;
 #endif
 };
-
-//UCLASS()
-//class TESTGAME_API UMonsterAnimInstnace : public UMAnimInstance
-//{
-//	GENERATED_BODY()
-//
-//public:
-//	virtual void NativeInitializeAnimation() override;
-//
-//#if WITH_EDITORONLY_DATA
-//protected:
-//	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-//	UDataTable* MonsterTable = nullptr;
-//	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-//	int32 MonsterIndex = INDEX_NONE;
-//#endif
-//};
