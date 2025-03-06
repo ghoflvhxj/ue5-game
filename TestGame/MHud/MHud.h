@@ -124,6 +124,9 @@ public:
 	void Test(UAbilitySystemComponent* InAbilitySystemComponent, FGameplayTag InTag);
 	UFUNCTION(BlueprintImplementableEvent)
 	void UpdateSkillCool(UAbilitySystemComponent* InAbilitySystemComponent, const FGameplayEffectSpec& InEffectSpec, FActiveGameplayEffectHandle InActiveEffectHandle, const FGameplayTagContainer& SkillTags);
+	// 스킬 또는 이펙트의 Duration 표시
+	UFUNCTION(BlueprintImplementableEvent)
+	void UpdateEffectDuration(AActor* InTarget, int32 InSkillIndex, bool bRemove, const TMap<FGameplayAttribute, double>& InModifiedMagnitude, const FActiveGameplayEffectHandle& Handle);
 public:
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
 	UUserWidget* AddStatusEffect(AActor* InTarget, FGameplayTag InTag, bool bRemove, const TMap<FGameplayAttribute, float>& InModifiedMagnitude, const FActiveGameplayEffectHandle& Handle);

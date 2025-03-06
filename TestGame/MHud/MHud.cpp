@@ -129,41 +129,51 @@ void AMHudInGame::InitByGameplayEffect()
 
 void AMHudInGame::UpdateByGameplayEffect(UAbilitySystemComponent* InAbilitySystemComponent, const FActiveGameplayEffect& InGameplayEffect)
 {
-	// 모든 GE를 HUD가 처리할 필요는 없다. HUD가 알아서 필요한 것만 쓰자.
-	// 예를 들어 WolfCircle 어빌리티를 실행하면 GE_Cool, GE_Duration, GE_ActualCool 이렇게 3개의 GE가 순차적으로 실행됨
-	// Cue로 실행한다면 따로 구분해주지 않아도 되는데 CueParameter 관련 처리가 필요 vs 여기서 하기
-	// 관전해서 뷰 타겟이 변경된다면 여기서 초기화 하는 방법밖에 없긴 함
+	// GE로 스킬쿨 UI를 다룬 이유가... 관전으로 시점 변경 시에도 듀레이션을 보여주고 싶었음
+	// GC로 하면 가져올 방법이 딱히 없는데, 이펙트로 하면 그냥 활성화 된 이펙트들을 가져오면 됨
 
-	const FActiveGameplayEffectHandle& EffectHandle = InGameplayEffect.Handle;
+	const FActiveGameplayEffectHandle& ActiveEffectHandle = InGameplayEffect.Handle;
 	const FGameplayEffectSpec& EffectSpec = InGameplayEffect.Spec;
+	const FGameplayEffectContextHandle& EffectContextHandle = EffectSpec.GetEffectContext();
 
 	FGameplayTagContainer EffectTags;
 	EffectSpec.GetAllAssetTags(EffectTags);
-
-	FGameplayTagContainer StatusableTags;
-	//StatusableTags.AddTag(FGameplayTag::RequestGameplayTag("Test.GenericTag"));
-	FGameplayTag AbilityTag = FGameplayTag::RequestGameplayTag("Ability");
-
+	
 	const FGameplayTag& Tag = EffectTags.Last();
 
 	// 스킬 쿨
-	if (Tag.MatchesTag(AbilityTag))
+	if (EffectTags.HasAny(FGameplayTag::RequestGameplayTag("EffectType.Cool").GetSingleTagContainer()))
 	{
-		UpdateSkillCool(InAbilitySystemComponent, EffectSpec, EffectHandle, Tag.GetSingleTagContainer());
-	}
-	else
-	{
-		// Duration인 버프/디버프 이펙트가 오는 경우 Status를 갱신
-		if (InGameplayEffect.GetDuration() != UGameplayEffect::INFINITE_DURATION && InGameplayEffect.GetDuration() != UGameplayEffect::INSTANT_APPLICATION)
+		const FGameplayTagContainer& AbilityTags = EffectTags.Filter(FGameplayTag::RequestGameplayTag("Ability").GetSingleTagContainer());
+		for (auto AbilityTag : AbilityTags)
 		{
-			TMap<FGameplayAttribute, float> MapAttributeToModified;
+			UpdateSkillCool(InAbilitySystemComponent, EffectSpec, ActiveEffectHandle, AbilityTag.GetSingleTagContainer());
+		}
+	}
+	
+	// 듀레이션
+	if (InGameplayEffect.GetDuration() != UGameplayEffect::INFINITE_DURATION && InGameplayEffect.GetDuration() != UGameplayEffect::INSTANT_APPLICATION)
+	{
+		if (EffectTags.HasAny(FGameplayTag::RequestGameplayTag("EffectType.Duration").GetSingleTagContainer()))
+		{
+			TMap<FGameplayAttribute, double> MapAttributeToModified;
 
 			for (const FGameplayEffectModifiedAttribute& ModifiedAttribute : EffectSpec.ModifiedAttributes)
 			{
 				MapAttributeToModified.FindOrAdd(ModifiedAttribute.Attribute) += ModifiedAttribute.TotalMagnitude;
 			}
 
-			AddStatusEffect(InAbilitySystemComponent->GetOwner(), Tag, InGameplayEffect.IsPendingRemove, MapAttributeToModified, EffectHandle);
+			int32 EffectIndex = INDEX_NONE;
+			if (EffectContextHandle.Get()->GetScriptStruct() == FMGameplayEffectContext::StaticStruct())
+			{
+				const FMGameplayEffectContext* EffectContext = static_cast<const FMGameplayEffectContext*>(EffectContextHandle.Get());
+				EffectIndex = EffectContext->EffectIndex;
+			}
+
+			if (EffectIndex > 0)
+			{
+				UpdateEffectDuration(InAbilitySystemComponent->GetOwner(), EffectIndex, InGameplayEffect.IsPendingRemove, MapAttributeToModified, ActiveEffectHandle);
+			}
 		}
 	}
 }
