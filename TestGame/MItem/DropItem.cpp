@@ -6,13 +6,17 @@
 #include "NiagaraComponent.h"
 
 #include "CharacterLevelSubSystem.h"
+#include "TestGame/MAbility/MAbilitySystemGlobals.h"
+#include "TestGame/MAbility/MAbilitySystemComponent.h"
+#include "TestGame/MAbility/MAbility.h"
+#include "TestGame/MAbility/MItemAbility.h"
+#include "TestGame/MAbility/MEffect.h"
 #include "TestGame/MGameState/MGameStateInGame.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MCharacter/Component/InteractorComponent.h"
 #include "TestGame/MComponents/InventoryComponent.h"
 #include "TestGame/MWeapon/Weapon.h"
-#include "TestGame/MAbility/MAbility.h"
-#include "TestGame/MAbility/MItemAbility.h"
+#include "MGameInstance.h"
 #include "SkillSubsystem.h"
 
 DECLARE_LOG_CATEGORY_CLASS(LogDropItem, Log, Log);
@@ -103,6 +107,53 @@ void ADropItem::BeginPlay()
 				}
 			}
 
+			if (UMAbilitySystemComponent* AbilitySystemComponent = Interactor->GetComponentByClass<UMAbilitySystemComponent>())
+			{
+				// 아이템 버프 적용
+				for (const FBuffInfo& BuffInfo : ItemBaseInfo->GameItemData.Effects)
+				{
+					const FEffectTableRow& EffectTableRow = UMGameInstance::GetEffectTableRow(this, BuffInfo.EffectIndex);
+
+					FGameplayEffectSpecHandle EffectSpecHandle = AbilitySystemComponent->MakeOutgoingSpec(EffectTableRow.EffectClass, 0.f, AbilitySystemComponent->MakeEffectContext(BuffInfo.EffectIndex));
+
+					const FGameplayEffectParam& EffectParam = BuffInfo.EffectParam;
+					for (const auto& TagToValuePair : EffectParam.MapTagToValue)
+					{
+						EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, TagToValuePair.Key, TagToValuePair.Value);
+					}
+
+					const TArray<UAbilitySystemComponent*>& Targets = GetItemEffectTargets(EffectParam);
+					for (UAbilitySystemComponent* Target : Targets)
+					{
+						AbilitySystemComponent->ApplyGameplayEffectSpecToTarget(*EffectSpecHandle.Data.Get(), Target);
+					}
+				}
+
+				// 아이템 능력 적용
+				if (UMAbilityDataAsset* AbilitySet = ItemBaseInfo->GameItemData.AbilitySet)
+				{
+					Interactor->AddAbilities(AbilitySet);
+
+					for (const FMAbilityBindInfo& AbilityBind : AbilitySet->Abilities)
+					{
+						FGameplayAbilitySpec* AbilitySpec = AbilitySystemComponent->FindAbilitySpecFromClass(AbilityBind.GameplayAbilityClass);
+						if (AbilitySpec == nullptr)
+						{
+							continue;
+						}
+
+						UGameplayAbility_Item* ItemAbility = Cast<UGameplayAbility_Item>(AbilitySpec->GetPrimaryInstance());
+						if (IsValid(ItemAbility) == false)
+						{
+							continue;
+						}
+
+						int32 ItemAbilityLevel = ItemAbility->GetAbilityLevel();
+						ItemAbility->SetParams(ItemBaseInfo->GameItemData.GetParam(ItemAbilityLevel));
+					}
+				}
+			}
+
 			switch (ItemBaseInfo->GameItemInfo.ItemType)
 			{
 				case EItemType::Money:
@@ -139,80 +190,22 @@ void ADropItem::BeginPlay()
 				}
 				break;
 				case EItemType::Common:
-				case EItemType::Item:
 				{
-					if (UAbilitySystemComponent* AbilitySystemComponent = Interactor->GetComponentByClass<UAbilitySystemComponent>())
-					{
-						// 아이템 버프 적용
-						for (const auto& Pair : ItemBaseInfo->GameItemData.GameplayEffects)
-						{
-							FGameplayEffectSpecHandle EffectSpecHandle = AbilitySystemComponent->MakeOutgoingSpec(Pair.Key, 0.f, AbilitySystemComponent->MakeEffectContext());
-							const FGameplayEffectParam& EffectParam = Pair.Value;
-							for (const auto& TagToValuePair : EffectParam.MapParamToValue)
-							{
-								EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, TagToValuePair.Key, TagToValuePair.Value);
-							}
-
-							const TArray<UAbilitySystemComponent*>& Targets = GetItemEffectTargets(EffectParam);
-
-							if (EffectSpecHandle.IsValid() == false)
-							{
-								UE_LOG(LogDropItem, Warning, TEXT("Faield to apply item(%d) effect."), ItemIndex);
-								continue;
-							}
-
-							if (UGameplayEffect* GameplayEffect = Pair.Key->GetDefaultObject<UGameplayEffect>())
-							{
-								if (GameplayEffect->GameplayCues.Num() > 0)
-								{
-									const TArray<FGameplayTag>& GameplayCueTags = GameplayEffect->GameplayCues[0].GameplayCueTags.GetGameplayTagArray();
-									for (const FGameplayTag& GameplayCueTag : GameplayCueTags)
-									{
-										EffectSpecHandle.Data.Get()->AddDynamicAssetTag(GameplayCueTag);
-									}
-								}
-							}
-
-							for (UAbilitySystemComponent* Target : Targets)
-							{
-								AbilitySystemComponent->ApplyGameplayEffectSpecToTarget(*EffectSpecHandle.Data.Get(), Target);
-							}
-						}
-
-						// 아이템 능력 적용
-						if (UMAbilityDataAsset* AbilitySet = ItemBaseInfo->GameItemData.AbilitySet)
-						{
-							Interactor->AddAbilities(AbilitySet);
-
-							for (const FMAbilityBindInfo& AbilityBind : AbilitySet->Abilities)
-							{
-								FGameplayAbilitySpec* AbilitySpec = AbilitySystemComponent->FindAbilitySpecFromClass(AbilityBind.GameplayAbilityClass);
-								if (AbilitySpec == nullptr)
-								{
-									continue;
-								}
-
-								UGameplayAbility_Item* ItemAbility = Cast<UGameplayAbility_Item>(AbilitySpec->GetPrimaryInstance());
-								if (IsValid(ItemAbility) == false)
-								{
-									continue;
-								}
-
-								int32 ItemAbilityLevel = ItemAbility->GetAbilityLevel();
-								ItemAbility->SetParams(ItemBaseInfo->GameItemData.GetParam(ItemAbilityLevel));
-							}
-						}
-					}
-					
-					if (ItemBaseInfo->GameItemInfo.ItemType == EItemType::Item)
-					{
-						Interactor->AddItem(ItemIndex, 1);
-					}
-					else if (ItemBaseInfo->GameItemInfo.ItemType == EItemType::Common)
+					if (ItemBaseInfo->GameItemInfo.ItemType == EItemType::Common)
 					{
 						Interactor->UseItem(ItemIndex);
 					}
 				}
+				break;
+				case EItemType::Item:
+				{
+					if (ItemBaseInfo->GameItemInfo.ItemType == EItemType::Item)
+					{
+						Interactor->AddItem(ItemIndex, 1);
+					}
+				}
+				break;
+				default:
 				break;
 			}
 
