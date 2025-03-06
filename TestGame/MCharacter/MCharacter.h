@@ -6,14 +6,17 @@
 #include "GameFramework/Character.h"
 #include "GameFramework/MovementComponent.h"
 #include "AbilitySystemComponent.h"
-#include "TestGame/MCharacter/Component/StateMachineComponent.h"
-
-#include "Interfaces/OnlineLeaderboardInterface.h"
 #include "OnlineStats.h"
-#include "TestGame/Interface/InteractInterface.h"
 #include "AbilitySystemInterface.h"
+#include "Interfaces/OnlineLeaderboardInterface.h"
+
+#include "TestGame/MCharacter/Component/StateMachineComponent.h"
+#include "TestGame/Interface/InteractInterface.h"
 
 #include "MCharacter.generated.h"
+
+class UMAbilitySystemComponent;
+class UGameplayAbility;
 
 class UMTeamComponent;
 class UMAttributeSet;
@@ -60,7 +63,7 @@ public:
 	UMInventoryComponent* GetInventoryComponent() const;
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	UAbilitySystemComponent* AbilitySystemComponent = nullptr;
+	UMAbilitySystemComponent* AbilitySystemComponent = nullptr;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	UMTeamComponent* TeamComponent = nullptr;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
@@ -102,6 +105,11 @@ public:
 
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
+
+public:
+	UFUNCTION(BlueprintPure)
+	virtual int32 GetCharacterIndex() { return INDEX_NONE; }
+
 // GAS Ability
 public:
 	void OnAbilityInputPressed(int32 InInputID);
@@ -114,9 +122,7 @@ public:
 	UGameplayAbility* GetAbility(FGameplayTag InTag);
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	UMAbilityDataAsset* AbilitySetData;
-	UPROPERTY(BlueprintReadOnly)
-	TMap<FGameplayTag, FGameplayAbilitySpecHandle> AblitiyHandles;
+	UMAbilityDataAsset* AbilitySetData = nullptr;
 
 public:
 	void ChargeInputPressed();
@@ -143,7 +149,7 @@ public:
 	virtual void OnDamaged(AActor* DamageInstigator);
 protected:
 	UPROPERTY(BlueprintReadOnly)
-	UMAttributeSet* AttributeSet;
+	UMAttributeSet* AttributeSet = nullptr;
 
 // 상태 델레게이트
 public:
@@ -334,7 +340,6 @@ protected:
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_AimMode)
 	bool bAimMode = false;
 
-
 // 몽타주
 public:
 	UFUNCTION()
@@ -345,15 +350,6 @@ protected:
 	UPROPERTY(BlueprintReadOnly)
 	bool bUpper = false;
 
-// 리더보드
-public:
-	UFUNCTION(BlueprintCallable)
-	void LeaderboardTest();
-	FOnlineLeaderboardReadPtr ReadObject;
-	FOnLeaderboardReadCompleteDelegate LeaderboardReadCompleteDelegate;
-	void PrintLeaderboard(bool b);
 
 public:
-	UFUNCTION(BlueprintPure)
-	virtual int32 GetCharacterIndex() { return INDEX_NONE; }
 };

@@ -15,13 +15,13 @@
 #include "NavigationSystem.h"
 
 #include "CharacterLevelSubSystem.h"
+#include "TestGame/MAbility/MEffect.h"
+#include "TestGame/MAttribute/MAttribute.h"
 #include "TestGame/MCharacter/Component/ActionComponent.h"
 #include "TestGame/MComponents/DamageComponent.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MCharacter/MPlayer.h"
 #include "TestGame/MWeapon/Weapon.h"
-#include "TestGame/MAttribute/MAttribute.h"
-#include "TestGame/MAbility/MEffect.h"
 #include "TestGame/MItem/ItemBase.h"
 #include "TestGame/MFunctionLibrary/MContainerFunctionLibrary.h"
 
@@ -37,7 +37,7 @@ void UMAbilityDataAsset::PostLoad()
 	}
 }
 
-void UMAbilityDataAsset::GiveAbilities(UAbilitySystemComponent* AbilitySystemComponent, TMap<FGameplayTag, FGameplayAbilitySpecHandle>& Handles) const
+void UMAbilityDataAsset::GiveAbilities(UAbilitySystemComponent* AbilitySystemComponent) const
 { 
 	FGameplayTagContainer FilterTagContainer;
 	for (const FMAbilityBindInfo& AbilityBindInfo : Abilities)
@@ -45,10 +45,10 @@ void UMAbilityDataAsset::GiveAbilities(UAbilitySystemComponent* AbilitySystemCom
 		FilterTagContainer.AddTag(AbilityBindInfo.GameplayTag);
 	}
 
-	GiveAbilities(AbilitySystemComponent, Handles, FilterTagContainer);
+	GiveAbilities(AbilitySystemComponent, FilterTagContainer);
 }
 
-void UMAbilityDataAsset::GiveAbilities(UAbilitySystemComponent* AbilitySystemComponent, TMap<FGameplayTag, FGameplayAbilitySpecHandle>& Handles, FGameplayTagContainer Filter) const
+void UMAbilityDataAsset::GiveAbilities(UAbilitySystemComponent* AbilitySystemComponent, FGameplayTagContainer Filter) const
 {
 	if (IsValid(AbilitySystemComponent) == false)
 	{
@@ -65,40 +65,44 @@ void UMAbilityDataAsset::GiveAbilities(UAbilitySystemComponent* AbilitySystemCom
 	{
 		FGameplayTag AbilityTag = BindInfo.GameplayTag;
 
-		if (IsValid(BindInfo.GameplayAbilityClass) == false || Filter.HasTag(AbilityTag) == false)
+		if (Filter.HasTag(AbilityTag) == false)
 		{
 			continue;
 		}
 
-		if (Handles.Contains(AbilityTag))
+		if (IsValid(BindInfo.GameplayAbilityClass) == false)
 		{
-			FGameplayAbilitySpec* AbilitySpec = AbilitySystemComponent->FindAbilitySpecFromHandle(Handles[AbilityTag]);
-			if (AbilitySpec != nullptr && AbilitySpec->Ability != nullptr && AbilitySpec->Ability->GetClass() == BindInfo.GameplayAbilityClass)
-			{
-				++AbilitySpec->Level;
-				AbilitySystemComponent->MarkAbilitySpecDirty(*AbilitySpec);
-				continue;
-			}
-
-			AbilitySystemComponent->ClearAbility(Handles[AbilityTag]);
+			continue;
 		}
 
-		Handles.Emplace(AbilityTag, AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(BindInfo.GameplayAbilityClass, 1, BindInfo.InputID)));
-		if (BindInfo.bActivate && Handles.Contains(AbilityTag))
+		if (FGameplayAbilitySpec* FoundAbilitySpec = AbilitySystemComponent->FindAbilitySpecFromClass(BindInfo.GameplayAbilityClass))
 		{
-			AbilitySystemComponent->TryActivateAbility(Handles[AbilityTag], true);
+			++FoundAbilitySpec->Level;
+			AbilitySystemComponent->MarkAbilitySpecDirty(*FoundAbilitySpec);
+		}
+		else
+		{
+			FGameplayAbilitySpecHandle NewAbilitySpecHandle = AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(BindInfo.GameplayAbilityClass, 1, BindInfo.InputID));
+			if (BindInfo.bActivate)
+			{
+				AbilitySystemComponent->TryActivateAbility(NewAbilitySpecHandle, true);
+			}
 		}
 	}
 }
 
-void UMAbilityDataAsset::ClearAbilities(UAbilitySystemComponent* AbilitySystemComponent, TMap<FGameplayTag, FGameplayAbilitySpecHandle>& Handles) const
+void UMAbilityDataAsset::ClearAbilities(UAbilitySystemComponent* AbilitySystemComponent) const
 {
 	for (const FMAbilityBindInfo& BindInfo : Abilities)
 	{
-		if (Handles.Contains(BindInfo.GameplayTag))
+		if (IsValid(BindInfo.GameplayAbilityClass) == false)
 		{
-			AbilitySystemComponent->ClearAbility(Handles[BindInfo.GameplayTag]);
-			Handles.Remove(BindInfo.GameplayTag);
+			continue;
+		}
+
+		if (FGameplayAbilitySpec* FoundAbilitySpec = AbilitySystemComponent->FindAbilitySpecFromClass(BindInfo.GameplayAbilityClass))
+		{
+			AbilitySystemComponent->ClearAbility(FoundAbilitySpec->Handle);
 		}
 	}
 }

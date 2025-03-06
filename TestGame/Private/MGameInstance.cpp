@@ -7,6 +7,7 @@
 #include "TestGame/MAbility/MActionStruct.h"
 #include "TestGame/MCharacter/MPlayer.h"
 #include "TestGame/MFunctionLibrary/MMiscFunctionLibrary.h"
+#include "TestGame/MAbility/MEffect.h"
 #include "SkillSubsystem.h"
 
 void UMGameInstance::Init()
@@ -106,6 +107,28 @@ TArray<int32> UMGameInstance::GetSkillEnhanceTableRowsByPredicate(TFunction<bool
 	}
 
 	return OutRows;
+}
+
+
+const FEffectTableRow& UMGameInstance::GetEffectTableRow(UObject* Context, int32 InIndex)
+{
+	static FEffectTableRow Empty;
+
+	const FEffectTableRow* Out = nullptr;
+	if (IsValid(Context))
+	{
+		if (UMGameInstance* GameInstance = Cast<UMGameInstance>(UGameplayStatics::GetGameInstance(Context)))
+		{
+			Out = GameInstance->GetTableRow<FEffectTableRow>(GameInstance->EffectTable, InIndex);
+		}
+	}
+
+	if (Out == nullptr)
+	{
+		Out = &Empty;
+	}
+
+	return *Out;
 }
 
 const FActionTableRow& UMGameInstance::GetActionTableRow(int32 InIndex)

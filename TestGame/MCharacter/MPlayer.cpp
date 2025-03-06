@@ -1,11 +1,15 @@
 #include "MPlayer.h"
-#include "TestGame/MCharacter/Component/ActionComponent.h"
-#include "MGameInstance.h"
 #include "MyPlayerState.h"
+
+#include "MGameInstance.h"
+#include "TestGame/MCharacter/Component/ActionComponent.h"
+#include "TestGame/MAbility/MAbilitySystemComponent.h"
 #include "TestGame/MAbility/MAbility.h"
 #include "TestGame/MAbility/MActionAbility.h"
 #include "TestGame/MHud/MHud.h"
+#include "TestGame/MComponents/InventoryComponent.h"
 #include "SkillSubsystem.h"
+
 //#include "CharacterLevelSubSystem.h"
 
 const FPlayerCharacterTableRow FPlayerCharacterTableRow::Empty = FPlayerCharacterTableRow();
@@ -59,7 +63,7 @@ void AMPlayer::SetPlayerDefaults()
 		SkillTagFilter.AddTag(SkillToAbilityTag.Value);
 	}
 
-	AbilitySetData->GiveAbilities(AbilitySystemComponent, AblitiyHandles, SkillTagFilter);
+	AbilitySetData->GiveAbilities(AbilitySystemComponent, SkillTagFilter);
 
 	for (const TPair<int32, FGameplayTag> SkillIndexToTag : PCTableRow.Skills)
 	{

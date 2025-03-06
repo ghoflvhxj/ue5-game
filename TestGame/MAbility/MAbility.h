@@ -2,10 +2,9 @@
 
 #pragma once
 
-#include "TestGame/TestGame.h"
 #include "GameplayTagContainer.h"
 #include "Engine/DataAsset.h"
-#include "AbilitySystemComponent.h"
+#include "TestGame/MAbility/MAbilitySystemComponent.h"
 #include "MAbility.generated.h"
 
 class UGameplayAbility;
@@ -63,9 +62,9 @@ public:
 	virtual void PostLoad() override;
 
 public:
-	void GiveAbilities(UAbilitySystemComponent* AbilitySystemComponent, TMap<FGameplayTag, FGameplayAbilitySpecHandle>& Handles) const;
-	void GiveAbilities(UAbilitySystemComponent* AbilitySystemComponent, TMap<FGameplayTag, FGameplayAbilitySpecHandle>& Handles, FGameplayTagContainer Filter) const;
-	void ClearAbilities(UAbilitySystemComponent* AbilitySystemComponent, TMap<FGameplayTag, FGameplayAbilitySpecHandle>& Handles) const;
+	void GiveAbilities(UAbilitySystemComponent* AbilitySystemComponent) const;
+	void GiveAbilities(UAbilitySystemComponent* AbilitySystemComponent, FGameplayTagContainer Filter) const;
+	void ClearAbilities(UAbilitySystemComponent* AbilitySystemComponent) const;
 	void ConverToMap(TMap<FGameplayTag, TSubclassOf<UGameplayAbility>>& TagToAbilityClassMap) const;
 	UFUNCTION(BlueprintPure)
 	FMAbilityBindInfo GetBindInfo(FGameplayTag InTag);
@@ -75,20 +74,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FMAbilityBindInfo> Abilities;
 	TMap<FGameplayTag, FMAbilityBindInfo> AbilityMap;
-};
-
-USTRUCT(BlueprintType)
-struct TESTGAME_API FTableRow_MCharacterToAbilitySet : public FTableRowBase
-{
-	GENERATED_BODY()
-
-	FTableRow_MCharacterToAbilitySet()
-		: FTableRowBase()
-	{}
-
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TMap<TSubclassOf<AMCharacter>, UMAbilityDataAsset*> MCharacterClassToAbilityDataAsset;
 };
 
 UCLASS()

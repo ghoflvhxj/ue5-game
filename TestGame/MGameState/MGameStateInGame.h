@@ -4,11 +4,12 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameState.h"
-
+#include "AbilitySystemComponent.h"
 #include "MGameStateInGame.generated.h"
 
 class APlayerState;
 class AMonsterSpawner;
+
 
 UENUM(BlueprintType)
 enum class EEndMatchReason : uint8
