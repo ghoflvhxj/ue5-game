@@ -5,7 +5,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetTree.h"
-#include "AbilitySystemComponent.h"
+#include "TestGame/MAbility/MAbilitySystemComponent.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MComponents/InventoryComponent.h"
 #include "TestGame/MAttribute/MAttribute.h"
@@ -295,6 +295,11 @@ void AMHudInGame::BeginPlay()
 			}
 		});
 		
+		if (UPickComponent* PickComponent = PlayerController->GetComponentByClass<UPickComponent>())
+		{
+			PickComponent->GetPickChangedEvent().AddUObject(this, &AMHudInGame::TogglePickInfo);
+			PickComponent->GetPickDataChangedEvent().AddUObject(this, &AMHudInGame::UdpatePickInfo);
+		}
 	}
 }
 

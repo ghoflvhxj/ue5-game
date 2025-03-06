@@ -45,13 +45,6 @@ void AMPlayerControllerInGame::BeginPlay()
 	{
 		OnRep_PlayerState();
 	}
-
-	AMHudInGame* HudInGame = GetHUD<AMHudInGame>();
-	if (IsValid(PickComponent) && IsValid(HudInGame))
-	{
-		PickComponent->GetPickChangedEvent().AddUObject(HudInGame, &AMHudInGame::TogglePickInfo);
-		PickComponent->GetPickDataChangedEvent().AddUObject(HudInGame, &AMHudInGame::UdpatePickInfo);
-	}
 }
 
 ASpectatorPawn* AMPlayerControllerInGame::SpawnSpectatorPawn()
@@ -339,6 +332,12 @@ void UPickComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FA
 		FPickData PickData;
 		PickData.WorldLocation = PickingActor->GetActorLocation();
 		PickData.ScreenLocation = FVector2D::ZeroVector;
+
+		if (bPickInterface)
+		{
+			PickData.WorldLocation = IPickInterface::Execute_GetLocation(PickingActor.Get());
+		}
+
 		if (PlayerController->ProjectWorldLocationToScreen(PickData.WorldLocation, PickData.ScreenLocation))
 		{
 			OnPickDataChangedEvent.Broadcast(PickData);
@@ -379,6 +378,11 @@ void UPickComponent::SetPickingActor(AActor* InActor)
 	AActor* Old = PickingActor.Get();
 	PickingActor = InActor;
 	OnPickChangedEvent.Broadcast(Old, PickingActor.Get());
+
+	if (PickingActor.IsValid())
+	{
+		bPickInterface = PickingActor->GetClass()->ImplementsInterface(UPickInterface::StaticClass());
+	}
 
 	SetComponentTickEnabled(PickingActor.IsValid());
 

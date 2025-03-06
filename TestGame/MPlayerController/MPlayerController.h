@@ -114,6 +114,24 @@ protected:
 public:
 	UFUNCTION(Client, Reliable)
 	void Client_SkillEnhance(const FSkillEnhanceData& InEnhanceData);
+
+public:
+	void UpdatePickInfo();
+};
+
+UINTERFACE(BlueprintType)
+class TESTGAME_API UPickInterface : public UInterface
+{
+	GENERATED_BODY()
+};
+
+class TESTGAME_API IPickInterface
+{
+	GENERATED_BODY()
+
+public:
+	UFUNCTION(BlueprintNativeEvent)
+	FVector GetLocation();
 };
 
 USTRUCT(BlueprintType)
@@ -150,6 +168,7 @@ public:
 	FOnPickDataChangedEvent& GetPickDataChangedEvent() { return OnPickDataChangedEvent; }
 protected:
 	mutable TWeakObjectPtr<AActor> PickingActor = nullptr;
+	bool bPickInterface = false;
 	FOnPickingChangedEvent OnPickChangedEvent;
 	FOnPickDataChangedEvent OnPickDataChangedEvent;
 };
