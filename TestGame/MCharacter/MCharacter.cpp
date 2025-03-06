@@ -515,6 +515,24 @@ UPrimitiveComponent* AMCharacter::GetWeaponCollision()
 	return nullptr;
 }
 
+void AMCharacter::SetWeaponActivation(bool bInActivation)
+{
+	AWeapon* Weapon = GetEquipItem<AWeapon>();
+	if (IsValid(Weapon) == false)
+	{
+		return;
+	}
+
+	if (bInActivation)
+	{
+		Weapon->Activate();
+	}
+	else
+	{
+		Weapon->Deactivate();
+	}
+}
+
 void AMCharacter::SetWeaponCollisionEnable_Implementation(bool bInEnable)
 {
 	if (AWeapon* Weapon = GetEquipItem<AWeapon>())

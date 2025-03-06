@@ -124,6 +124,14 @@ public:
 	virtual bool CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, OUT FGameplayTagContainer* OptionalRelevantTags = nullptr) override;
 
 public:
+	virtual FGameplayEffectSpecHandle MakeOutgoingGameplayEffectSpecWithIndex(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, TSubclassOf<UGameplayEffect> GameplayEffectClass, int32 InEffectIndex, float Level = 1.f) const;
+	// MGameplayEffectContext를 업데이트 하려면 여기서 해야함
+	virtual void UpdateEffectContext(FMGameplayEffectContextHandle& InEffectContextHandle) {}
+
+protected:
+	UMAbilitySystemComponent* GetMAbilitySystem();
+
+public:
 	UFUNCTION(BlueprintPure)
 	AMCharacter* GetCharacter();
 protected:
@@ -144,6 +152,9 @@ protected:
 	// 어빌리티 내에서 직접 대미지를 줄 경우 사용
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<UGameplayEffect_Damage> DamageEffectClass = nullptr;
+
+public:
+	virtual int32 GetEffectIndex() const { return INDEX_NONE; }
 
 /* 파라미터 */
 public:

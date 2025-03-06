@@ -4,6 +4,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "AbilitySystemBlueprintLibrary.h"
+#include "NiagaraComponent.h"
 #include "MGameInstance.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MCharacter/Component/ActionComponent.h"
@@ -14,6 +15,8 @@ DECLARE_LOG_CATEGORY_CLASS(LogWeapon, Log, Log);
 
 AWeapon::AWeapon()
 {
+	PrimaryActorTick.bCanEverTick = true;
+
 	ActionComponent = CreateDefaultSubobject<UMActionComponent>(TEXT("ActionComponent"));
 
 	DamageComponent = CreateDefaultSubobject<UMDamageComponent>(TEXT("DamageComponent"));
@@ -62,6 +65,14 @@ void AWeapon::OnConstruction(const FTransform& Transform)
 	}
 }
 
+void AWeapon::Tick(float DeltaSeconds)
+{
+	if (UNiagaraComponent* TrailComponent = GetComponentByClass<UNiagaraComponent>())
+	{
+		TrailComponent->SetFloatParameter(TEXT("TrailWidth"), GetTrailWidth());
+	}
+}
+
 void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -82,6 +93,46 @@ void AWeapon::BeginPlay()
 	}
 
 	SetActorEnableCollision(false);
+}
+
+void AWeapon::Activate()
+{
+	SetActorEnableCollision(true);
+	SetActorTickEnabled(true);
+
+	if (IsValid(DamageComponent))
+	{
+		DamageComponent->Reset();
+	}
+
+	if (UNiagaraComponent* TrailComponent = GetComponentByClass<UNiagaraComponent>())
+	{
+		TrailComponent->ActivateSystem();
+	}
+}
+
+void AWeapon::Deactivate()
+{
+	SetActorEnableCollision(false);
+	SetActorTickEnabled(false);
+
+	if (UNiagaraComponent* TrailComponent = GetComponentByClass<UNiagaraComponent>())
+	{
+		TrailComponent->Deactivate();
+	}
+}
+
+float AWeapon::GetTrailWidth_Implementation()
+{
+	if (UMeshComponent* MeshComponent = GetComponentByClass<UMeshComponent>())
+	{
+		if (MeshComponent->DoesSocketExist(TrailStart) && MeshComponent->DoesSocketExist(TrailEnd))
+		{
+			return FVector::Distance(MeshComponent->GetSocketLocation(TrailStart), MeshComponent->GetSocketLocation(TrailEnd));
+		}
+	}
+
+	return 0.f;
 }
 
 TSubclassOf<UAttributeSet> AWeapon::GetAttributeSet()
@@ -265,11 +316,6 @@ void AWeapon::NextCombo()
 		CharacterAbilityComponent->GetNumericAttribute(UMAttributeSet::GetAttackSpeedAttribute());
 	}
 
-	if (IsValid(DamageComponent))
-	{
-		DamageComponent->Reset();
-	}
-
 	// 임시작업, 공격속도 어트리뷰트를 가져오도록 변경해야 함
 	// 공격속도가 빨라진다 = AttackSpeed 증가를 의미하는데 이게 맞는건가?
 	//if (WeaponData->AttackSpeed > 0.f)
@@ -288,6 +334,8 @@ void AWeapon::NextCombo()
 
 		}
 	}
+
+	ClearComponentOverlaps();
 
 	bCoolDown = true;
 	Combo = IsComboableWeapon() && IsComboable() ? Combo + 1 : 0;
@@ -366,6 +414,16 @@ void AWeapon::UnCharge()
 		ChargeValue = 0.f;
 		OnChargeChangedEvent.Broadcast(false);
 	}
+}
+
+int32 AWeapon::GetEffectIndex() const
+{
+	if (const FWeaponData* WeaponData = GetWeaponData())
+	{
+		return WeaponData->EffectIndex;
+	}
+
+	return INDEX_NONE;
 }
 
 bool AWeapon::IsComboableWeapon() const

@@ -209,6 +209,16 @@ void UGameplayAbility_BasicAttack::EndAbility(const FGameplayAbilitySpecHandle H
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
+int32 UGameplayAbility_BasicAttack::GetEffectIndex() const
+{
+	if (Weapon.IsValid())
+	{
+		return Weapon->GetEffectIndex();
+	}
+
+	return INDEX_NONE;
+}
+
 UGameplayAbility_DashLightAttack::UGameplayAbility_DashLightAttack()
 {
 	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;

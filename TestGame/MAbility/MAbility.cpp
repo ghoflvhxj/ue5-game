@@ -719,6 +719,28 @@ bool UGameplayAbility_CharacterBase::CommitAbility(const FGameplayAbilitySpecHan
 	return false;
 }
 
+FGameplayEffectSpecHandle UGameplayAbility_CharacterBase::MakeOutgoingGameplayEffectSpecWithIndex(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, TSubclassOf<UGameplayEffect> GameplayEffectClass, int32 InEffectIndex, float Level /*= 1.f*/) const
+{
+	FGameplayEffectSpecHandle NewEffectSpecHandle = MakeOutgoingGameplayEffectSpec(Handle, ActorInfo, ActivationInfo, GameplayEffectClass, Level);
+
+	if (NewEffectSpecHandle.IsValid())
+	{
+		FGameplayEffectContext* EffectContext = NewEffectSpecHandle.Data->GetContext().Get();
+		if (EffectContext != nullptr && EffectContext->GetScriptStruct() == FMGameplayEffectContext::StaticStruct())
+		{
+            FMGameplayEffectContext* MEffectContext = static_cast<FMGameplayEffectContext*>(EffectContext);
+			MEffectContext->EffectIndex = InEffectIndex;
+		}
+	}
+
+	return NewEffectSpecHandle;
+}
+
+class UMAbilitySystemComponent* UGameplayAbility_CharacterBase::GetMAbilitySystem()
+{
+	return Cast<UMAbilitySystemComponent>(GetAbilitySystemComponentFromActorInfo());
+}
+
 AMCharacter* UGameplayAbility_CharacterBase::GetCharacter()
 {
 	return Character.Get();
@@ -813,7 +835,7 @@ void UGameplayAbility_CharacterBase::ApplyEffectToTarget(AActor* InCauser, AActo
 	}
 
 	// DamageGE 적용 로직
-	FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(TSubclassOf<UGameplayEffect>(DamageEffectClass));
+	FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpecWithIndex(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, TSubclassOf<UGameplayEffect>(DamageEffectClass), GetEffectIndex());
 	for (const auto& ParamToValuePair : MapParamToValue)
 	{
 		if (ParamToValuePair.Key.MatchesTag(FGameplayTag::RequestGameplayTag("DamageParam")) == false)
@@ -839,6 +861,7 @@ void UGameplayAbility_CharacterBase::ApplyEffectToTarget(AActor* InCauser, AActo
 	// HitGC 로직. 특정 위치에 표시하려면 CueParam의 Location을 채우고 사용하려면 직접 ExecutePlayCue를 호출해야 함
 	FGameplayCueParameters CueParams;
 	CueParams.EffectCauser = InCauser;
+	CueParams.EffectContext = EffectSpecHandle.Data->GetContext();
 	CueParams.Instigator = GetAvatarActorFromActorInfo();
 	CueParams.Location = InCauser->GetActorLocation() + (InTarget->GetActorLocation() - InCauser->GetActorLocation()) / 2.f;
 

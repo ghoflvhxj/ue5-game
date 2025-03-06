@@ -88,6 +88,9 @@ struct FWeaponData : public FTableRowBase
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 Combo = INDEX_NONE;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 EffectIndex = INDEX_NONE;
 };
 
 USTRUCT(BlueprintType)
@@ -120,10 +123,23 @@ protected:
 
 public:
 	virtual void OnConstruction(const FTransform& Transform) override;
-	//virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-	//virtual void NotifyActorBeginOverlap(AActor* OtherActor) override;
+	virtual void Tick(float DeltaSeconds) override;
 protected:
 	virtual void BeginPlay() override;
+
+
+public:
+	// 여기서 트레일, 대미지 활성화 등등 작업
+	virtual void Activate();
+	virtual void Deactivate();
+
+	/* 트레일 */
+public:
+	UFUNCTION(BlueprintNativeEvent)
+	float GetTrailWidth();
+protected:
+	FName TrailStart = NAME_None;
+	FName TrailEnd = NAME_None;;
 
 public:
 	TSubclassOf<UAttributeSet> GetAttributeSet();
@@ -194,6 +210,9 @@ protected:
 	FOnChargeChangedEvent OnChargeChangedEvent;
 
 	FTimerHandle AttackTimerHandle;
+
+public:
+	int32 GetEffectIndex() const;
 
 // 임시. WeaponTable만들고 Info와 Data를 가리키도록 변경해야 함
 public:

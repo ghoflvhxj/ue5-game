@@ -220,7 +220,7 @@ void UMAnimNotifyState_WeaponActive::NotifyBegin(USkeletalMeshComponent* MeshCom
 
 	if (AMCharacter* Character = Cast<AMCharacter>(MeshComp->GetOwner()))
 	{
-		Character->SetWeaponCollisionEnable(true);
+		Character->SetWeaponActivation(true);
 	}
 }
 
@@ -230,7 +230,7 @@ void UMAnimNotifyState_WeaponActive::NotifyEnd(USkeletalMeshComponent* MeshComp,
 
 	if (AMCharacter* Character = Cast<AMCharacter>(MeshComp->GetOwner()))
 	{
-		Character->SetWeaponCollisionEnable(false);
+		Character->SetWeaponActivation(false);
 	}
 }
 

@@ -184,6 +184,7 @@ public:
 	FTimerDelegate TestDelegate;
 public:
 	virtual UPrimitiveComponent* GetWeaponCollision();
+	void SetWeaponActivation(bool bActivate);
 	UFUNCTION(BlueprintNativeEvent)
 	void SetWeaponCollisionEnable(bool bInEnable);
 	UFUNCTION(BlueprintPure)
