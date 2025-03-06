@@ -65,6 +65,18 @@ UGameplayEffect_Reload::UGameplayEffect_Reload()
 	Modifiers.Add(ModifierInfo);
 }
 
+UGameplayEffect_AddAttackPower::UGameplayEffect_AddAttackPower()
+{
+	FGameplayModifierInfo ModifierInfo;
+	FSetByCallerFloat SetByCaller;
+
+	ModifierInfo.Attribute = Attribute = UMAttributeSet::GetAttackPowerAttribute();
+	ModifierInfo.ModifierOp = EGameplayModOp::Additive;
+	SetByCaller.DataTag = GetEffectValueTag();
+	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
+	Modifiers.Add(ModifierInfo);
+}
+
 UGameplayEffect_AddMoveSpeed::UGameplayEffect_AddMoveSpeed()
 {
 	FGameplayModifierInfo ModifierInfo;
@@ -153,3 +165,4 @@ UGameplayEffect_SetMaxHealth::UGameplayEffect_SetMaxHealth()
 	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
 	Modifiers.Add(ModifierInfo);
 }
+

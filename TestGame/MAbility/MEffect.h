@@ -9,6 +9,38 @@ class AWeapon;
 class AMCharacter;
 struct FGameplayTag;
 
+USTRUCT(BlueprintType)
+struct FEffectTableRow : public FTableRowBase
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	int32 Index = INDEX_NONE;
+
+	// 에디터 전용 설명
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FText Description;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FText Name;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FText Detail;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TSubclassOf<UGameplayEffect> EffectClass = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FSoftObjectPath Icon;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FSoftObjectPath FX;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FSoftObjectPath Sound;
+};
+
 UCLASS()
 class TESTGAME_API UGameplayEffect_Base : public UGameplayEffect
 {
@@ -78,6 +110,15 @@ UCLASS(Abstract)
 class TESTGAME_API UGameplayEffect_AddAttribute : public UGameplayEffect_Attribute
 {
 	GENERATED_BODY()
+};
+
+UCLASS()
+class TESTGAME_API UGameplayEffect_AddAttackPower : public UGameplayEffect_Attribute
+{
+	GENERATED_BODY()
+
+public:
+	UGameplayEffect_AddAttackPower();
 };
 
 UCLASS()
