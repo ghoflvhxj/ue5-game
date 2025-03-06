@@ -14,6 +14,7 @@ struct FSkillEnhanceTableRow;
 struct FActionTableRow;
 struct FPlayerCharacterTableRow;
 struct FDropTableRow;
+struct FEffectTableRow;
 
 UCLASS(Blueprintable)
 class TESTGAME_API UMGameInstance : public UGameInstance
@@ -64,6 +65,14 @@ public:
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	UDataTable* SkillEnhanceTable = nullptr;
+
+	// 이펙트 테이블
+public:
+	UFUNCTION(BlueprintPure, meta = (WorldContext = "Context"))
+	static const FEffectTableRow& GetEffectTableRow(UObject* Context, int32 InIndex);
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UDataTable* EffectTable = nullptr;
 
 	// 액션 테이블
 public:

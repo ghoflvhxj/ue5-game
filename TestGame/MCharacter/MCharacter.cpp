@@ -15,14 +15,15 @@
 #include "BehaviorTree/BehaviorTreeComponent.h"
 
 #include "TestGame/TestGame.h"
+#include "TestGame/MAbility/MAbilitySystemComponent.h"
+#include "TestGame/MAbility/MAbility.h"
+#include "TestGame/MAttribute/MAttribute.h"
 #include "Component/MBattleComponent.h"
 #include "Component/StateMachineComponent.h"
 #include "Component/ActionComponent.h"
 #include "TestGame/MComponents/InventoryComponent.h"
 #include "TestGame/MGameMode/MGameModeInGame.h"
 #include "TestGame/MCharacter/Component/InteractorComponent.h"
-#include "TestGame/MAttribute/MAttribute.h"
-#include "TestGame/MAbility/MAbility.h"
 #include "TestGame/MCharacter/MCharacterEnum.h"
 #include "TestGame/MWeapon/Weapon.h"
 #include "TestGame/MPlayerController/MPlayerController.h"
@@ -34,7 +35,7 @@ AMCharacter::AMCharacter()
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
-	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
+	AbilitySystemComponent = CreateDefaultSubobject<UMAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
 	AbilitySystemComponent->SetIsReplicated(true);
 
 	TeamComponent = CreateDefaultSubobject<UMTeamComponent>(TEXT("TeamComponent"));
@@ -75,7 +76,7 @@ void AMCharacter::BeginPlay()
 		if (HasAuthority())
 		{
 			AbilitySystemComponent->SetAvatarActor(this);
-			AbilitySetData->GiveAbilities(AbilitySystemComponent, AblitiyHandles);
+			AbilitySetData->GiveAbilities(AbilitySystemComponent);
 		}
 		 
 		AbilitySystemComponent->RegisterGameplayTagEvent(FGameplayTag::RequestGameplayTag("Character.Freeze"), EGameplayTagEventType::NewOrRemoved).AddUObject(this, &AMCharacter::Freeze);
@@ -280,36 +281,30 @@ void AMCharacter::RemoveAbilities(UMAbilityDataAsset* AbilityDataAsset)
 {
 	if (IsValid(AbilityDataAsset))
 	{
-		AbilityDataAsset->ClearAbilities(AbilitySystemComponent, AblitiyHandles);
+		AbilityDataAsset->ClearAbilities(AbilitySystemComponent);
 	}
 }
 
 FGameplayAbilitySpecHandle AMCharacter::GetAbilitySpecHandle(FGameplayTag InTag)
 {
-	FGameplayAbilitySpecHandle FoundAbilitySpecHandle;
-	if (AblitiyHandles.Contains(InTag))
-	{
-		FoundAbilitySpecHandle = AblitiyHandles[InTag];
-	}
-	else
-	{
-		TArray<FGameplayAbilitySpecHandle> AbilitySpecHandles;
-		AbilitySystemComponent->FindAllAbilitiesWithTags(AbilitySpecHandles, InTag.GetSingleTagContainer());
+	static FGameplayAbilitySpecHandle EmptyAbilitySpecHandle;
 
-		if (AbilitySpecHandles.Num() > 0)
-		{
-			FoundAbilitySpecHandle = AbilitySpecHandles[0];
-		}
+	TArray<FGameplayAbilitySpecHandle> AbilitySpecHandles;
+	AbilitySystemComponent->FindAllAbilitiesWithTags(AbilitySpecHandles, InTag.GetSingleTagContainer());
+
+	if (AbilitySpecHandles.Num() > 0)
+	{
+		return AbilitySpecHandles[0];
 	}
 
-	return FoundAbilitySpecHandle;
+	return EmptyAbilitySpecHandle;
 }
 
 UGameplayAbility* AMCharacter::GetAbility(FGameplayTag InTag)
 {
 	if (IsValid(AbilitySystemComponent))
 	{
-		FGameplayAbilitySpecHandle AbilitySpecHandle = GetAbilitySpecHandle(InTag);
+		const FGameplayAbilitySpecHandle& AbilitySpecHandle = GetAbilitySpecHandle(InTag);
 
 		if (AbilitySpecHandle.IsValid())
 		{
@@ -338,7 +333,7 @@ void AMCharacter::AddAbilities(UMAbilityDataAsset* InAbilitySet)
 		return;
 	}
 
-	InAbilitySet->GiveAbilities(AbilitySystemComponent, AblitiyHandles);
+	InAbilitySet->GiveAbilities(AbilitySystemComponent);
 }
 
 void AMCharacter::OnMoveSpeedChanged(const FOnAttributeChangeData& AttributeChangeData)
@@ -1021,39 +1016,4 @@ void AMCharacter::OnMontageStarted(UAnimMontage* InMontage)
 void AMCharacter::OnMontageEnded(UAnimMontage* InMontage, bool bInterrupted)
 {
 	bUpper = false;
-}
-
-void AMCharacter::LeaderboardTest()
-{
-//	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
-//	IOnlineLeaderboardsPtr Leaderboards = OnlineSubsystem->GetLeaderboardsInterface();
-//	if (Leaderboards == nullptr)
-//	{
-//		UE_LOG(LogTemp, Warning, TEXT("리더보드 인터페이스 없음"));
-//		return;
-//	}
-//\
-//	ReadObject = MakeShareable(new FOnlineLeaderboardRead());
-//	FOnlineLeaderboardReadRef ReadObjectRef = ReadObject.ToSharedRef();
-//	ReadObjectRef->LeaderboardName = FName(TEXT("GM0002Single"));
-//
-//	LeaderboardReadCompleteDelegate = FOnLeaderboardReadCompleteDelegate::CreateUObject(this, &AMCharacter::PrintLeaderboard);
-//	FDelegateHandle LeaderboardReadCompleteDelegateHandle = Leaderboards->AddOnLeaderboardReadCompleteDelegate_Handle(LeaderboardReadCompleteDelegate);
-//	Leaderboards->ReadLeaderboardsAroundRank(5, 3, ReadObjectRef);
-}
-
-void AMCharacter::PrintLeaderboard(bool b)
-{
-	//UE_LOG(LogTemp, Warning, TEXT("리더보드 프린트"));
-
-	//for (int32 RowIdx = 0; RowIdx < ReadObject->Rows.Num(); ++RowIdx)
-	//{
-	//	const FOnlineStatsRow& StatsRow = ReadObject->Rows[RowIdx];
-	//	UE_LOG_ONLINE_LEADERBOARD(Log, TEXT("   Leaderboard stats for: Nickname = %s, Rank = %d"), *StatsRow.NickName, StatsRow.Rank);
-
-	//	for (FStatsColumnArray::TConstIterator It(StatsRow.Columns); It; ++It)
-	//	{
-	//		UE_LOG_ONLINE_LEADERBOARD(Log, TEXT("     %s = %s"), *It.Key().ToString(), *It.Value().ToString());
-	//	}
-	//}
 }
