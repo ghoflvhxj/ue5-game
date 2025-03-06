@@ -1,7 +1,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "TestGame/TestGame.h"
 #include "GameplayCueNotify_Static.h"
 #include "GameplayCueNotify_Actor.h"
 #include "MCue.generated.h"
@@ -131,8 +130,8 @@ public:
 
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	UFXSystemAsset* Particle = nullptr;
-	mutable TMap<TWeakObjectPtr<AActor>, UFXSystemComponent*> Test;
+	class UFXSystemAsset* Particle = nullptr;
+	mutable TMap<TWeakObjectPtr<AActor>, class UFXSystemComponent*> Test;
 	mutable TMap<TWeakObjectPtr<AActor>, TWeakObjectPtr<AActor>> MapSoundHelper;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<AActor> SoundHelperClass = nullptr;

@@ -9,13 +9,17 @@
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "Abilities/Tasks/AbilityTask_PlayAnimAndWait.h"
 #include "Abilities/Tasks/AbilityTask_Repeat.h"
-#include "CollisionDebugDrawingPublic.h"
+#include "Engine/OverlapResult.h"
 
 #include "TestGame/MCharacter/Component/ActionComponent.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MCharacter/MPlayer.h"
 #include "TestGame/MCharacter/MMonster.h"
+#include "TestGame/MWeapon/Weapon.h"
+#include "TestGame/Bullet/Bullet.h"
 #include "TestGame/MAttribute/MAttribute.h"
+#include "TestGame/MPlayerController/MPlayerController.h"
+#include "TestGame/MAbility/MEffect.h"
 #include "TestGame/MComponents/DamageComponent.h"
 #include "SkillSubsystem.h"
 #include "MGameInstance.h"
@@ -128,16 +132,9 @@ void UGameplayAbility_Skill::OnActive_Implementation()
 			continue;
 		}
 
-		for (const TPair<FGameplayTag, float>& BuffParams : BuffInfo.TagToValue)
+		for (const TPair<FGameplayTag, float>& Param : BuffInfo.EffectParam.MapTagToValue)
 		{
-			FGameplayTag BuffParamTag = BuffParams.Key;
-			if (BuffInfo.TagToValue.Contains(BuffParamTag) == false)
-			{
-				UE_LOG(LogSkill, Error, TEXT("SkillID[%d], %s can't find %s In BuffInfo"), SkillIndex, *GetName(), *(BuffParamTag.ToString()));
-				continue;
-			}
-
-			EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, BuffParamTag, BuffInfo.TagToValue[BuffParamTag]);
+			EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, Param.Key, Param.Value);
 			ActiveEffectHandles.Add(ApplyGameplayEffectSpecToOwner(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, EffectSpecHandle));
 		}
 	}
@@ -146,9 +143,10 @@ void UGameplayAbility_Skill::OnActive_Implementation()
 	if (Duration > 0.f)
 	{
 		// Duration 이펙트
-		if (IsValid(DurationEffectClass))
+		const FEffectTableRow& DurationEffectTableRow = UMGameInstance::GetEffectTableRow(this, DurationEffectIndex);
+		if (IsValid(DurationEffectTableRow.EffectClass))
 		{
-			FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, DurationEffectClass);
+			FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpecWithIndex(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, DurationEffectTableRow.EffectClass, DurationEffectIndex);
 			EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, FGameplayTag::RequestGameplayTag("Effect.Duration"), Duration);
 			EffectSpecHandle.Data->AddDynamicAssetTag(DurationTag);
 			DurationEffectHandle = ApplyGameplayEffectSpecToOwner(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, EffectSpecHandle);
@@ -220,13 +218,12 @@ void UGameplayAbility_Skill::SetSkillIndex(int32 InIndex, FGameplayTag InSkillTa
 	// 버프 설정
 	for (const FBuffInfo& BuffInfo : SkillTableRow.BuffInfos)
 	{
-		if (IsValid(BuffInfo.EffectClass) == false)
+		if (BuffInfo.EffectIndex == INDEX_NONE)
 		{
 			continue;
 		}
 
-		MapEffectToParams.FindOrAdd(BuffInfo.EffectClass).Target = BuffInfo.Target;
-		MapEffectToParams.FindOrAdd(BuffInfo.EffectClass).MapParamToValue = BuffInfo.TagToValue;
+		MapEffectToParams.FindOrAdd(BuffInfo.EffectIndex) = BuffInfo.EffectParam;
 	}
 	
 	// 강화
@@ -263,11 +260,12 @@ void UGameplayAbility_Skill::SkillEnhance(int32 SkillEnhanceIndex)
 
 	AddParams(SkillEnhanceTableRow.Data);
 
-	for (const FBuffInfo& EffectParam : SkillEnhanceTableRow.EffectParams)
+	for (const FBuffInfo& BuffInfo : SkillEnhanceTableRow.EffectParams)
 	{
-		for (const auto& ParamToValuePair : EffectParam.TagToValue)
+		FGameplayEffectParam& TempEffectParam = MapEffectToParams.FindOrAdd(BuffInfo.EffectIndex);
+		for (const auto& TagToValuePair : BuffInfo.EffectParam.MapTagToValue)
 		{
-			MapEffectToParams.FindOrAdd(EffectParam.EffectClass).MapParamToValue.FindOrAdd(ParamToValuePair.Key) += ParamToValuePair.Value;
+			TempEffectParam.MapTagToValue.FindOrAdd(TagToValuePair.Key) += TagToValuePair.Value;
 		}
 	}
 }
@@ -279,17 +277,23 @@ void UGameplayAbility_Skill::ApplyEffectToTarget(AActor* InEffectCauser, AActor*
 	// 추가 GE
 	for (const auto& EffectToParams : MapEffectToParams)
 	{
+		const FEffectTableRow& EffectTableRow = UMGameInstance::GetEffectTableRow(this, EffectToParams.Key);
+		if (IsValid(EffectTableRow.EffectClass) == false)
+		{
+			continue;
+		}
+
 		if (EffectToParams.Value.Target != EIGameplayEffectTarget::Monster) // Monster 이름을 Target으로 변경해야 할듯. 오브젝트 타입을 설정은 별도로 만들어야 할 거 같다.
 		{
 			continue;
 		}
 
-		FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(EffectToParams.Key);
-		FGameplayEffectParam EffectParams = EffectToParams.Value;
-		for (const auto& ParamToValuePair : EffectParams.MapParamToValue)
+		FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(EffectTableRow.EffectClass);
+		for (const auto& ParamToValuePair : EffectToParams.Value.MapTagToValue)
 		{
 			EffectSpecHandle.Data.Get()->SetSetByCallerMagnitude(ParamToValuePair.Key, ParamToValuePair.Value);
 		}
+
 		ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, EffectSpecHandle, InTargetDataHandle);
 	}
 }
@@ -650,13 +654,13 @@ void UGameplayAbility_SwordWave::SpawnSwordWave()
 {
 	if (IsValid(BulletClass) == false)
 	{
-		UE_LOG(LogAttack, Warning, TEXT("Failed to spawn bullet. Class is empty."));
+		UE_LOG(LogSkill, Warning, TEXT("Failed to spawn bullet. Class is empty."));
 		return;
 	}
 
 	if (Character.IsValid() == false || BoundWeapon.IsValid() == false)
 	{
-		UE_LOG(LogAttack, Warning, TEXT("Failed to spawn bullet. Cahce data is invalid."));
+		UE_LOG(LogSkill, Warning, TEXT("Failed to spawn bullet. Cahce data is invalid."));
 		return;
 	}
 

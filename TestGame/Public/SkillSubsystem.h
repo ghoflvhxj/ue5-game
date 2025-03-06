@@ -31,7 +31,7 @@ public:
 
 	// GameplayEffect 적용 시 사용될 파라미터. ex) Effect.Value, 50
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TMap<FGameplayTag, float> MapParamToValue;
+	TMap<FGameplayTag, float> MapTagToValue;
 };
 
 USTRUCT(BlueprintType)
@@ -39,14 +39,24 @@ struct FBuffInfo // 이름이 흠
 {
 	GENERATED_BODY()
 
+	// DEPRECATED. 이펙트 테이블의 인덱스를 사용하도록 변경됨
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TSubclassOf<UGameplayEffect> EffectClass = nullptr;
 
+	// 이펙트 테이블의 인덱스
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 EffectIndex = INDEX_NONE;
+
+	// DEPRECATED. 이펙트 파람을 사용하도록 변경됨
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	EIGameplayEffectTarget Target;
 
+	// DEPRECATED. 이펙트 파람을 사용하도록 변경됨
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TMap<FGameplayTag, float> TagToValue;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FGameplayEffectParam EffectParam;
 };
 
 USTRUCT(BlueprintType)
@@ -61,12 +71,17 @@ struct FSkillTableRow : public FTableRowBase
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	FText Description;
 
-	// 이름
+	// 스킬 이름
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	FText Name;
 
+	// 스킬 설명
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	FText Detail;
+
+	// 스킬 툴팁
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FText Tooltip;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	TMap<FName, UAnimMontage*> NameToMontage;

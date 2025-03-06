@@ -281,68 +281,68 @@ bool UGameplayCue_CascadeParticle::OnRemove_Implementation(AActor* MyTarget, con
 
 bool UGameplayCue_SkillCoolDown::OnExecute_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const
 {
-	if (IsValid(MyTarget) == false)
-	{
-		return false;
-	}
+	//if (IsValid(MyTarget) == false)
+	//{
+	//	return false;
+	//}
 
-	APlayerController* LocalPlayerController = UGameplayStatics::GetPlayerController(this, 0);
-	APawn* ViewTarget = Cast<APawn>(LocalPlayerController->GetViewTarget());
-	if (IsValid(LocalPlayerController) == false || IsValid(ViewTarget) == false || ViewTarget != MyTarget)
-	{
-		return false;
-	}
+	//APlayerController* LocalPlayerController = UGameplayStatics::GetPlayerController(this, 0);
+	//APawn* ViewTarget = Cast<APawn>(LocalPlayerController->GetViewTarget());
+	//if (IsValid(LocalPlayerController) == false || IsValid(ViewTarget) == false || ViewTarget != MyTarget)
+	//{
+	//	return false;
+	//}
 
-	AMHudInGame* Hud = LocalPlayerController->GetHUD<AMHudInGame>();
-	if (IsValid(Hud) == false)
-	{
-		return false;
-	}
+	//AMHudInGame* Hud = LocalPlayerController->GetHUD<AMHudInGame>();
+	//if (IsValid(Hud) == false)
+	//{
+	//	return false;
+	//}
 
-	UAbilitySystemComponent* AbilitySystemComponent = ViewTarget->GetComponentByClass<UAbilitySystemComponent>();
-	if (IsValid(AbilitySystemComponent) == false)
-	{
-		return false;
-	}
+	//UAbilitySystemComponent* AbilitySystemComponent = ViewTarget->GetComponentByClass<UAbilitySystemComponent>();
+	//if (IsValid(AbilitySystemComponent) == false)
+	//{
+	//	return false;
+	//}
 
-	Hud->Test(AbilitySystemComponent, Parameters.AggregatedSourceTags.First());
+	//Hud->Test(AbilitySystemComponent, Parameters.AggregatedSourceTags.First());
 
 	return true;
 }
 
 bool UGameplayCue_SkillCoolDown::OnActive_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const
 {
-	if (IsValid(MyTarget) == false)
-	{
-		return false;
-	}
+	//if (IsValid(MyTarget) == false)
+	//{
+	//	return false;
+	//}
 
-	APlayerController* LocalPlayerController = UGameplayStatics::GetPlayerController(this, 0);
-	APawn* ViewTarget = Cast<APawn>(LocalPlayerController->GetViewTarget());
-	if (IsValid(LocalPlayerController) == false || IsValid(ViewTarget) == false || ViewTarget != MyTarget)
-	{
-		return false;
-	}
+	//APlayerController* LocalPlayerController = UGameplayStatics::GetPlayerController(this, 0);
+	//APawn* ViewTarget = Cast<APawn>(LocalPlayerController->GetViewTarget());
+	//if (IsValid(LocalPlayerController) == false || IsValid(ViewTarget) == false || ViewTarget != MyTarget)
+	//{
+	//	return false;
+	//}
 
-	AMHudInGame* Hud = LocalPlayerController->GetHUD<AMHudInGame>();
-	if (IsValid(Hud) == false)
-	{
-		return false;
-	}
+	//AMHudInGame* Hud = LocalPlayerController->GetHUD<AMHudInGame>();
+	//if (IsValid(Hud) == false)
+	//{
+	//	return false;
+	//}
 
-	UAbilitySystemComponent* AbilitySystemComponent = ViewTarget->GetComponentByClass<UAbilitySystemComponent>();
-	if (IsValid(AbilitySystemComponent) == false)
-	{
-		return false;
-	}
+	//UAbilitySystemComponent* AbilitySystemComponent = ViewTarget->GetComponentByClass<UAbilitySystemComponent>();
+	//if (IsValid(AbilitySystemComponent) == false)
+	//{
+	//	return false;
+	//}
 
-	FGameplayTagContainer AbilityTags = Parameters.AggregatedSourceTags.Filter(FGameplayTag::RequestGameplayTag("Ability").GetSingleTagContainer());
-	if (AbilityTags.IsEmpty())
-	{
-		return false;
-	}
+	//FGameplayTagContainer AbilityTags = Parameters.AggregatedSourceTags.Filter(FGameplayTag::RequestGameplayTag("Ability").GetSingleTagContainer());
+	//if (AbilityTags.IsEmpty())
+	//{
+	//	return false;
+	//}
 
-	Hud->Test(AbilitySystemComponent, AbilityTags.GetByIndex(0));
+	//Hud->Test(AbilitySystemComponent, AbilityTags.GetByIndex(0));
 
 	return true;
 }

@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
+#include "TestGame/MGameState/MGameStateInGame.h"
 #include "MonsterSpawner.generated.h"
 
 class URoundComponent;

@@ -68,8 +68,8 @@ protected:
 public:
 	virtual void ApplyEffectToTarget(AActor* InEffectCauser, AActor* InTarget, const FGameplayAbilityTargetDataHandle& InTargetDataHandle) override;
 protected:
-	// 피해 대상에게 입힐 추가적인 GE 정보로 테이블에서 추출해 옴. ex) 슬로우
-	TMap<TSubclassOf<UGameplayEffect>, FGameplayEffectParam> MapEffectToParams;
+	// GE에 대한 파라미터 ex) 슬로우 수치, 시간 등
+	TMap<int32, FGameplayEffectParam> MapEffectToParams;
 	// 테이블에 설정된 버프 이펙트들의 핸들
 	UPROPERTY(BlueprintReadOnly)
 	TArray<FActiveGameplayEffectHandle> ActiveEffectHandles;
@@ -79,9 +79,12 @@ public:
 	UFUNCTION(BlueprintPure)
 	FActiveGameplayEffectHandle GetDurationEffectHandle() { return DurationEffectHandle; }
 protected:
-	// 어빌리티가 유지되는 동안 적용되는 GE 클래스 입니다.
+	// 어빌리티가 유지되는 동안 적용되는 GE 클래스 입니다. DPRECATED 대신 DurationEffectIndex를 사용하세요
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<UGameplayEffect> DurationEffectClass = nullptr;
+
+	UPROPERTY(EditDefaultsOnly)
+	int32 DurationEffectIndex = INDEX_NONE;
 
 	UPROPERTY(BlueprintReadOnly)
 	FActiveGameplayEffectHandle DurationEffectHandle;
