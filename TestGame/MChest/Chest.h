@@ -30,7 +30,7 @@ public:
 	virtual void NotifyActorBeginOverlap(AActor* OtherActor) override;
 
 protected:
-	UFUNCTION(BlueprintImplementableEvent)
+	UFUNCTION(BlueprintImplementableEvent, BlueprintPure)
 	FVector GetItemSpawnLocation();
 
 public:
@@ -41,4 +41,10 @@ public:
 protected:
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly)
 	bool bDestructed = false;
+
+protected:
+	UPROPERTY(EditDefaultsOnly)
+	bool bUseDrop = false;
+	UPROPERTY(EditDefaultsOnly)
+	int32 DropIndex = INDEX_NONE;
 };

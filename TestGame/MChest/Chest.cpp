@@ -74,7 +74,15 @@ void ADestructableActor::Destruct_Implementation(AActor* Desturctor)
 		//const FTransform& PhysicsObjectTransform = UPhysicsObjectBlueprintLibrary::GetPhysicsObjectWorldTransform(GeometryCollectionComponent, NAME_None);
 		//GameMode->PopItem(PhysicsObjectTransform.GetLocation(), Desturctor);
 
-		GameMode->PopItem(GetItemSpawnLocation(), Desturctor);
+		if (bUseDrop)
+		{
+			GameMode->DropItem(FTransform(GetItemSpawnLocation()), DropIndex);
+		}
+		else
+		{
+			GameMode->PopItem(GetItemSpawnLocation(), Desturctor);
+		}
+		
 		SetLifeSpan(5.f);
 	}
 
