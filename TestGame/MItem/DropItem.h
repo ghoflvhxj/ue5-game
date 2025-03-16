@@ -57,10 +57,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FSoftObjectPath DefaultMeshPath;
 
-public:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TSubclassOf<AWeapon> WeaponClass = nullptr;
-
 protected:
 	bool bGoToInteractor = false;
 	float FollowingElapsedTime = 0.f;

@@ -4,6 +4,7 @@
 #include "AbilitySystemBlueprintLibrary.h"
 #include "NiagaraSystem.h"
 #include "NiagaraComponent.h"
+#include "Engine/AssetManager.h"
 
 #include "CharacterLevelSubSystem.h"
 #include "TestGame/MAbility/MAbilitySystemGlobals.h"
@@ -62,6 +63,21 @@ void ADropItem::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEve
 void ADropItem::BeginPlay()
 {
 	Super::BeginPlay();
+
+	const FGameItemTableRow& ItemBaseInfo = GetItemTableRowImplement();
+	switch (ItemBaseInfo.GameItemInfo.ItemType)
+	{
+		case EItemType::Weapon:
+		{
+			const FWeaponData& WeaponTableRow = UMGameInstance::GetWeaponTableRow(this, ItemIndex);
+			UAssetManager::GetStreamableManager().RequestAsyncLoad(WeaponTableRow.WeaponClass.ToSoftObjectPath(), []() {});
+
+			//WeaponTableRow.WeaponData.WeaponClass;
+		}
+		break;
+		default:
+		break;
+	}
 
 	if (IsValid(InteractorComponent))
 	{
@@ -127,6 +143,8 @@ void ADropItem::BeginPlay()
 					{
 						AbilitySystemComponent->ApplyGameplayEffectSpecToTarget(*EffectSpecHandle.Data.Get(), Target);
 					}
+
+					Interactor->MakeEffectCue(BuffInfo.EffectIndex);
 				}
 
 				// 아이템 능력 적용
@@ -169,24 +187,21 @@ void ADropItem::BeginPlay()
 				break;
 				case EItemType::Exp:
 				{
-					GetWorld()->GetSubsystem<UCharacterLevelSubSystem>()->AddExperiance(Interactor, 1); 
+					FGameplayTag EffectValueTag = FGameplayTag::RequestGameplayTag("Effect.Value");
+					if (ItemBaseInfo->GameItemData.InitialParams.Contains(EffectValueTag))
+					{
+						if (ULevelComponent* LevelComponent = Interactor->GetComponentByClass<ULevelComponent>())
+						{
+							LevelComponent->AddExperiance(ItemBaseInfo->GameItemData.InitialParams[EffectValueTag]);
+						}
+					}
 				}
 				break;
 				case EItemType::Weapon:
 				{
 					// 장비 장착하는 거 EquipComponent로 분리하고, 그 컴포넌트를 사용하는 것으로 바꾸기
-					if (AWeapon* Weapon = Cast<AWeapon>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, WeaponClass, Interactor->GetActorTransform(), ESpawnActorCollisionHandlingMethod::AlwaysSpawn, Interactor)))
-					{
-						Weapon->SetInstigator(Interactor);
-						Weapon->SetWeaponIndex(ItemBaseInfo->Index);
-						UGameplayStatics::FinishSpawningActor(Weapon, Interactor->GetActorTransform());
-						Weapon->SetEquipActor(Interactor);
+					Interactor->EquipItem(ItemIndex);
 
-						if (IsNetMode(NM_Client)) // 아이템 획득은 서버에서만 처리하고 있어서 의미가 없음
-						{
-							SetLifeSpan(0.3f);
-						}
-					}
 				}
 				break;
 				case EItemType::Common:
@@ -236,7 +251,7 @@ TArray<UAbilitySystemComponent*> ADropItem::GetItemEffectTargets(const FGameplay
 
 	switch (InEffectParam.Target)
 	{
-		case EIGameplayEffectTarget::Player:
+		case EIGameplayEffectTarget::Self:
 		{
 			AMCharacter* Interactor = InteractorComponent->GetInteractor<AMCharacter>();
 			if (IsValid(Interactor) == false)
@@ -303,6 +318,22 @@ TArray<UAbilitySystemComponent*> ADropItem::GetItemEffectTargets(const FGameplay
 void ADropItem::OnRep_ItemIndex()
 {
 	Super::OnRep_ItemIndex();
+
+	const FGameItemTableRow& ItemBaseInfo = GetItemTableRowImplement();
+	switch (ItemBaseInfo.GameItemInfo.ItemType)
+	{
+		case EItemType::Weapon:
+		{
+			const FWeaponData& WeaponTableRow = UMGameInstance::GetWeaponTableRow(this, ItemIndex);
+			UAssetManager::GetStreamableManager().RequestAsyncLoad(WeaponTableRow.WeaponClass.ToSoftObjectPath(), []() {});
+
+			//WeaponTableRow.WeaponData.WeaponClass;
+		}
+		break;
+		default:
+		break;
+	}
+	
 
 	UpdateItemMesh();
 }

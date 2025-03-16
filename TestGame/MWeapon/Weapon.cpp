@@ -67,6 +67,8 @@ void AWeapon::OnConstruction(const FTransform& Transform)
 
 void AWeapon::Tick(float DeltaSeconds)
 {
+	Super::Tick(DeltaSeconds);
+
 	if (UNiagaraComponent* TrailComponent = GetComponentByClass<UNiagaraComponent>())
 	{
 		TrailComponent->SetFloatParameter(TEXT("TrailWidth"), GetTrailWidth());
@@ -100,21 +102,32 @@ void AWeapon::Activate()
 	SetActorEnableCollision(true);
 	SetActorTickEnabled(true);
 
+	UE_LOG(LogTemp, Warning, TEXT("ghoflvhxj WeaponActivate"));
+
 	if (IsValid(DamageComponent))
 	{
-		DamageComponent->Reset();
+		DamageComponent->Activate(true);
 	}
 
 	if (UNiagaraComponent* TrailComponent = GetComponentByClass<UNiagaraComponent>())
 	{
-		TrailComponent->ActivateSystem();
+		TrailComponent->Activate(true);
 	}
+
+	ClearComponentOverlaps();
 }
 
 void AWeapon::Deactivate()
 {
 	SetActorEnableCollision(false);
 	SetActorTickEnabled(false);
+
+	UE_LOG(LogTemp, Warning, TEXT("ghoflvhxj WeaponDeactivate"));
+
+	if (IsValid(DamageComponent))
+	{
+		DamageComponent->Reset();
+	}
 
 	if (UNiagaraComponent* TrailComponent = GetComponentByClass<UNiagaraComponent>())
 	{
@@ -180,12 +193,11 @@ void AWeapon::SetEquipActor(AActor* EquipActor)
 
 	if (AMCharacter* Character = Cast<AMCharacter>(EquipActor))
 	{
-		EquipChangedHandle = Character->OnWeaponChangedEvent.AddUObject(this, &AWeapon::OnEquipmentChanged);
-		Character->EquipItem(this);
+		EquipChangedHandle = Character->OnWeaponChangedEvent.AddUObject(this, &AWeapon::UpdateAbility);
 	}
 }
 
-void AWeapon::OnEquipmentChanged(AActor* OldWeapon, AActor* NewWeapon)
+void AWeapon::UpdateAbility(AActor* OldWeapon, AActor* NewWeapon)
 {
 	AMCharacter* Character = Cast<AMCharacter>(GetOwner());
 	if (IsValid(Character) == false)
@@ -316,13 +328,6 @@ void AWeapon::NextCombo()
 		CharacterAbilityComponent->GetNumericAttribute(UMAttributeSet::GetAttackSpeedAttribute());
 	}
 
-	// 임시작업, 공격속도 어트리뷰트를 가져오도록 변경해야 함
-	// 공격속도가 빨라진다 = AttackSpeed 증가를 의미하는데 이게 맞는건가?
-	//if (WeaponData->AttackSpeed > 0.f)
-	//{
-	//	GetWorldTimerManager().SetTimer(AttackTimerHandle, this, &AWeapon::OnAttackCoolDownFinished, WeaponData->AttackSpeed, false);
-	//}
-
 	if (WeaponData->WeaponType == EWeaponType::Sword)
 	{
 		if (AttackMode == FGameplayTag::RequestGameplayTag("Action.Attack.Light") || AttackMode == FGameplayTag::RequestGameplayTag("Action.Attack.ChargeLight"))
@@ -334,8 +339,6 @@ void AWeapon::NextCombo()
 
 		}
 	}
-
-	ClearComponentOverlaps();
 
 	bCoolDown = true;
 	Combo = IsComboableWeapon() && IsComboable() ? Combo + 1 : 0;
@@ -365,6 +368,10 @@ bool AWeapon::IsAttackable() const
 		return false;
 	}
 
+	if (IsCoolDown())
+	{
+		return false;
+	}
 
 	if (WeaponData->WeaponType == EWeaponType::Gun)
 	{

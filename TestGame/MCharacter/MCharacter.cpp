@@ -551,23 +551,33 @@ bool AMCharacter::IsWeaponEquipped() const
 	return true;
 }
 
-void AMCharacter::EquipItem(AActor* InItem)
+void AMCharacter::EquipItem(int32 InItemIndex)
 {
-	if (Item != InItem)
+	if (HasAuthority() == false)
 	{
-		AActor* OldWeapon = Item;
-		Item = InItem;
-		OnWeaponChangedEvent.Broadcast(OldWeapon, InItem);
+		return;
+	}
 
-		if (AWeapon* Weapon = GetEquipItem<AWeapon>())
+	if (AWeapon* CurrentWeapon = Cast<AWeapon>(Item))
+	{
+		if (CurrentWeapon->GetWeaponIndex() == InItemIndex)
 		{
-			Weapon->GetOnChargeChangedEvent().AddWeakLambda(this, [this](bool bCharged) {
-				if (IsValid(NiagaraComponent))
-				{
-					NiagaraComponent->Activate(bCharged);
-				}
-			});
+			return;
 		}
+	}
+
+	const FWeaponData& WeaponTableRow = UMGameInstance::GetWeaponTableRow(this, InItemIndex);
+	WeaponTableRow.WeaponClass.LoadSynchronous();
+	if (AWeapon* NewWeapon = Cast<AWeapon>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, WeaponTableRow.WeaponClass.Get(), GetActorTransform(), ESpawnActorCollisionHandlingMethod::AlwaysSpawn, this)))
+	{
+		NewWeapon->SetInstigator(this);
+		NewWeapon->SetWeaponIndex(InItemIndex);
+		UGameplayStatics::FinishSpawningActor(NewWeapon, GetActorTransform());
+		NewWeapon->SetEquipActor(this);
+
+		OnWeaponChangedEvent.Broadcast(Item, NewWeapon);
+
+		Item = NewWeapon;
 	}
 }
 

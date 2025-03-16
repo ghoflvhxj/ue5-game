@@ -189,6 +189,7 @@ public:
 	FOnWeaponChangedEvent OnWeaponChangedEvent;
 	FTimerDelegate TestDelegate;
 public:
+	UFUNCTION(BlueprintPure)
 	virtual UPrimitiveComponent* GetWeaponCollision();
 	void SetWeaponActivation(bool bActivate);
 	UFUNCTION(BlueprintNativeEvent)
@@ -198,7 +199,7 @@ public:
 	UFUNCTION(BlueprintPure)
 	bool IsWeaponEquipped() const;
 	UFUNCTION(BlueprintCallable)
-	void EquipItem(AActor* InItem);
+	void EquipItem(int32 InItemIndex);
 	FName GetEquipSocketName();
 	UFUNCTION(BlueprintPure)
 	bool GetWeaponData(FWeaponData& OutWeaponData);

@@ -91,6 +91,9 @@ struct FWeaponData : public FTableRowBase
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 EffectIndex = INDEX_NONE;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TSoftClassPtr<AWeapon> WeaponClass = nullptr;
 };
 
 USTRUCT(BlueprintType)
@@ -149,7 +152,7 @@ protected:
 
 public:
 	void SetEquipActor(AActor* EquipActor);
-	void OnEquipmentChanged(AActor* OldWeapon, AActor* NewWeapon);
+	void UpdateAbility(AActor* OldWeapon, AActor* NewWeapon);
 	void ChangeWeaponScale(const FOnAttributeChangeData& AttributeChangeData);
 protected:
 	FDelegateHandle EquipChangedHandle;
@@ -157,6 +160,8 @@ protected:
 	// WeaponIndex
 public:
 	void SetWeaponIndex(int32 ItemIndex);
+public:
+	const int32 GetWeaponIndex() const { return WeaponIndex; }
 	const FWeaponData* GetWeaponData() const;
 	const FGameItemTableRow* GetItemTableRow() const;
 public:
