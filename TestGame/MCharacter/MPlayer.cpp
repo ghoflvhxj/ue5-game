@@ -114,9 +114,10 @@ void AMPlayer::OnStartAnimFinished_Implementation(UAnimMontage* Montage, bool bI
 	Super::OnStartAnimFinished_Implementation(Montage, bInterrupted);
 
 	UEnhancedInputComponent* EnhancedInputComponent = GetComponentByClass<UEnhancedInputComponent>();
-	if (IsValid(StartInputAction) && IsValid(EnhancedInputComponent))
+	if (IsValid(StartInputAction) && IsValid(EnhancedInputComponent) && InputHandle != nullptr)
 	{
 		EnhancedInputComponent->RemoveBindingByHandle(InputHandle->GetHandle());
+		InputHandle = nullptr;
 	}
 }
 
@@ -201,6 +202,22 @@ void AMPlayer::RemoveGameplayEffect(const FActiveGameplayEffect& InRemovedGamepl
 	}
 
 	Hud->UpdateByGameplayEffect(GetAbilitySystemComponent(), InRemovedGameplayEffect);
+}
+
+int32 AMPlayer::GetEffectIndex(const FGameplayTag& InTag) const
+{
+	const FPlayerCharacterTableRow& PCTableRow = GetPlayerCharacterTableRow();
+	return PCTableRow.MapTagToEffectIndex.Contains(InTag) ? PCTableRow.MapTagToEffectIndex[InTag] : INDEX_NONE;
+}
+
+FPlayerCharacterTableRow AMPlayer::GetPlayerCharacterTableRow() const
+{
+	if (AMPlayerState* MPlayerState = GetPlayerState<AMPlayerState>())
+	{
+		return UMGameInstance::GetPlayerCharacterTableRow(GetWorld(), MPlayerState->GetCharacterIndex());
+	}
+	
+	return FPlayerCharacterTableRow::Empty;
 }
 
 int32 AMPlayer::GetCharacterIndex()

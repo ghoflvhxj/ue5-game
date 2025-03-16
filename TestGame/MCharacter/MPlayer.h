@@ -45,6 +45,10 @@ struct FPlayerCharacterTableRow : public FTableRowBase
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FSoftObjectPath Icon;
+
+	// 캐릭터 상황에 따른 실행할 EffectIndex
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TMap<FGameplayTag, int32> MapTagToEffectIndex;
 };
 
 UCLASS()
@@ -68,6 +72,7 @@ protected:
 	virtual void BeginPlay() override;
 public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	// 서버에서 플레이어 초기화 하는 함수
 	virtual void SetPlayerDefaults() override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
@@ -78,6 +83,7 @@ public:
 	virtual void OnStartAnimFinished_Implementation(UAnimMontage* Montage, bool bInterrupted) override;
 
 public:
+	FPlayerCharacterTableRow GetPlayerCharacterTableRow() const;
 	virtual int32 GetCharacterIndex() override;
 
 	// 시작 애님 관련
@@ -112,10 +118,13 @@ public:
 protected:
 	FOnSkillEnhancedDelegate OnSkillEnhancedDelegate;
 
-/* GAS Effect */
+/* AbilitySystem 관련 */
 public:
 	void UpdateGameplayEffect(UAbilitySystemComponent* InAbilitySystemCoponent, const FGameplayEffectSpec& InGameplayEffectSpec, FActiveGameplayEffectHandle InActiveGameplayEffectHandle);
 	void RemoveGameplayEffect(const FActiveGameplayEffect& InRemovedGameplayEffect);
+	
+public:
+	virtual int32 GetEffectIndex(const FGameplayTag& InTag) const override;
 };
 
 // 차징 공격 등의 경우 MoveBlock 태그가 부여되면서 이동 어빌리티가 막히기 때문에 Input이 캐싱이 안되는 경우가 있는데, 이 문제를 해결할 컴포넌트
