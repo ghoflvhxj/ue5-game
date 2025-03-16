@@ -18,37 +18,62 @@ void UMDamageComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	IgnoreActors.Add(GetOwner()->GetInstigator());
-	IgnoreActors.Add(GetOwner()->GetOwner());
-
-	if (bApplyDamageOnOverlap)
+	if (AActor* Owner = GetOwner())
 	{
-		GetOwner()->OnActorBeginOverlap.AddDynamic(this, &UMDamageComponent::TryGiveDamage);
-		GetOwner()->OnActorEndOverlap.AddDynamic(this, &UMDamageComponent::DiscardTarget);
-	}
+		IgnoreActors.Add(Owner->GetInstigator());
+		IgnoreActors.Add(Owner->GetOwner());
+		IgnoreActors.Add(Owner);
 
-	OwnerCapsule = GetOwner()->GetComponentByClass<UCapsuleComponent>();
+		if (bApplyDamageOnOverlap)
+		{
+			Owner->OnActorBeginOverlap.AddDynamic(this, &UMDamageComponent::TryGiveDamage);
+			Owner->OnActorEndOverlap.AddDynamic(this, &UMDamageComponent::HoldTarget);
+		}
+
+		OwnerCapsule = GetOwner()->GetComponentByClass<UCapsuleComponent>();
+
+		AActor* TempInstigator = Owner;
+		while (IsValid(TempInstigator))
+		{
+			APawn* NewInst = TempInstigator->GetInstigator();
+			if (IsValid(NewInst) && NewInst != TempInstigator)
+			{
+				TempInstigator = NewInst;
+			}
+			else
+			{
+				break;
+			}
+		}
+
+		DamageInstigator = Cast<APawn>(TempInstigator);
+	}
 
 	if (IsValid(DamageEffectClass) == false)
 	{
 		DamageEffectClass = UGameplayEffect_Damage::StaticClass();
 	}
+}
 
-	AActor* TempInstigator = GetOwner();
-	while (IsValid(TempInstigator))
+void UMDamageComponent::Activate(bool bReset /*= false*/)
+{
+	Super::Activate(bReset);
+	SetComponentTickEnabled(Period > 0.f);
+	bDamagable = true;
+
+	TSet<AActor*> OverlapActors;
+	GetOwner()->GetOverlappingActors(OverlapActors);
+
+	for (AActor* OverlapActor : OverlapActors)
 	{
-		APawn* NewInst = TempInstigator->GetInstigator();
-		if (IsValid(NewInst) && NewInst != TempInstigator)
-		{
-			TempInstigator = NewInst;
-		}
-		else
-		{
-			break;
-		}
+		GiveDamage(OverlapActor);
 	}
+}
 
-	DamageInstigator = Cast<APawn>(TempInstigator);
+void UMDamageComponent::Deactivate()
+{
+	Super::Deactivate();
+	bDamagable = false;
 }
 
 void UMDamageComponent::TryGiveDamage(AActor* OverlappedActor, AActor* OtherActor)
@@ -58,6 +83,14 @@ void UMDamageComponent::TryGiveDamage(AActor* OverlappedActor, AActor* OtherActo
 
 bool UMDamageComponent::GiveDamage(AActor* OtherActor)
 {
+	if (AMCharacter* Character = Cast<AMCharacter>(GetOwner()))
+	{
+		if (Character->IsDead())
+		{
+			return false;
+		}
+	}
+
 	if (IsReactable(OtherActor))
 	{
 		React(OtherActor);
@@ -67,7 +100,7 @@ bool UMDamageComponent::GiveDamage(AActor* OtherActor)
 	return false;
 }
 
-void UMDamageComponent::DiscardTarget(AActor* OverlappedActor, AActor* OtherActor)
+void UMDamageComponent::HoldTarget(AActor* OverlappedActor, AActor* OtherActor)
 {
 	AGameStateBase* GameState = UGameplayStatics::GetGameState(this);
 	if (IsValid(GameState) == false)
@@ -75,12 +108,7 @@ void UMDamageComponent::DiscardTarget(AActor* OverlappedActor, AActor* OtherActo
 		return;
 	}
 
-	MapTargetToLastDamageTime.Remove(OtherActor);
-
-	// 멀티플레이 환경에서 대미지가 한번에 여러 번 들어가는 걸 방지하기 위함
-	// 주기가 없이 한번만 때리는 것은 홀딩하고
-	// 주기가 있다면 주기에 맡김 
-	if (Period == 0.f)
+	if (MapTargetToLastDamageTime.Contains(OtherActor))
 	{
 		MapTargetToDamageHold.Add(OtherActor, GameState->GetServerWorldTimeSeconds());
 	}
@@ -116,14 +144,15 @@ void UMDamageComponent::React(AActor* InActor)
 		//}
 
 		MapTargetToLastDamageTime.FindOrAdd(InActor) = GameState->GetServerWorldTimeSeconds();
-
 		++MapTargetToDamageCount.FindOrAdd(InActor);
-
-		// 주기가 0이면 바로 홀딩 대상으로 인식
+		
+		// 한번만 때리고 싶은데 서버/클라 환경에서 여러번 때리는 경우를 방지하기 위해 바로 홀딩함
 		if (Period == 0.f)
 		{
 			MapTargetToDamageHold.FindOrAdd(InActor) = GameState->GetServerWorldTimeSeconds();
 		}
+
+		UE_LOG(LogTemp, Warning, TEXT("ghoflvhxj GiveDamage %s -> %s"), *GetName(), *InActor->GetName());
 	}
 
 	GetOnDamageEvent().Broadcast(OwnerActor, InActor);
@@ -189,7 +218,7 @@ bool UMDamageComponent::IsReactable(AActor* InActor)
 		return false;
 	}
 
-	if (MapTargetToDamageHold.Contains(InActor))
+	if (MapTargetToDamageHold.Contains(InActor) && Period == 0.f)
 	{
 		return false;
 	}
@@ -208,7 +237,14 @@ void UMDamageComponent::Reset()
 	MapTargetToLastDamageTime.Empty();
 	MapTargetToDamageHold.Empty();
 
-	bDamagable = true;
+	Deactivate();
+}
+
+void UMDamageComponent::SetPeriod(float InValue)
+{
+	Period = InValue;
+
+	SetComponentTickEnabled(Period > 0.f);
 }
 
 void UMDamageComponent::SetDamageParams(const TMap<FGameplayTag, float>& InParams)
@@ -239,6 +275,7 @@ void UMDamageComponent::TickComponent(float DeltaTime, enum ELevelTick TickType,
 	}
 
 	// 홀딩 제거 로직
+	TArray<AActor*> OutTargetsOfHoldDistance;
 	if (OwnerCapsule.IsValid())
 	{
 		for (auto Iterator = MapTargetToDamageHold.CreateIterator(); Iterator; ++Iterator)
@@ -246,23 +283,34 @@ void UMDamageComponent::TickComponent(float DeltaTime, enum ELevelTick TickType,
 			AActor* Actor = Iterator.Key();
 			if (IsValid(Actor) == false)
 			{
-				Iterator.RemoveCurrent();
+				continue;
+			}
+
+			if (Actor->IsOverlappingActor(GetOwner()))
+			{
 				continue;
 			}
 
 			if (UCapsuleComponent* DamagedCapsule = Actor->GetComponentByClass<UCapsuleComponent>())
 			{
 				// 거리 검사
+				UE_LOG(LogTemp, Warning, TEXT("ActorDist:%f, HoldLenght:%f"), GetOwner()->GetHorizontalDistanceTo(Actor), OwnerCapsule->GetScaledCapsuleRadius() + DamagedCapsule->GetScaledCapsuleRadius() + HoldDistance);
 				if (GetOwner()->GetHorizontalDistanceTo(Actor) > OwnerCapsule->GetScaledCapsuleRadius() + DamagedCapsule->GetScaledCapsuleRadius() + HoldDistance)
 				{
-					Iterator.RemoveCurrent();
-					continue;
+					OutTargetsOfHoldDistance.Add(Actor);
 				}
 			}
 		}
 	}
 
-	for (auto& Pair : MapTargetToLastDamageTime)
+	for (AActor* DiscardTarget : OutTargetsOfHoldDistance)
+	{
+		//MapTargetToLastDamageTime.Remove(DiscardTarget);
+		MapTargetToDamageCount.Remove(DiscardTarget);
+		MapTargetToDamageHold.Remove(DiscardTarget);
+	}
+
+	for (auto& Pair : MapTargetToDamageHold)
 	{
 		GiveDamage(Pair.Key);
 	}

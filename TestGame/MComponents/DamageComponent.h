@@ -22,14 +22,15 @@ protected:
 	virtual void BeginPlay() override;
 public:
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
-
+	virtual void Activate(bool bReset = false) override;
+	virtual void Deactivate() override;
 public:
 	UFUNCTION(BlueprintCallable)
 	void TryGiveDamage(AActor* OverlappedActor, AActor* OtherActor);
 	UFUNCTION(BlueprintCallable)
 	bool GiveDamage(AActor* OtherActor);
 	UFUNCTION()
-	void DiscardTarget(AActor* OverlappedActor, AActor* OtherActor);
+	void HoldTarget(AActor* OverlappedActor, AActor* OtherActor);
 	virtual void React(AActor* InActor);
 	bool IsReactable(AActor* InActor);
 protected:
@@ -47,15 +48,19 @@ protected:
 public:
 	UFUNCTION(BlueprintCallable)
 	void Reset();
+	UFUNCTION(BlueprintCallable)
+	void SetPeriod(float InValue);
 protected:
 	// 대미지 입힐 수 있는지 여부. ex) 근접 무기는 활성화 전에는 대미지 적용되지 않게 만듬
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	bool bDamagable = false;
 
 	// 입힌 대미지 횟수를 저장
+	UPROPERTY()
 	TMap<AActor*, int32> MapTargetToDamageCount;
 
 	// 마지막으로 입힌 대미지 시간을 저장
+	UPROPERTY()
 	TMap<AActor*, float> MapTargetToLastDamageTime;
 
 	// 대미지 주기
@@ -66,13 +71,19 @@ protected:
 	UPROPERTY(EditDefaultsOnly)
 	int32 DamageApplyMaxCount = 1;
 
-	// 멀티플레이 환경에서 대미지가 의도치 않게 여러 번 적용되는 경우을 방지하는 용도. 이 거리만큼 벌어져야 다시 대미지를 입힐 수 있음.
+/* 멀티플레이 환경에서 대미지가 의도치 않게 여러 번 적용되는 경우을 방지하는 '홀드'기능 */ 
+protected:
+	// 홀드 거리. 이 거리 이상으로 벌어지지 않으면 홀드함.
 	UPROPERTY(EditDefaultsOnly)
 	float HoldDistance = 20.f;
+	// 홀드 시간. 사용되지 않음
 	UPROPERTY(EditDefaultsOnly)
 	float HoldTime = 0.1f;
+	// 홀드맵
+	UPROPERTY()
 	TMap<AActor*, float> MapTargetToDamageHold;
 
+protected:
 	TWeakObjectPtr<UCapsuleComponent> OwnerCapsule = nullptr;
 
 public:
