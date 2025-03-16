@@ -38,6 +38,8 @@ void AMPlayer::BeginPlay()
 		AbilitySystemComponent->OnActiveGameplayEffectAddedDelegateToSelf.AddUObject(this, &AMPlayer::UpdateGameplayEffect);
 		AbilitySystemComponent->OnAnyGameplayEffectRemovedDelegate().AddUObject(this, &AMPlayer::RemoveGameplayEffect);
 	}
+
+	EquipItem(0);
 }
 
 void AMPlayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
