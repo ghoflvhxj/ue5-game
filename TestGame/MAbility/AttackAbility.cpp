@@ -96,6 +96,8 @@ bool UGameplayAbility_AttackBase::PlayAttackMontage()
 			PlayMontageTask->OnBlendOut.AddDynamic(this, &UGameplayAbility_AttackBase::OnMontageFinished);
 			PlayMontageTask->OnInterrupted.AddDynamic(this, &UGameplayAbility_AttackBase::OnMontageFinished);
 
+			UE_LOG(LogTemp, Warning, TEXT("ghoflvhxj PlayAttackMontage"));
+
 			PlayMontageTask->ReadyForActivation();
 			return true;
 		}
@@ -167,16 +169,16 @@ void UGameplayAbility_BasicAttack::ActivateAbility(const FGameplayAbilitySpecHan
 
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
-	if (const FWeaponData* WeaponData = Weapon->GetWeaponData())
-	{
-		// 임시작업. 무기마다 다른 이펙트가 들어갈 수 있음.
-		if (WeaponData->WeaponType == EWeaponType::Gun)
-		{
-			FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(UGameplayEffect_AddMoveSpeed::StaticClass());
-			EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, GetEffectValueTag(), -300.f);
-			ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, EffectSpecHandle);
-		}
-	}
+	//if (const FWeaponData* WeaponData = Weapon->GetWeaponData())
+	//{
+	//	// 임시작업. 무기마다 다른 이펙트가 들어갈 수 있음.
+	//	if (WeaponData->WeaponType == EWeaponType::Gun)
+	//	{
+	//		FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(UGameplayEffect_AddMoveSpeed::StaticClass());
+	//		EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, GetEffectValueTag(), -300.f);
+	//		ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, EffectSpecHandle);
+	//	}
+	//}
 
 	if (PlayAttackMontage())
 	{
