@@ -69,13 +69,17 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TMap<TSubclassOf<UGameplayEffect>, FGameplayEffectParam> GameplayEffects;	
 
-	// 아이템 획득 시 즉시 적용되는 버프/디버프
+	// 아이템 획득 시 즉시 적용되는 버프/디버프 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TArray<FBuffInfo> Effects;
 
 	// 아이템 어빌리티의 파라미터 테이블. 행은 레벨, 로우는 파라미터
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	UDataTable* ParamTable = nullptr;											
+	UDataTable* ParamTable = nullptr;						
+
+	// 아이템의 개수
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	int32 ItemNum = 1;
 
 public:
 	TMap<FGameplayTag, float> GetParam(int32 InLevel = 1)
@@ -101,7 +105,7 @@ public:
 			return ParamTable->GetRowMap().Num();
 		}
 
-		return 1;
+		return ItemNum;
 	}
 };
 
