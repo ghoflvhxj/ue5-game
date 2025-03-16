@@ -78,6 +78,14 @@ void AMPlayerState::Die()
 {
 	bDead = true;
 	OnRep_Dead();
+
+	if (UWorld* World = GetWorld())
+	{
+		if (AMGameStateInGame* GameState = World->GetGameState<AMGameStateInGame>())
+		{
+			GameState->AddDeadPlayer(this);
+		}
+	}
 }
 
 void AMPlayerState::OnRep_Dead()
