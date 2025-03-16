@@ -86,13 +86,15 @@ public:
 	void StartProjectile();
 protected:
 	FVector Direction;
-	float Damage = 0.f;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	bool bPenerate = false;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	bool bExplosion = false;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float ExplosionRadius = 0.f;
 
 protected:
+	FDelegateHandle BulletHitHandleDelegate;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	UFXSystemAsset* FXAsset = nullptr;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)

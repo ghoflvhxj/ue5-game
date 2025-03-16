@@ -40,7 +40,7 @@ void ABullet::BeginPlay()
 	Super::BeginPlay();
 
 	ProjectileComponent->Deactivate();
-	DamageComponent->GetOnDamageEvent().AddUObject(this, &ABullet::OnBulletHit);
+	BulletHitHandleDelegate = DamageComponent->GetOnDamageEvent().AddUObject(this, &ABullet::OnBulletHit);
 }
 
 void ABullet::OnBulletHit(AActor* InHitCauser, AActor* InActor)
@@ -59,13 +59,14 @@ void ABullet::OnBulletHit(AActor* InHitCauser, AActor* InActor)
 
 	if (bExplosion)
 	{
+		DamageComponent->GetOnDamageEvent().Remove(BulletHitHandleDelegate);
+
 		if (IsNetMode(NM_Client) == false)
 		{
 			TArray<FOverlapResult> OverlapResults;
 			FCollisionObjectQueryParams CollisionObjectQueryParam;
 			CollisionObjectQueryParam.AddObjectTypesToQuery(ECollisionChannel::ECC_Pawn);
 
-			float ExplosionRadius = 1000.f;
 			FCollisionShape CollisionShape = FCollisionShape::MakeSphere(ExplosionRadius);
 			GetWorld()->OverlapMultiByObjectType(OverlapResults, GetActorLocation(), FQuat::Identity, CollisionObjectQueryParam, CollisionShape);
 
