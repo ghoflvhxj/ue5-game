@@ -126,15 +126,6 @@ void AMPlayer::StopStartAnim()
 		FGameplayTagContainer StartTagContainer(FGameplayTag::RequestGameplayTag("Ability.Start"));
 		AbilitySystemComponent->CancelAbilities(&StartTagContainer);
 	}
-
-	//UAnimInstance* AnimInstance = IsValid(GetMesh()) ? GetMesh()->GetAnimInstance() : nullptr;
-	//UAnimMontage* StartMontage = ActionComponent->GetActionMontage(FGameplayTag::RequestGameplayTag("Action.Start"));
-	//if (IsValid(AnimInstance) && IsValid(StartMontage) && AnimInstance->Montage_IsPlaying(StartMontage))
-	//{
-	//	AnimInstance->Montage_Stop(0.25f, StartMontage);
-	//}
-
-	//AbilitySystemComponent->
 }
 
 UGameplayAbility* AMPlayer::GetLoadedSkillAbility()
@@ -150,64 +141,7 @@ UGameplayAbility_Skill* AMPlayer::GetSkillAbility(int32 InSkillIndex)
 
 void AMPlayer::UseSkill(int32 InSkillSlot)
 {
-	//TArray<int32> Skills;
-	//const FPlayerCharacterTableRow& PCTableRow = UMGameInstance::GetPlayerCharacterTableRow(this, GetPlayerState<AMPlayerState>()->GetCharacterIndex());
-	//PCTableRow.Skills.GetKeys(Skills);
-
-	//if (Skills.IsValidIndex(InSkillSlot) == false)
-	//{
-	//	return;
-	//}
-
-	//int32 SkillIndex = Skills[InSkillSlot];;
-	//LoadedSkillIndex = SkillIndex;
-
-	//if (LoadedSkillIndex != SkillIndex)
-	//{
-	//	return;
-	//}
-
-	//ActivateSkill();
-
 	AbilitySystemComponent->AbilityLocalInputPressed(InSkillSlot);
-}
-
-void AMPlayer::ActivateSkill()
-{
-	//if (IsValid(AbilitySystemComponent) == false)
-	//{
-	//	return;
-	//}
-
-	//const FPlayerCharacterTableRow& PCTableRow = UMGameInstance::GetPlayerCharacterTableRow(this, GetPlayerState<AMPlayerState>()->GetCharacterIndex());
-	//if (PCTableRow.Skills.Contains(LoadedSkillIndex) == false)
-	//{
-	//	return;
-	//}
-
-	//if (UGameplayAbility_Skill* Skill = GetSkillAbility(LoadedSkillIndex))
-	//{
-	//	if (Skill->IsActive())
-	//	{
-	//		if (Skill->IsSequenceFinished())
-	//		{
-	//			return;
-	//		}
-	//		else
-	//		{
-	//			//Skill->NextSequence();
-	//			//if (GetLocalRole() == ENetRole::ROLE_AutonomousProxy)
-	//			//{
-	//			//	Skill->Server_NextSequence();
-	//			//}
-	//		}
-	//	}
-	//	else
-	//	{
-	//		FGameplayTag SkillTag = PCTableRow.Skills[LoadedSkillIndex];
-	//		AbilitySystemComponent->TryActivateAbilitiesByTag(SkillTag.GetSingleTagContainer()); // GetAbilityHandle(SkillTag)은 서버에서만 유효함...
-	//	}
-	//}
 }
 
 void AMPlayer::FinishSkill()

@@ -7,18 +7,18 @@
 #include "TestGame/Mcharacter/MCharacterEnum.h"
 
 
-#include "MCharacterState.generated.h"
+//#include "MCharacterState.generated.h"
 
-UCLASS(BlueprintType, Blueprintable)
-class TESTGAME_API UCharacterVitalityState : public UStateClass
-{
-public:
-	GENERATED_BODY()
-
-public:
-	UCharacterVitalityState()
-		: UStateClass(StaticEnum<ECharacterVitalityState>())
-	{
-
-	}
-};
+//UCLASS(BlueprintType, Blueprintable)
+//class TESTGAME_API UCharacterVitalityState : public UStateClass
+//{
+//public:
+//	GENERATED_BODY()
+//
+//public:
+//	UCharacterVitalityState()
+//		: UStateClass(StaticEnum<ECharacterVitalityState>())
+//	{
+//
+//	}
+//};

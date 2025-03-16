@@ -22,7 +22,6 @@ enum class EIGameplayEffectTarget : uint8
 USTRUCT(BlueprintType)
 struct FGameplayEffectParam
 {
-	// 이름을 Param에서 Data로 바꾸기
 	GENERATED_BODY()
 
 public:
@@ -39,21 +38,9 @@ struct FBuffInfo // 이름이 흠
 {
 	GENERATED_BODY()
 
-	// DEPRECATED. 이펙트 테이블의 인덱스를 사용하도록 변경됨
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TSubclassOf<UGameplayEffect> EffectClass = nullptr;
-
 	// 이펙트 테이블의 인덱스
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 EffectIndex = INDEX_NONE;
-
-	// DEPRECATED. 이펙트 파람을 사용하도록 변경됨
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	EIGameplayEffectTarget Target;
-
-	// DEPRECATED. 이펙트 파람을 사용하도록 변경됨
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TMap<FGameplayTag, float> TagToValue;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FGameplayEffectParam EffectParam;
@@ -89,9 +76,6 @@ struct FSkillTableRow : public FTableRowBase
 	// 추가적인 GE. ex) 슬로우
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	TArray<FBuffInfo> BuffInfos;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	bool bRemoveBuffWhenSkillFinished = false;
 
 	// 이거는 사용안함
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
@@ -170,12 +154,4 @@ struct FSkillEnhanceData
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<int32> EnhanceIndices;
-};
-
-
-UCLASS()
-class TESTGAME_API USkillSubsystem : public UGameInstanceSubsystem
-{
-	GENERATED_BODY()
-
 };

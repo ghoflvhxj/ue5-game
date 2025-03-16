@@ -97,7 +97,6 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void UseSkill(int32 InSkillSlot);
 	UFUNCTION(BlueprintCallable, meta=(DeprecatedFunction))
-	void ActivateSkill();	// Deprecated
 	void FinishSkill();
 	FOnSkillActivatedDelegate& GetSkillActivatedDelegate() { return OnSkillActivatedDelegate; }
 	FOnSkillActivatedDelegate OnSkillActivatedDelegate;
