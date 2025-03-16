@@ -3,15 +3,15 @@
 #pragma once
 
 #include "EngineMinimal.h"
-#include "MCharacterEnum.generated.h"
+//#include "MCharacterEnum.generated.h"
 
-UENUM(BlueprintType)
-enum class ECharacterVitalityState : uint8
-{
-	Alive,
-	Die,
-	Count
-};
+//UENUM(BlueprintType)
+//enum class ECharacterVitalityState : uint8
+//{
+//	Alive,
+//	Die,
+//	Count
+//};
 
 //UENUM(BlueprintType)
 //enum class ECharacterPoseState : uint8

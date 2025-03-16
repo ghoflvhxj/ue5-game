@@ -32,7 +32,7 @@ public:
 	void PopItem(const FVector& InLocation, AActor* PopInstigator);
 	void DropItem(AActor* Dropper);
 	UFUNCTION(BlueprintCallable)
-	void DropItem(AActor* InDroppoer, int32 InIndex);
+	void DropItem(const FTransform& InTransform, int32 InIndex);
 	void OnPawnKilled(APawn* Killer, APawn* Killed);
 protected:
 	void SpawnItem(int32 InItemIndex, const FTransform& InTransform);

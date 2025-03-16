@@ -61,13 +61,13 @@ void AMGameStateInGame::Tick(float DeltaTime)
 		SetMPCParamValue(MPCParamName, MPCParamToElpasedTime[MPCParamName]);
 	}
 
-	if (HasAuthority() == false)
-	{
-		if (bMatchEndSuccess == false && HasMatchEnded())
-		{
-			HandleMatchHasEnded();
-		}
-	}
+	//if (HasAuthority() == false)
+	//{
+	//	if (bMatchEndSuccess == false && HasMatchEnded())
+	//	{
+	//		HandleMatchHasEnded();
+	//	}
+	//}
 }
 
 void AMGameStateInGame::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -115,6 +115,7 @@ void AMGameStateInGame::HandleMatchHasEnded()
 {
 	Super::HandleMatchHasEnded();
 
+	bool bMatchEndSuccess = false;
 	if (IsAllPlayerDead())
 	{
 		OnMatchEndEvent.Broadcast(EEndMatchReason::Fail);
@@ -124,6 +125,17 @@ void AMGameStateInGame::HandleMatchHasEnded()
 	{
 		OnMatchEndEvent.Broadcast(EEndMatchReason::Clear);
 		bMatchEndSuccess = true;
+	}
+
+	if (EndMatchRetryTimer.IsValid() == false && bMatchEndSuccess == false)
+	{
+		GetWorldTimerManager().SetTimer(EndMatchRetryTimer, this, &AMGameStateInGame::HandleMatchHasEnded, 1.f, true);
+	}
+
+	if (bMatchEndSuccess)
+	{
+		GetWorldTimerManager().ClearTimer(EndMatchRetryTimer);
+		EndMatchRetryTimer.Invalidate();
 	}
 }
 
@@ -199,11 +211,6 @@ int32 AMGameStateInGame::GetAlivePlayerNum()
 	return AliveNum;
 }
 
-void AMGameStateInGame::Multicast_GameOver_Implementation()
-{
-	GameOverDynamicDelegate.Broadcast();
-}
-
 const TSet<AActor*>& AMGameStateInGame::GetMonsters()
 {
 	if (MonsterSpawner.IsValid())
@@ -226,10 +233,10 @@ void AMGameStateInGame::RegistMPCParam(FName InParamName)
 
 	MPCParamToStart.FindOrAdd(InParamName) = World->GetTimeSeconds();
 
-	if (InParamName == TEXT("Test"))
-	{
-		RoundComponent->Pause();
-	}
+	//if (InParamName == TEXT("Test"))
+	//{
+	//	RoundComponent->Pause();
+	//}
 }
 
 void AMGameStateInGame::UnregistMPCParam(FName InParamName)
@@ -262,11 +269,6 @@ void AMGameStateInGame::SetMPCParamValue(FName InParamName, float InValue)
 	}
 }
 
-void AMGameStateInGame::ApplyItemEvent(int32 InItemIndex)
-{
-
-}
-
 void AMGameStateInGame::ApplyItemEvent(UAbilitySystemComponent* InAbilitySystemComponent, const FGameplayEffectSpec& InEffectSpec, FActiveGameplayEffectHandle InActiveEffectHandle)
 {
 	FGameplayTagContainer GETagContainer;
@@ -277,6 +279,11 @@ void AMGameStateInGame::ApplyItemEvent(UAbilitySystemComponent* InAbilitySystemC
 		if (IsValid(RoundComponent))
 		{
 			RoundComponent->Pause();
+		}
+		
+		if (MonsterSpawner.IsValid())
+		{
+			MonsterSpawner->SetActorTickEnabled(false);
 		}
 	}
 }
@@ -292,7 +299,20 @@ void AMGameStateInGame::RemoveItemEvent(const FActiveGameplayEffect& InActiveGam
 		{
 			RoundComponent->Resume();
 		}
+		if (MonsterSpawner.IsValid())
+		{
+			MonsterSpawner->SetActorTickEnabled(true);
+		}
 	}
+}
+
+void AMGameStateInGame::ChangeBGM(USoundBase* InSound)
+{
+	//if (IsValid(AudioComponent))
+	//{
+	//	AudioComponent->SetPaused(true);
+	//}
+	AudioComponent = UGameplayStatics::SpawnSound2D(this, InSound, 1.f, 1.f, 0.f, BGMConcurrency);
 }
 
 URoundComponent::URoundComponent()
@@ -336,6 +356,9 @@ void URoundComponent::Pause()
 
 	World->GetTimerManager().PauseTimer(NextWaveTimerHandle);
 	World->GetTimerManager().PauseTimer(NextRoundTimerHandle);
+
+	bPause = true;
+	OnRoundPausedEvent.Broadcast(true);
 }
 
 void URoundComponent::Resume()
@@ -348,6 +371,9 @@ void URoundComponent::Resume()
 
 	World->GetTimerManager().UnPauseTimer(NextWaveTimerHandle);
 	World->GetTimerManager().UnPauseTimer(NextRoundTimerHandle);
+
+	bPause = false;
+	OnRoundPausedEvent.Broadcast(false);
 }
 
 FRoundInfo URoundComponent::GetRoundTableData(int32 InRound) const
@@ -409,6 +435,12 @@ void URoundComponent::NextRound()
 {
 	++RoundWaveData.Round;
 	RoundWaveData.Wave = 0;
+
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(NextRoundTimerHandle);
+		NextRoundTimerHandle.Invalidate();
+	}
 
 	StartWave();
 }

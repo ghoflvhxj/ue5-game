@@ -10,7 +10,6 @@
 #include "AbilitySystemInterface.h"
 #include "Interfaces/OnlineLeaderboardInterface.h"
 
-#include "TestGame/MCharacter/Component/StateMachineComponent.h"
 #include "TestGame/Interface/InteractInterface.h"
 
 #include "MCharacter.generated.h"
@@ -21,15 +20,13 @@ class UGameplayAbility;
 class UMTeamComponent;
 class UMAttributeSet;
 class UMAbilityDataAsset;
-class UStateComponent;
 class UNiagaraComponent;
 class UMActionComponent;
 class UMInteractorComponent;
 class UMInventoryComponent;
 class AWeapon;
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnAttackedDelegate);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDieDelegate);
+DECLARE_EVENT_OneParam(AMCharacter, FOnDeadEvent, AActor*);
 DECLARE_EVENT_TwoParams(AMCharacter, FOnWeaponChangedEvent, AActor*, AActor*);
 DECLARE_EVENT_OneParam(AMCharacter, FOnItemUsedEvent, int32);
 
@@ -66,8 +63,6 @@ protected:
 	UMAbilitySystemComponent* AbilitySystemComponent = nullptr;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	UMTeamComponent* TeamComponent = nullptr;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	UStateComponent* StateComponent = nullptr;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	UNiagaraComponent* NiagaraComponent = nullptr;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
@@ -110,7 +105,7 @@ public:
 	UFUNCTION(BlueprintPure)
 	virtual int32 GetCharacterIndex() { return INDEX_NONE; }
 
-// GAS Ability
+/* AbilitySystem 관련 */
 public:
 	void OnAbilityInputPressed(int32 InInputID);
 	void OnAbilityInputReleased(int32 InInputID);
@@ -125,9 +120,23 @@ protected:
 	UMAbilityDataAsset* AbilitySetData = nullptr;
 
 public:
+	virtual void OnMoveSpeedChanged(const FOnAttributeChangeData& AttributeChangeData);
+	virtual void OnHealthChanged(const FOnAttributeChangeData& AttributeChangeData);
+	virtual void OnDamaged(AActor* DamageInstigator);
+protected:
+	UPROPERTY(BlueprintReadOnly)
+	UMAttributeSet* AttributeSet = nullptr;
+
+public:
+	void MakeEffectCue(const FGameplayTag& InTag);
+	void MakeEffectCue(int32 InEffectIndex);
+	virtual int32 GetEffectIndex(const FGameplayTag& InTag) const { return INDEX_NONE; }
+
+/* 인풋 관련 */
+public:
 	void ChargeInputPressed();
 protected:
-// 입력과 어빌리티 바인딩 테스트
+	// 입력과 어빌리티 바인딩 테스트
 	UPROPERTY(EditAnywhere)
 	class UInputAction* InputAction = nullptr;
 	UPROPERTY(EditAnywhere)
@@ -136,45 +145,15 @@ protected:
 	class UInputAction* InputAction3 = nullptr;
 	bool bChargeInput = false;
 
-	//UFUNCTION(BlueprintPure)
-	//FGameplayAbilitySpecHandle GetAbiltiyTypeHandle(EAbilityType AbilityType);
 
-// GAS Attribute
+/* 캐릭터 상태 */
 public:
-	//UFUNCTION(BlueprintImplementableEvent)
-	//void UpdateHealthbarWidget(float OldValue, float NewValue);
-public:
-	virtual void OnMoveSpeedChanged(const FOnAttributeChangeData& AttributeChangeData);
-	virtual void OnHealthChanged(const FOnAttributeChangeData& AttributeChangeData);
-	virtual void OnDamaged(AActor* DamageInstigator);
-protected:
-	UPROPERTY(BlueprintReadOnly)
-	UMAttributeSet* AttributeSet = nullptr;
-
-// 상태 델레게이트
-public:
-	void AddVitalityChangedDelegate(UObject* Object, const TFunction<void(uint8 OldValue, uint8 NewValue)> Function);
-// 상태
-public:
-	template <typename T>
-	bool IsState(T StateValue)
-	{
-		if (UStateComponent* StateMachineComponent = GetComponentByClass<UStateComponent>())
-		{
-			T CurrentState = (T)0;
-			if (StateMachineComponent->GetState<T>(CurrentState))
-			{
-				if (StateValue == CurrentState)
-				{
-					return true;
-				}
-			}
-		}
-
-		return false;
-	}
 	UFUNCTION(BlueprintPure)
 	bool IsDead();
+public:
+	FOnDeadEvent& GetOnDeadEvent() { return OnDeadEvent; }
+protected:
+	FOnDeadEvent OnDeadEvent;
 
 // 팀
 public:
@@ -256,6 +235,11 @@ public:
 private:
 	void RotateToTargetAngle();
 
+/* 넉백, 기절 등의 상태 */
+public:
+	UFUNCTION(BlueprintCallable)
+	void KnockBack(const FVector& InLocation, float Radius, float Strength);
+
 // 이동
 public:
 	virtual void AddMovementInput(FVector WorldDirection, float ScaleValue = 1.0f, bool bForce = false) override;
@@ -274,8 +258,6 @@ public:
 	virtual void Freeze(const FGameplayTag InTag, int32 InStack) {}
 
 // 상호작용
-public:
-	bool IsInteractableActor(AActor* OtherActor, UMInteractorComponent** OutInteractComponent);
 private:
 	IInteractInterface* GetInteractInterface(AActor* Actor);
 private:
@@ -340,17 +322,6 @@ public:
 protected:
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_AimMode)
 	bool bAimMode = false;
-
-// 몽타주
-public:
-	UFUNCTION()
-	void OnMontageStarted(UAnimMontage* InMontage);
-	UFUNCTION()
-	void OnMontageEnded(UAnimMontage* InMontage, bool bInterrupted);
-protected:
-	UPROPERTY(BlueprintReadOnly)
-	bool bUpper = false;
-
 
 public:
 	UFUNCTION(BlueprintImplementableEvent)

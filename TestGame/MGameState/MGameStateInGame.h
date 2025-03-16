@@ -78,7 +78,7 @@ public:
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	URoundComponent* RoundComponent = nullptr;
-
+	UAudioComponent* AudioComponent = nullptr;
 protected:
 	virtual void BeginPlay() override;
 public:
@@ -88,7 +88,12 @@ public:
 	virtual void HandleMatchHasEnded() override;
 public:
 	FOnMatchEndEvent OnMatchEndEvent;
-	bool bMatchEndSuccess = false;
+
+protected:
+	// 복제가 덜 되어서 클라에서 EndMatch처리가 안됬음을 나타냄
+	//bool bMatchEndSuccess = false;
+	// 복제가 덜 되어서 클라에서 EndMatch처리가 안된 경우 지속적으로 EndMatch를 시도하기 위한 타이머
+	FTimerHandle EndMatchRetryTimer;
 
 	// 부활
 public:
@@ -107,8 +112,7 @@ public:
 	bool IsAllPlayerDead();
 	
 	TArray<APlayerState*> DeadPlayerArray;
-	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_GameOver();
+
 public:
 	FOnGameOverDynamicDelegate GameOverDynamicDelegate;
 
@@ -142,12 +146,20 @@ protected:
 
 /* 아이템 */
 public:
-	void ApplyItemEvent(int32 InItemIndex);
 	void ApplyItemEvent(UAbilitySystemComponent* InAbilitySystemComponent, const FGameplayEffectSpec& InEffectSpec, FActiveGameplayEffectHandle InActiveEffectHandle);
 	void RemoveItemEvent(const FActiveGameplayEffect& InActiveGameplayEffect);
+
+/* 사운드 */
+public:
+	UFUNCTION(BlueprintCallable)
+	void ChangeBGM(USoundBase* InSound);
+protected:
+	UPROPERTY(EditDefaultsOnly)
+	USoundConcurrency* BGMConcurrency = nullptr;
 };
 
 DECLARE_EVENT_OneParam(URoundComponent, FOnRoundChangedEvent, const FRound& /*Round*/);
+DECLARE_EVENT_OneParam(URoundComponent, FOnRoundPausedEvent, bool /* bPaused */)
 DECLARE_EVENT(URoundComponent, FRoundEvent);
 
 UCLASS(Blueprintable)
@@ -166,8 +178,15 @@ public:
 	bool IsLastRound() const;
 
 public:
+	UFUNCTION(BlueprintPure)
+	bool IsPaused() const { return bPause; }
+	FOnRoundPausedEvent& GetRoundPausedEvent() { return OnRoundPausedEvent; }
+public:
 	void Pause();
 	void Resume();
+protected:
+	bool bPause = false;
+	FOnRoundPausedEvent OnRoundPausedEvent;
 
 	// 웨이브
 public:

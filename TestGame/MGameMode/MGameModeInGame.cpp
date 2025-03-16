@@ -49,7 +49,7 @@ void AMGameModeInGame::PreLogin(const FString& Options, const FString& Address, 
 {
 	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
 
-	if (IsMatchInProgress())
+	if (HasMatchStarted())
 	{
 		ErrorMessage += TEXT("Game already started, Can't join.");
 	}
@@ -62,7 +62,7 @@ void AMGameModeInGame::SetPlayerDefaults(APawn* PlayerPawn)
 	AMCharacter* PlayerCharacter = Cast<AMCharacter>(PlayerPawn);
 	if (ensure(PlayerCharacter))
 	{
-		PlayerCharacter->AddVitalityChangedDelegate(this, [this, PlayerCharacter](uint8 OldValue, uint8 NewValue) {
+		PlayerCharacter->GetOnDeadEvent().AddWeakLambda(this, [this, PlayerCharacter](AActor* InActor) {
 			AMGameStateInGame* GameStateInGame = GetGameState<AMGameStateInGame>();
 			if (IsValid(GameStateInGame) == false)
 			{
@@ -75,40 +75,23 @@ void AMGameModeInGame::SetPlayerDefaults(APawn* PlayerPawn)
 				return;
 			}
 
-			switch (NewValue)
+			PlayerState->Die();
+
+			if (APlayerController* PlayerController = PlayerState->GetPlayerController())
 			{
-				case (uint8)ECharacterVitalityState::Die:
+				if (PlayerCanRestart(PlayerController))
 				{
-					PlayerState->Die();
-
-					GameStateInGame->AddDeadPlayer(PlayerState);
-					APlayerController* PlayerController = PlayerState->GetPlayerController();
-					if (PlayerCanRestart(PlayerController))
+					//RestartPlayer(PlayerController); -> Respawn 함수를 만들어서 호출
+				}
+				else
+				{
+					if (IsValid(PlayerController))
 					{
-						FTimerHandle DummyHandle;
-						PlayerCharacter->GetWorldTimerManager().SetTimer(DummyHandle, FTimerDelegate::CreateWeakLambda(this, [this, PlayerController]() {
-							PlayerController->UnPossess();
-							RestartPlayer(PlayerController);
-						}), 5.f, false);
-					}
-					else
-					{
-						GetWorldTimerManager().SetTimerForNextTick(FTimerDelegate::CreateWeakLambda(this, [PlayerController]() {
-							if (IsValid(PlayerController))
-							{
-								PlayerController->StartSpectatingOnly();
-							}
-						}));
-						
+						PlayerController->StartSpectatingOnly();
 					}
 				}
-				break;
-				case (uint8)ECharacterVitalityState::Alive:
-				{
-
-				}
-				break;
 			}
+
 		});
 	}
 }
@@ -247,14 +230,8 @@ void AMGameModeInGame::DropItem(AActor* Dropper)
 	SpawnItem(ItemIndex, Dropper->GetActorTransform());
 }
 
-void AMGameModeInGame::DropItem(AActor* InDroppoer, int32 InIndex)
+void AMGameModeInGame::DropItem(const FTransform& InTransform, int32 InIndex)
 {
-	if (IsValid(InDroppoer) == false)
-	{
-		UE_LOG(LogTemp, VeryVerbose, TEXT("Drop item failed. Invalid Dropper."));
-		return;
-	}
-
 	const FDropTableRow& DropTableRow = UMGameInstance::GetDropTableRow(this, InIndex);
 
 	int32 ItemIndex = INDEX_NONE;
@@ -270,7 +247,7 @@ void AMGameModeInGame::DropItem(AActor* InDroppoer, int32 InIndex)
 		RandomFloat -= Pair.Value;
 	}
 
-	SpawnItem(ItemIndex, InDroppoer->GetActorTransform());
+	SpawnItem(ItemIndex, InTransform);
 }
 
 void AMGameModeInGame::OnPawnKilled(APawn* Killer, APawn* Killed)
@@ -286,7 +263,7 @@ void AMGameModeInGame::OnPawnKilled(APawn* Killer, APawn* Killed)
 	{
 		if (Killed->GetClass()->ImplementsInterface(UDropInterface::StaticClass()))
 		{
-			DropItem(Killed, IDropInterface::Execute_GetDropIndex(Killed));
+			DropItem(Killed->GetActorTransform(), IDropInterface::Execute_GetDropIndex(Killed));
 		}
 		else
 		{

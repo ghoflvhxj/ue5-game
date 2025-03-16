@@ -29,6 +29,8 @@
 #include "TestGame/MPlayerController/MPlayerController.h"
 #include "CharacterState/MCharacterState.h"
 
+#include "MGameInstance.h"
+
 // Sets default values
 AMCharacter::AMCharacter()
 {
@@ -39,8 +41,6 @@ AMCharacter::AMCharacter()
 	AbilitySystemComponent->SetIsReplicated(true);
 
 	TeamComponent = CreateDefaultSubobject<UMTeamComponent>(TEXT("TeamComponent"));
-
-	StateComponent = CreateDefaultSubobject<UStateComponent>(TEXT("StateComponent"));
 
 	NiagaraComponent = CreateDefaultSubobject<UNiagaraComponent>(TEXT("NiagaraComponent"));
 	if (USkeletalMeshComponent* MeshComponent = GetMesh())
@@ -76,7 +76,7 @@ void AMCharacter::BeginPlay()
 		if (HasAuthority())
 		{
 			AbilitySystemComponent->SetAvatarActor(this);
-			AbilitySetData->GiveAbilities(AbilitySystemComponent);
+			AddAbilities(AbilitySetData);
 		}
 		 
 		AbilitySystemComponent->RegisterGameplayTagEvent(FGameplayTag::RequestGameplayTag("Character.Freeze"), EGameplayTagEventType::NewOrRemoved).AddUObject(this, &AMCharacter::Freeze);
@@ -115,9 +115,6 @@ void AMCharacter::BeginPlay()
 
 		if (UAnimInstance* AnimInst = SkeletalmeshComponent->GetAnimInstance())
 		{
-			AnimInst->OnMontageStarted.AddDynamic(this, &AMCharacter::OnMontageStarted);
-			AnimInst->OnMontageBlendingOut.AddDynamic(this, &AMCharacter::OnMontageEnded);
-			AnimInst->OnMontageEnded.AddDynamic(this, &AMCharacter::OnMontageEnded);
 		}
 	}
 }
@@ -198,14 +195,12 @@ void AMCharacter::NotifyActorBeginOverlap(AActor* OtherActor)
 		{
 			if (InteractComponent->IsInteractable())
 			{
-				if (InteractComponent->IsChannel(EInteractChannel::Unique))
-				{
-					InteractTargets.AddUnique(OtherActor);
-				}
-				else
-				{
-					InteractComponent->Interact(this);
-				}
+				//if (InteractComponent->IsChannel(EInteractChannel::Unique))
+				//{
+				//	InteractTargets.AddUnique(OtherActor);
+				//}
+
+				InteractComponent->Interact(this);
 			}
 		}
 	}
@@ -318,6 +313,27 @@ UGameplayAbility* AMCharacter::GetAbility(FGameplayTag InTag)
 	return nullptr;
 }
 
+void AMCharacter::MakeEffectCue(const FGameplayTag& InTag)
+{
+	MakeEffectCue(GetEffectIndex(InTag));
+}
+
+void AMCharacter::MakeEffectCue(int32 InEffectIndex)
+{
+	if (InEffectIndex == INDEX_NONE)
+	{
+		return;
+	}
+
+	FGameplayCueParameters CueParams;
+	CueParams.EffectContext = AbilitySystemComponent->MakeEffectContext(InEffectIndex);
+	CueParams.Instigator = this;
+	CueParams.EffectCauser = this;
+	CueParams.Location = GetActorLocation();
+
+	AbilitySystemComponent->ExecuteGameplayCueLocal(FGameplayTag::RequestGameplayTag("GameplayCue.Effect"), CueParams);
+}
+
 void AMCharacter::ChargeInputPressed()
 {
 	//if (IsValid(AbilitySystemComponent))
@@ -354,20 +370,20 @@ void AMCharacter::OnHealthChanged(const FOnAttributeChangeData& AttributeChangeD
 		DamageInstigator = Cast<APawn>(AttributeChangeData.GEModData->EffectSpec.GetEffectContext().GetInstigator());
 	}
 
-	if (AttributeChangeData.NewValue < AttributeChangeData.OldValue)
+	if (AttributeChangeData.NewValue < AttributeChangeData.OldValue && AttributeChangeData.OldValue > 0.f)
 	{
 		OnDamaged(DamageInstigator);
 	}
 
-	if (AttributeChangeData.NewValue <= 0.f)
+	if (AttributeChangeData.NewValue == 0.f && AttributeChangeData.OldValue > 0.f)
 	{
-		if (IsDead() == false)
+		OnDeadEvent.Broadcast(this);
+		if (AMGameModeInGame* GameMode = Cast<AMGameModeInGame>(UGameplayStatics::GetGameMode(this)))
 		{
-			if (AMGameModeInGame* GameMode = Cast<AMGameModeInGame>(UGameplayStatics::GetGameMode(this)))
-			{
-				GameMode->OnPawnKilled(DamageInstigator, this);
-			}
+			GameMode->OnPawnKilled(DamageInstigator, this);
 		}
+
+		MakeEffectCue(FGameplayTag::RequestGameplayTag("Character.Dead"));
 
 		if (AController* MyController = GetController())
 		{
@@ -393,23 +409,10 @@ void AMCharacter::OnHealthChanged(const FOnAttributeChangeData& AttributeChangeD
 			MovementComponent->DisableMovement();
 		}
 
-		if (IsValid(StateComponent))
-		{
-			StateComponent->ChangeState<ECharacterVitalityState>(ECharacterVitalityState::Die);
-		}
-
-		if (USkeletalMeshComponent* SkeletalmeshComponent = GetMesh())
-		{
-			if (UAnimInstance* AnimInstance = SkeletalmeshComponent->GetAnimInstance())
-			{
-				AnimInstance->StopAllMontages(0.f);
-			}
-
-			FTimerHandle RagdollStartTimerHandle;
-			GetWorldTimerManager().SetTimer(RagdollStartTimerHandle, FTimerDelegate::CreateWeakLambda(this, [this, SkeletalmeshComponent]() {
-				Ragdoll();
-			}), 1.f, false);
-		}
+		FTimerHandle RagdollStartTimerHandle;
+		GetWorldTimerManager().SetTimer(RagdollStartTimerHandle, FTimerDelegate::CreateWeakLambda(this, [this]() {
+			Ragdoll();
+		}), 1.f, false);
 
 		TArray<UPrimitiveComponent*> Primitives;
 		GetComponents<UPrimitiveComponent>(Primitives);
@@ -433,14 +436,16 @@ void AMCharacter::OnHealthChanged(const FOnAttributeChangeData& AttributeChangeD
 
 void AMCharacter::OnDamaged(AActor* DamageInstigator)
 {
+	FGameplayTag DamagedTag = FGameplayTag::RequestGameplayTag("Character.Damaged");
+
 	if (IsValid(AbilitySystemComponent))
 	{
 		FGameplayEventData GameplayEventData;
-		GameplayEventData.EventTag = FGameplayTag::RequestGameplayTag(FName("Character.Event.Damaged"));
+		GameplayEventData.EventTag = DamagedTag;
 		GameplayEventData.Instigator = DamageInstigator;
 		GameplayEventData.Target = this;
 
-		UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, FGameplayTag::RequestGameplayTag("Character.Event.Damaged"), GameplayEventData);
+		UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, DamagedTag, GameplayEventData);
 	}
 
 	if (IsNetMode(NM_DedicatedServer) == false)
@@ -464,25 +469,27 @@ void AMCharacter::OnDamaged(AActor* DamageInstigator)
 				GetWorldTimerManager().ClearTimer(Handle);
 			}
 		}), 0.1f, true);
-	}
-}
 
-void AMCharacter::AddVitalityChangedDelegate(UObject* Object, const TFunction<void(uint8, uint8)> Function)
-{
-	CompoentLogic<UStateComponent>([Object, Function](UStateComponent* StateMachineComponent){
-		StateMachineComponent->AddOnStateChangeDelegate(UCharacterVitalityState::StaticClass(), Object, Function);
-	});
+		//if (IsDead() == false)
+		//{
+			MakeEffectCue(DamagedTag);
+		//}
+	}
 }
 
 bool AMCharacter::IsDead()
 {
-	bool bResult = false;
+	if (AbilitySystemComponent)
+	{
+		if (AbilitySystemComponent->GetSpawnedAttributes().Num() > 0)
+		{
+			return AbilitySystemComponent->GetNumericAttribute(UMAttributeSet::GetHealthAttribute()) == 0.f;
+		}
 
-	CompoentLogic<UStateComponent>([&bResult](UStateComponent* StateMachineComponent) {
-		bResult = StateMachineComponent->GetState<ECharacterVitalityState>() == ECharacterVitalityState::Die;
-	});
-
-	return bResult;
+		return false;
+	}
+	
+	return true;
 }
 
 bool AMCharacter::IsSameTeam(AActor* OtherCharacter) const
@@ -863,6 +870,15 @@ void AMCharacter::RotateToTargetAngle()
 	//}
 }
 
+void AMCharacter::KnockBack(const FVector& InLocation, float Radius, float Strength)
+{
+	if (UCharacterMovementComponent* MovementComponent = GetCharacterMovement())
+	{
+		MovementComponent->StopMovementImmediately();
+		MovementComponent->AddRadialImpulse(InLocation, Radius, Strength, ERadialImpulseFalloff::RIF_Linear, false);
+	}
+}
+
 void AMCharacter::AddMovementInput(FVector WorldDirection, float ScaleValue /*= 1.0f*/, bool bForce /*= false*/)
 {
 	if (AbilitySystemComponent->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag("Character.Move.Block")) && bForce == false)
@@ -898,25 +914,8 @@ void AMCharacter::SetMoving(bool bInMoving)
 
 void AMCharacter::Server_SetMoving_Implementation(bool bInMoving)
 {
-	UE_LOG(LogTemp, Warning, TEXT("ghoflvhxj Server SerMove : %d"), (int)bInMoving);
+	//UE_LOG(LogTemp, Warning, TEXT("ghoflvhxj Server SerMove : %d"), (int)bInMoving);
 	bMoving = bInMoving;
-}
-
-bool AMCharacter::IsInteractableActor(AActor* OtherActor, UMInteractorComponent** OutInteractComponent)
-{
-	if (IsValid(OtherActor))
-	{
-		if (UMInteractorComponent* InteractComponent = OtherActor->FindComponentByClass<UMInteractorComponent>())
-		{
-			*OutInteractComponent = OtherActor->FindComponentByClass<UMInteractorComponent>();
-			if (IsValid(InteractComponent->GetInteractor<AActor>()) == false)
-			{
-				return true;
-			}
-		}
-	}
-
-	return false;
 }
 
 IInteractInterface* AMCharacter::GetInteractInterface(AActor* Actor)
@@ -1016,14 +1015,4 @@ void AMCharacter::OnRep_AimMode()
 		GetCharacterMovement()->bUseControllerDesiredRotation = false;
 		GetCharacterMovement()->bOrientRotationToMovement = true;
 	}
-}
-
-void AMCharacter::OnMontageStarted(UAnimMontage* InMontage)
-{
-	bUpper = InMontage->IsValidSlot("UpperBody");
-}
-
-void AMCharacter::OnMontageEnded(UAnimMontage* InMontage, bool bInterrupted)
-{
-	bUpper = false;
 }
