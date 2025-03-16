@@ -119,11 +119,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void LoadAction();
 	UFUNCTION(BlueprintCallable)
-	void SetAction(int32 InActionIndex);
+	void SetAction	(int32 InActionIndex);
 protected:
 	UPROPERTY(BlueprintReadOnly, BlueprintGetter = GetLoadedAction)
 	int32 LoadedAction = INDEX_NONE;
-
-
 };
 

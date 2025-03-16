@@ -15,6 +15,7 @@ struct FActionTableRow;
 struct FPlayerCharacterTableRow;
 struct FDropTableRow;
 struct FEffectTableRow;
+struct FWeaponTableRow;
 
 UCLASS(Blueprintable)
 class TESTGAME_API UMGameInstance : public UGameInstance
@@ -23,6 +24,7 @@ class TESTGAME_API UMGameInstance : public UGameInstance
 	
 public:
 	virtual void Init() override;
+	virtual void OnStart() override;
 	virtual void LoadComplete(const float LoadTime, const FString& MapName) override;
 
 protected:
@@ -48,7 +50,17 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	UDataTable* MonsterTable = nullptr;
 
+	// 무기 테이블
+public:
+	UFUNCTION(BlueprintPure, meta = (WorldContext = "Context"))
+	static const FWeaponData& GetWeaponTableRow(UObject* Context, int32 InIndex);
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UDataTable* WeaponTable = nullptr;
+
 	// 스킬 테이블
+public:
+	static void LoadSkillAsset(UObject* WorldContext, int32 InSkillIndex, bool bIncludeChildren = false);
 public:
 	UFUNCTION(BlueprintPure, meta = (WorldContext = "Context"))
 	static const FSkillTableRow& GetSkillTableRow(UObject* Context, int32 InIndex);
@@ -68,8 +80,8 @@ protected:
 
 	// 이펙트 테이블
 public:
-	UFUNCTION(BlueprintPure, meta = (WorldContext = "Context"))
-	static const FEffectTableRow& GetEffectTableRow(UObject* Context, int32 InIndex);
+	UFUNCTION(BlueprintPure, meta = (WorldContext = "WorldContextObject"))
+	static const FEffectTableRow& GetEffectTableRow(const UObject* WorldContextObject, int32 InIndex);
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	UDataTable* EffectTable = nullptr;

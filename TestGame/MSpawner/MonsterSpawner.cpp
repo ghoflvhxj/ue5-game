@@ -153,6 +153,13 @@ void AMonsterSpawner::SpawnUsingRoundInfo(const FRound& InRound)
 		return;
 	}
 
+	ANavigationData* NavData = NavigationSystem->GetDefaultNavDataInstance();
+	if (IsValid(NavData) == false)
+	{
+		UE_LOG(Log_Spawner, Error, TEXT("%s invalid NavData."), *FString(__FUNCTION__));
+		return;
+	}
+
 	if (FRoundMonsterSpawnTableRow * RoundMonsterSpawnTableRow = GetCurrentRoundMonsterSpawn())
 	{
 		for (const TPair<int32, int32> IndexToNumPair : RoundMonsterSpawnTableRow->MonsterIndexToSpawnNum)
@@ -180,50 +187,48 @@ void AMonsterSpawner::SpawnUsingRoundInfo(const FRound& InRound)
 
 			TArray<FSpawnInfo> SpawnInfos;
 			SpawnInfos.Reserve(SpawnNum);
-			if (ANavigationData* NavData = NavigationSystem->GetDefaultNavDataInstance())
+
+			FVector Origin = GetActorLocation();
+
+			FNavLocation NavigableLocation;
+			if (NavigationSystem->ProjectPointToNavigation(Origin, NavigableLocation) == false)
 			{
-				FVector Origin = GetActorLocation();
-
-				FNavLocation NavigableLocation;
-				if (NavigationSystem->ProjectPointToNavigation(Origin, NavigableLocation) == false)
+				if (NavigationSystem->GetRandomPointInNavigableRadius(Origin, 500.f, NavigableLocation, NavData))
 				{
-					if (NavigationSystem->GetRandomPointInNavigableRadius(Origin, 500.f, NavigableLocation, NavData))
-					{
-						Origin = NavigableLocation.Location;
-					}
+					Origin = NavigableLocation.Location;
 				}
+			}
 
-				for (int32 Counter = 0; Counter < SpawnNum; ++Counter)
+			for (int32 Counter = 0; Counter < SpawnNum; ++Counter)
+			{
+				FNavLocation NavLocation;
+
+				float Distance = FMath::FRandRange(MinRadius, MaxRadius);
+				float Angle = FMath::FRand() * 360.f;
+
+				int Interval = 30;
+				int LoopCount = 360 / Interval;
+				for (int i = 0; i < LoopCount; ++i)
 				{
-					FNavLocation NavLocation;
-
-					float Distance = FMath::FRandRange(MinRadius, MaxRadius);
-					float Angle = FMath::FRand() * 360.f;
-
-					int Interval = 90;
-					int LoopCount = 360 / Interval;
-					for (int i = 0; i < LoopCount; ++i)
+					FPathFindingQuery Query;
+					Query.StartLocation = Origin;
+					Query.EndLocation = Origin + FRotator(0.0, Angle + (i * Interval), 0.0).RotateVector(FVector::XAxisVector) * Distance;
+					Query.QueryFilter = NavData->GetDefaultQueryFilter();
+					Query.NavData = NavData;
+					FPathFindingResult PathFindingResult = NavigationSystem->FindPathSync(Query);
+					if (PathFindingResult.IsSuccessful())
 					{
-						FPathFindingQuery Query;
-						Query.StartLocation = Origin;
-						Query.EndLocation = Origin + FRotator(0.0, Angle + (i * Interval), 0.0).RotateVector(FVector::XAxisVector) * Distance;
-						Query.QueryFilter = NavData->GetDefaultQueryFilter();
-						Query.NavData = NavData;
-						FPathFindingResult PathFindingResult = NavigationSystem->FindPathSync(Query);
-						if (PathFindingResult.IsSuccessful())
+						if (PathFindingResult.Path->GetLength() > MaxRadius)
 						{
-							if (PathFindingResult.Path->GetLength() > MaxRadius)
-							{
-								continue;
-							}
-							SpawnInfo.Transform.SetLocation(PathFindingResult.Path->GetPathPoints().Last().Location + Offset);
-							break;
+							continue;
 						}
+						SpawnInfo.Transform.SetLocation(PathFindingResult.Path->GetPathPoints().Last().Location + Offset);
+						break;
 					}
-
-					SpawnInfos.Add(SpawnInfo);
-					MonsterIndexPool.Add(Monsterindex);
 				}
+
+				SpawnInfos.Add(SpawnInfo);
+				MonsterIndexPool.Add(Monsterindex);
 			}
 
 			AddSpawnInfo(SpawnInfos);

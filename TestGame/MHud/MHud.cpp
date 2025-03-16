@@ -87,8 +87,7 @@ void AMHud::CloseWidget()
 		}
 	}
 
-	APawn* Pawn = PlayerOwner->GetPawn();
-	if (IsValid(Pawn))
+	if (APawn* Pawn = PlayerOwner->GetPawn())
 	{
 		if (WidgetContainer.Num() > 0)
 		{
@@ -98,6 +97,14 @@ void AMHud::CloseWidget()
 		{
 			PlayerOwner->GetPawn()->EnableInput(PlayerOwner);
 		}
+	}
+}
+
+void AMHud::CloseAllWidget()
+{
+	while (WidgetContainer.Num() > 0)
+	{
+		CloseWidget();
 	}
 }
 
@@ -265,6 +272,7 @@ void AMHudInGame::BeginPlay()
 		{
 			UpdateRoundInfo(RoundComponent->GetRoundWave());
 			RoundComponent->GetWaitNextRoundEvent().AddUObject(this, &AMHudInGame::ShowGetRewardMessage);
+			RoundComponent->GetRoundPausedEvent().AddUObject(this, &AMHudInGame::UpdateRoundPause);
 			RoundComponent->OnRoundAndWaveChangedEvent.AddUObject(this, &AMHudInGame::UpdateRoundInfo);
 		}
 
@@ -292,15 +300,15 @@ void AMHudInGame::BeginPlay()
 			
 			if (IsValid(PlayerState) && IsValid(GameState) && PlayerState->IsSpectator())
 			{
-				//for (APlayerState* Temp : GameState->PlayerArray)
-				//{
-				//	if (Temp->GetPawn() == New)
-				//	{
-				//		continue;
-				//	}
+				for (APlayerState* Temp : GameState->PlayerArray)
+				{
+					if (Temp->GetPawn() == New)
+					{
+						continue;
+					}
 
-				//	AddOtherPlayer(Temp);
-				//}
+					AddOtherPlayer(Temp);
+				}
 				ShowSpectateInfo(true);
 			}
 		});

@@ -70,6 +70,8 @@ public:
 	void AddWidget(UUserWidget* InWidget);
 	UFUNCTION(BlueprintCallable)
 	void CloseWidget();
+	UFUNCTION(BlueprintCallable)
+	void CloseAllWidget();
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TSubclassOf<UUserWidget> SystemWidgetClass = nullptr;
@@ -150,12 +152,14 @@ public:
 	UFUNCTION(BlueprintImplementableEvent)
 	void UdpatePickInfo(const FPickData& InPickData);
 
-	// 라운드 정보 갱신
+/* 라운드 관련 */
 public:
 	UFUNCTION(BlueprintImplementableEvent)
 	void ShowGetRewardMessage();
 	UFUNCTION(BlueprintImplementableEvent)
 	void UpdateRoundInfo(const FRound& InRound);
+	UFUNCTION(BlueprintImplementableEvent)
+	void UpdateRoundPause(bool bPaused);
 	UFUNCTION(BlueprintImplementableEvent)
 	void BoundBoss(AActor* Boss);
 

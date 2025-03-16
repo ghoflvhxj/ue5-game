@@ -38,25 +38,20 @@ bool UMInteractorComponent::Interact(AActor* InActor)
 		}
 	}
 
-	if (UWorld* World = GetWorld())
+	AddInteractor(InActor);
+	if (InteractStartEvent.IsBound())
 	{
-		AddInteractor(InActor);
-		if (InteractStartEvent.IsBound())
-		{
-			InteractStartEvent.Broadcast();
-		}
-
-		InteractState = EInteractState::Doing;
-
-		if (bFinishInstantly)
-		{
-			SuccessInteract();
-		}
-
-		return true;
+		InteractStartEvent.Broadcast();
 	}
 
-	return false;
+	InteractState = EInteractState::Doing;
+
+	if (bFinishInstantly)
+	{
+		SuccessInteract();
+	}
+
+	return true;
 }
 
 void UMInteractorComponent::SuccessInteract()
@@ -90,11 +85,6 @@ void UMInteractorComponent::AddInteractor(AActor* InActor)
 	if (IsNetSimulating() == false)
 	{
 		InteratingActor = InActor;
-	}
-	
-	if (GetOwnerRole() == ENetRole::ROLE_AutonomousProxy)
-	{
-		Server_ChangeInteractor(InActor);
 	}
 }
 

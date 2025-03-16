@@ -1,8 +1,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Subsystems/GameInstanceSubsystem.h"
 #include "GameplayTagContainer.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "SkillSubsystem.generated.h"
 
 class UGameplayAbility;
@@ -13,9 +13,9 @@ UENUM(BlueprintType)
 enum class EIGameplayEffectTarget : uint8
 {
 	None,
-	Player,		// 아이템을 얻은 플레이어
+	Self,		// 자신.
 	AllPlayer,	// 모든 플레이어
-	Monster,	// 몬스터. 일반적으로 스킬 대상
+	Target,		// 타깃.
 	AllMonster,	// 모든 몬스터
 };
 
@@ -44,6 +44,14 @@ struct FBuffInfo // 이름이 흠
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FGameplayEffectParam EffectParam;
+
+	// 해제되어 있다면 버프를 수동으로 적용해야 함.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	bool bAutoApply = true;
+
+	// 만약 스킬로부터 발생한 버프라면, 스킬이 끝날떄 같이 없앨건지 여부
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	bool bRemoveBuffWhenSkillFinished = false;
 };
 
 USTRUCT(BlueprintType)
@@ -69,6 +77,10 @@ struct FSkillTableRow : public FTableRowBase
 	// 스킬 툴팁
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	FText Tooltip;
+
+	// HUD 스킬 슬롯에 추가되는지 여부
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	bool bAddToHudSkillSlot = true;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	TMap<FName, UAnimMontage*> NameToMontage;

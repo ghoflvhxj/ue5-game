@@ -8,6 +8,7 @@
 #include "TestGame/MCharacter/MPlayer.h"
 #include "TestGame/MFunctionLibrary/MMiscFunctionLibrary.h"
 #include "TestGame/MAbility/MEffect.h"
+#include "TestGame/MWeapon/Weapon.h"
 #include "SkillSubsystem.h"
 
 void UMGameInstance::Init()
@@ -27,14 +28,27 @@ void UMGameInstance::Init()
 }
 
 
+void UMGameInstance::OnStart()
+{
+	Super::OnStart();
+
+	if (IsValid(SkillTable))
+	{
+		TArray<FSkillTableRow*> SkillTableRows;
+		SkillTable->GetAllRows(TEXT("SkillTable"), SkillTableRows);
+		for (FSkillTableRow* SkilTableRow : SkillTableRows)
+		{
+			UMMiscFunctionLibrary::LoadAssetFrom(FSkillTableRow::StaticStruct(), SkilTableRow);
+		}
+	}
+
+	UE_CLOG(GetWorld()->IsNetMode(NM_DedicatedServer) == false, LogTemp, Warning, TEXT("ghoflvhxj %s"), *FString(__FUNCTION__));
+}
+
 void UMGameInstance::LoadComplete(const float LoadTime, const FString& MapName)
 {
 	Super::LoadComplete(LoadTime, MapName);
-
-	if (GetWorld()->IsNetMode(NM_DedicatedServer) == false)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("ghoflvhxj LoadComplete %s"), *MapName);
-	}
+	UE_CLOG(GetWorld()->IsNetMode(NM_DedicatedServer) == false, LogTemp, Warning, TEXT("ghoflvhxj LoadComplete %s"), *MapName);
 }
 
 const FMonsterTableRow& UMGameInstance::GetMonsterTableRow(int32 InIndex)
@@ -47,6 +61,37 @@ const FMonsterTableRow& UMGameInstance::GetMonsterTableRow(int32 InIndex)
 	return FMonsterTableRow::Empty;
 }
 
+const FWeaponData& UMGameInstance::GetWeaponTableRow(UObject* Context, int32 InIndex)
+{
+	const FWeaponData* Out = nullptr;
+	if (IsValid(Context))
+	{
+		if (UMGameInstance* GameInstance = Cast<UMGameInstance>(UGameplayStatics::GetGameInstance(Context)))
+		{
+			Out = GameInstance->GetTableRow<FWeaponData>(GameInstance->WeaponTable, InIndex);
+		}
+	}
+
+	if (Out == nullptr)
+	{
+		static FWeaponData Empty;
+		Out = &Empty;
+	}
+
+	return *Out;
+}
+
+
+void UMGameInstance::LoadSkillAsset(UObject* WorldContext, int32 InSkillIndex, bool bIncludeChildren)
+{
+	const FSkillTableRow& SkillTableRow = GetSkillTableRow(WorldContext, InSkillIndex);
+
+	for (const FBuffInfo& BuffInfo : SkillTableRow.BuffInfos)
+	{
+		const FEffectTableRow& EffectTableRow = GetEffectTableRow(WorldContext, BuffInfo.EffectIndex);
+		UMMiscFunctionLibrary::LoadAssetFrom(FEffectTableRow::StaticStruct(), &EffectTableRow);
+	}
+}
 
 const FSkillTableRow& UMGameInstance::GetSkillTableRow(UObject* Context, int32 InIndex)
 {
@@ -110,14 +155,14 @@ TArray<int32> UMGameInstance::GetSkillEnhanceTableRowsByPredicate(TFunction<bool
 }
 
 
-const FEffectTableRow& UMGameInstance::GetEffectTableRow(UObject* Context, int32 InIndex)
+const FEffectTableRow& UMGameInstance::GetEffectTableRow(const UObject* WorldContextObject, int32 InIndex)
 {
 	static FEffectTableRow Empty;
 
 	const FEffectTableRow* Out = nullptr;
-	if (IsValid(Context))
+	if (IsValid(WorldContextObject))
 	{
-		if (UMGameInstance* GameInstance = Cast<UMGameInstance>(UGameplayStatics::GetGameInstance(Context)))
+		if (UMGameInstance* GameInstance = Cast<UMGameInstance>(UGameplayStatics::GetGameInstance(WorldContextObject)))
 		{
 			Out = GameInstance->GetTableRow<FEffectTableRow>(GameInstance->EffectTable, InIndex);
 		}

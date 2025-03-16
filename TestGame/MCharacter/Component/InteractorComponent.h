@@ -81,6 +81,7 @@ protected:
 	EInteractState InteractState = EInteractState::Wait;
 
 protected:
+	// 상호 작용 시작과 동시에 성공처리를 합니다.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	bool bFinishInstantly = false;
 };
