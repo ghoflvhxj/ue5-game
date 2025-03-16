@@ -32,10 +32,12 @@ UGameplayAbility_Skill::UGameplayAbility_Skill()
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
 
-	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Skill"));
-	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag(FName("Character.Dead")));
-	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Move"));
-	CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Ability"));
+	FGameplayTag AbilityTypeTag = FGameplayTag::RequestGameplayTag("AbilityType.Skill");
+
+	AbilityTags.AddTag(AbilityTypeTag);
+	ActivationBlockedTags.AddTag(AbilityTypeTag);
+	//CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Action.Move"));
+	//CancelAbilitiesWithTag.AddTag(FGameplayTag::RequestGameplayTag("Ability"));
 }
 
 void UGameplayAbility_Skill::GetLifetimeReplicatedProps(TArray< class FLifetimeProperty >& OutLifetimeProps) const
@@ -43,7 +45,7 @@ void UGameplayAbility_Skill::GetLifetimeReplicatedProps(TArray< class FLifetimeP
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION(UGameplayAbility_Skill, SkillIndex, COND_InitialOnly);
-	DOREPLIFETIME_CONDITION(UGameplayAbility_Skill, SkillIndex, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(UGameplayAbility_Skill, SkillTag, COND_InitialOnly);
 }
 
 void UGameplayAbility_Skill::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
@@ -60,6 +62,8 @@ void UGameplayAbility_Skill::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
+	UE_LOG(LogTemp, Warning, TEXT("ghoflvhxj ActivateAbility"));
+
 	OnActive();
 
 	if (bEndInstantly)
@@ -72,12 +76,6 @@ bool UGameplayAbility_Skill::CommitAbility(const FGameplayAbilitySpecHandle Hand
 {
 	if (Super::CommitAbility(Handle, ActorInfo, ActivationInfo, OptionalRelevantTags))
 	{
-		if (AMMonster* Monster = Cast<AMMonster>(Character))
-		{
-			const FActionTableRow ActionTableRow = Monster->GetActionTableRow();
-			SkillIndex = ActionTableRow.SkillIndex;
-		}
-				
 		return true;
 	}
 
@@ -98,7 +96,7 @@ void UGameplayAbility_Skill::EndAbility(const FGameplayAbilitySpecHandle Handle,
 
 	RemoveIndicator();	
 
-	for (const FActiveGameplayEffectHandle& ActiveEffectHandle : ActiveEffectHandles)
+	for (const FActiveGameplayEffectHandle& ActiveEffectHandle : PendingRemoveEffectHandles)
 	{
 		BP_RemoveGameplayEffectFromOwnerWithHandle(ActiveEffectHandle);
 	}
@@ -121,12 +119,23 @@ void UGameplayAbility_Skill::OnActive_Implementation()
 	// 버프
 	for (const FBuffInfo& BuffInfo : GetSkillTableRow().BuffInfos)
 	{
-		if (BuffInfo.Target != EIGameplayEffectTarget::Player)
+		if (BuffInfo.EffectParam.Target != EIGameplayEffectTarget::Self)
 		{
 			continue;
 		}
 
-		FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(BuffInfo.EffectClass);
+		if (BuffInfo.bAutoApply == false)
+		{
+			continue;
+		}
+
+		const FEffectTableRow& EffectTableRow = UMGameInstance::GetEffectTableRow(this, BuffInfo.EffectIndex);
+		if (IsValid(EffectTableRow.EffectClass) == false)
+		{
+			continue;
+		}
+
+		FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpecWithIndex(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, EffectTableRow.EffectClass, BuffInfo.EffectIndex);
 		if (EffectSpecHandle.IsValid() == false)
 		{
 			continue;
@@ -135,7 +144,13 @@ void UGameplayAbility_Skill::OnActive_Implementation()
 		for (const TPair<FGameplayTag, float>& Param : BuffInfo.EffectParam.MapTagToValue)
 		{
 			EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, Param.Key, Param.Value);
-			ActiveEffectHandles.Add(ApplyGameplayEffectSpecToOwner(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, EffectSpecHandle));
+			const FActiveGameplayEffectHandle& BuffEffectHandle = ApplyGameplayEffectSpecToOwner(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, EffectSpecHandle);
+			ActiveEffectHandles.Add(BuffEffectHandle);
+
+			if (BuffInfo.bRemoveBuffWhenSkillFinished)
+			{
+				PendingRemoveEffectHandles.Add(BuffEffectHandle);
+			}
 		}
 	}
 
@@ -197,7 +212,10 @@ void UGameplayAbility_Skill::ExecuteSoundCue(FGameplayTag InTag)
 	CueParams.AggregatedSourceTags.AddTag(SkillTag);
 	CueParams.Location = Character->GetActorLocation();
 
-	GetAbilitySystemComponentFromActorInfo()->ExecuteGameplayCue(InTag, CueParams);
+	if (UMAbilitySystemComponent* AbilitySystemComponent = GetMAbilitySystem())
+	{
+		AbilitySystemComponent->ExecuteGameplayCue(InTag, CueParams);
+	}
 }
 
 void UGameplayAbility_Skill::SetSkillIndex(int32 InIndex, FGameplayTag InSkillTag)
@@ -231,6 +249,8 @@ void UGameplayAbility_Skill::SetSkillIndex(int32 InIndex, FGameplayTag InSkillTa
 	{
 		PlayerCharacter->GetSkillEnhancedDelegate().AddUObject(this, &UGameplayAbility_Skill::SkillEnhance);
 	}
+
+	OnRep_SkillIndex();
 }
 
 float UGameplayAbility_Skill::GetSkillParam(FGameplayTag GameplayTag)
@@ -270,6 +290,11 @@ void UGameplayAbility_Skill::SkillEnhance(int32 SkillEnhanceIndex)
 	}
 }
 
+void UGameplayAbility_Skill::OnRep_SkillIndex()
+{
+	UMGameInstance::LoadSkillAsset(this, SkillIndex, true);
+}
+
 void UGameplayAbility_Skill::ApplyEffectToTarget(AActor* InEffectCauser, AActor* InTarget, const FGameplayAbilityTargetDataHandle& InTargetDataHandle)
 {
 	Super::ApplyEffectToTarget(InEffectCauser, InTarget, InTargetDataHandle);
@@ -283,7 +308,7 @@ void UGameplayAbility_Skill::ApplyEffectToTarget(AActor* InEffectCauser, AActor*
 			continue;
 		}
 
-		if (EffectToParams.Value.Target != EIGameplayEffectTarget::Monster) // Monster 이름을 Target으로 변경해야 할듯. 오브젝트 타입을 설정은 별도로 만들어야 할 거 같다.
+		if (EffectToParams.Value.Target != EIGameplayEffectTarget::Target) // Monster 이름을 Target으로 변경해야 할듯. 오브젝트 타입을 설정은 별도로 만들어야 할 거 같다.
 		{
 			continue;
 		}
@@ -359,15 +384,9 @@ UGameplayAbility_Dash::UGameplayAbility_Dash()
 	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Dash"));
 }
 
-void UGameplayAbility_Dash::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+void UGameplayAbility_Dash::OnActive_Implementation()
 {
-	if (CommitAbility(Handle, ActorInfo, ActivationInfo) == false)
-	{
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-		return;
-	}
-
-	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+	Super::OnActive_Implementation();
 
 	// 로컬 입력이 있는 경우에만...
 	if (Character->IsLocallyControlled())
@@ -420,7 +439,9 @@ void UGameplayAbility_Dash::ActivateAbility(const FGameplayAbilitySpecHandle Han
 
 	if (UMActionComponent* ActionComponent = Character->GetComponentByClass<UMActionComponent>())
 	{
-		if (UAnimMontage* Montage = ActionComponent->GetActionMontage(AbilityTags.GetByIndex(1))) // 0은 Action.Skill이라 1로 Action.Dash 태그 얻어옴
+		UAnimSequenceBase* AnimBase = Anim.LoadSynchronous();
+
+		if (UAnimMontage* Montage = Cast<UAnimMontage>(AnimBase))
 		{
 			if (Montage->HasRootMotion() == false)
 			{
@@ -429,24 +450,32 @@ void UGameplayAbility_Dash::ActivateAbility(const FGameplayAbilitySpecHandle Han
 
 			if (UAbilityTask_PlayMontageAndWait* PlayMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, "Dash", Montage, 1.f, NAME_None, true, 1.f, 0.f))
 			{
+				PlayMontageTask->OnBlendOut.AddDynamic(this, &UGameplayAbility_Dash::OnAnimFinished);
+				//PlayMontageTask->OnInterrupted.AddDynamic(this, &UGameplayAbility_Dash::OnAnimFinished);
+				//PlayMontageTask->OnCancelled.AddDynamic(this, &UGameplayAbility_Dash::OnAnimFinished);
 				PlayMontageTask->OnCompleted.AddDynamic(this, &UGameplayAbility_Dash::OnAnimFinished);
 				PlayMontageTask->ReadyForActivation();
 				return;
 			}
 		}
-		else if (UAnimSequence* Sequence = ActionComponent->GetActionSequence(AbilityTags.GetByIndex(1)))
+		else if (UAnimSequence* Sequence = Cast<UAnimSequence>(AnimBase))
 		{
 			if (UAbilityTask_PlayAnimAndWait* PlaySequenceTask = UAbilityTask_PlayAnimAndWait::CreatePlayAnimAndWaitProxy(this, "Dash", Sequence, TEXT("DefaultSlot"), 0.1f, 0.1f, 1.f, 0.f, true, 1.f))
 			{
+				PlaySequenceTask->OnBlendOut.AddDynamic(this, &UGameplayAbility_Dash::OnAnimFinished);
+				PlaySequenceTask->OnInterrupted.AddDynamic(this, &UGameplayAbility_Dash::OnAnimFinished);
+				PlaySequenceTask->OnCancelled.AddDynamic(this, &UGameplayAbility_Dash::OnAnimFinished);
 				PlaySequenceTask->OnCompleted.AddDynamic(this, &UGameplayAbility_Dash::OnAnimFinished);
 				PlaySequenceTask->ReadyForActivation();
+
 				DashProcess();
+
 				return;
 			}
 		}
 	}
 
-	EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
 }
 
 void UGameplayAbility_Dash::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
@@ -460,12 +489,6 @@ void UGameplayAbility_Dash::AddMovementInput(int32 ActionIndex)
 {
 	if (Character.IsValid())
 	{
-		//if (StartLocation.Distance(Character->GetActorLocation()) > DashLength)
-		//{
-		//	ClearDash(0);
-		//	return;
-		//}
-
 		if (UCharacterMovementComponent* MovementComponent = Character->GetCharacterMovement())
 		{
 			MovementComponent->AddInputVector(Character->GetActorForwardVector());
@@ -588,7 +611,7 @@ void UGameplayAbility_BattoSkill::OnActive_Implementation()
 				//	AbilityComponent->ExecuteGameplayCue(FGameplayTag::RequestGameplayTag("GameplayCue.Effect.Batto"), CueParams);
 				//}
 
-				Character->SetActorLocation(GoalLocation);
+				Character->SetActorLocation(GoalLocation + GetCapsuleHalfHeight());
 			});
 
 			NavSystem->FindPathAsync(NavSystem->GetDefaultSupportedAgent().DefaultProperties, PathFindingQuery, PathQueryDelegate);

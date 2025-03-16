@@ -113,6 +113,18 @@ UGameplayEffect_AddWeaponScale::UGameplayEffect_AddWeaponScale()
 	Modifiers.Add(ModifierInfo);
 }
 
+UGameplayEffect_AddMaxHealth::UGameplayEffect_AddMaxHealth()
+{
+	FGameplayModifierInfo ModifierInfo;
+	FSetByCallerFloat SetByCaller;
+
+	ModifierInfo.Attribute = Attribute = UMAttributeSet::GetMaxHealthAttribute();
+	ModifierInfo.ModifierOp = EGameplayModOp::Additive;
+	SetByCaller.DataTag = GetEffectValueTag();
+	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
+	Modifiers.Add(ModifierInfo);
+}
+
 UGameplayEffect_AddHealth::UGameplayEffect_AddHealth()
 {
 	FGameplayModifierInfo ModifierInfo;
@@ -165,4 +177,3 @@ UGameplayEffect_SetMaxHealth::UGameplayEffect_SetMaxHealth()
 	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
 	Modifiers.Add(ModifierInfo);
 }
-

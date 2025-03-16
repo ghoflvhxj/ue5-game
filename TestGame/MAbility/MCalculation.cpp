@@ -18,12 +18,12 @@ void UMGameplayEffectExecutionCalculation_Damage::Execute_Implementation(const F
 
 	Super::Execute_Implementation(ExecutionParams, OutExecutionOutput);
 
-	if (Target->GetTagCount(FGameplayTag::RequestGameplayTag("Character.Ability.DamageImmune")) > 0)
+	if (Target->GetTagCount(FGameplayTag::RequestGameplayTag("Character.IgnoreDamage")) > 0)
 	{
 		return;
 	}
 
-	if (Target->GetTagCount(FGameplayTag::RequestGameplayTag("Character.Ability.DamageToOne")) > 0)
+	if (Target->GetTagCount(FGameplayTag::RequestGameplayTag("Ability.DamageToOne")) > 0)
 	{
 		OutExecutionOutput.AddOutputModifier(FGameplayModifierEvaluatedData(UMAttributeSet::GetHealthAttribute(), EGameplayModOp::Additive, -1.f));
 		return;

@@ -39,7 +39,7 @@ public:
 protected:
 	void ExecuteSoundCue(FGameplayTag InTag);
 
-	// 스킬 인덱스와 테이블 관련
+/* 스킬 인덱스와 테이블 관련 */
 public:
 	void SetSkillIndex(int32 InIndex, FGameplayTag InSkillTag);
 	UFUNCTION(BlueprintPure)
@@ -47,8 +47,11 @@ public:
 	UFUNCTION(BlueprintPure)
 	const FSkillTableRow& GetSkillTableRow();
 	void SkillEnhance(int32 SkillEnhanceIndex);
+	UFUNCTION()
+	void OnRep_SkillIndex();
 protected:
-	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly)
+	//UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly)
+	UPROPERTY(ReplicatedUsing = OnRep_SkillIndex, EditAnywhere, BlueprintReadOnly)
 	int32 SkillIndex = INDEX_NONE;
 
 public:
@@ -70,9 +73,12 @@ public:
 protected:
 	// GE에 대한 파라미터 ex) 슬로우 수치, 시간 등
 	TMap<int32, FGameplayEffectParam> MapEffectToParams;
-	// 테이블에 설정된 버프 이펙트들의 핸들
+	// 테이블에 설정된 버프 이펙트 핸들
 	UPROPERTY(BlueprintReadOnly)
 	TArray<FActiveGameplayEffectHandle> ActiveEffectHandles;
+	// 어빌리티가 끝날 때 같이 종료될 버프 이펙트 핸들
+	UPROPERTY(BlueprintReadOnly)
+	TArray<FActiveGameplayEffectHandle> PendingRemoveEffectHandles;
 
 /* Duration 관련 */
 public:
@@ -121,7 +127,7 @@ public:
 	UGameplayAbility_Dash();
 
 public:
-	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+	virtual void OnActive_Implementation() override;
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
 public:
 	UFUNCTION()
@@ -137,6 +143,8 @@ protected:
 	FVector StartLocation = FVector::ZeroVector;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	float DashLength = 1000.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TSoftObjectPtr<UAnimSequenceBase> Anim;
 
 	class UAbilityTask_Repeat* RepeatTask = nullptr;
 };

@@ -149,6 +149,15 @@ public:
 };
 
 UCLASS()
+class TESTGAME_API UGameplayEffect_AddMaxHealth : public UGameplayEffect_AddAttribute
+{
+	GENERATED_BODY()
+
+public:
+	UGameplayEffect_AddMaxHealth();
+};
+
+UCLASS()
 class TESTGAME_API UGameplayEffect_AddHealth : public UGameplayEffect_AddAttribute
 {
 	GENERATED_BODY()

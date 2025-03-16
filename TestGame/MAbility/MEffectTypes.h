@@ -53,4 +53,6 @@ class TESTGAME_API UMGameplayEffectContextHelper : public UBlueprintFunctionLibr
 public:
 	UFUNCTION(BlueprintPure)
 	static int32 GetEffectIndex(FGameplayEffectContextHandle InContextHandle);
+
+	static void SetEffectIndex(FGameplayEffectContextHandle& InContextHandle, int32 InEffectIndex);
 };

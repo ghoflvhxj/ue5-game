@@ -157,3 +157,16 @@ int32 UMGameplayEffectContextHelper::GetEffectIndex(FGameplayEffectContextHandle
 
 	return INDEX_NONE;
 }
+
+void UMGameplayEffectContextHelper::SetEffectIndex(FGameplayEffectContextHandle& InContextHandle, int32 InEffectIndex)
+{
+	//if (InContextHandle.IsValid())
+	//{
+	//	FGameplayEffectContext* EffectContext = InContextHandle.Data->GetContext().Get();
+	//	if (EffectContext != nullptr && EffectContext->GetScriptStruct() == FMGameplayEffectContext::StaticStruct())
+	//	{
+	//		FMGameplayEffectContext* MEffectContext = static_cast<FMGameplayEffectContext*>(EffectContext);
+	//		MEffectContext->EffectIndex = InEffectIndex;
+	//	}
+	//}
+}

@@ -128,6 +128,10 @@ public:
 	virtual bool OnActive_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const override;
 	virtual bool OnRemove_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const override;
 
+public:
+	UFUNCTION()
+	void RemoveTarget(AActor* InActor, EEndPlayReason::Type InEndPlayReason);
+
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	class UFXSystemAsset* Particle = nullptr;

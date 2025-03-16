@@ -25,22 +25,24 @@
 
 DECLARE_LOG_CATEGORY_CLASS(LogItemAbility, Log, Log);
 
-UGameplayAbility_DamageImmune::UGameplayAbility_DamageImmune()
+UGameplayAbility_Item::UGameplayAbility_Item()
 {
 	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateNo;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::ServerOnly;
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
 
+	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("AbilityType.Item"));
+}
+
+UGameplayAbility_DamageImmune::UGameplayAbility_DamageImmune()
+{
 	FAbilityTriggerData TriggerData;
-	TriggerData.TriggerTag = FGameplayTag::RequestGameplayTag("Character.Event.Damaged");
+	TriggerData.TriggerTag = FGameplayTag::RequestGameplayTag("Character.Damaged");
 	AbilityTriggers.Add(TriggerData);
 }
 
 UGameplayAbility_AutoArrow::UGameplayAbility_AutoArrow()
 {
-	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateNo;
-	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::ServerOnly;
-	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
 }
 
 void UGameplayAbility_AutoArrow::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
@@ -62,6 +64,7 @@ void UGameplayAbility_AutoArrow::OnGiveAbility(const FGameplayAbilityActorInfo* 
 				FActorSpawnParameters SpawnParams;
 				SpawnParams.Owner = Character;
 				SpawnParams.Instigator = Character;
+				SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
 				FRotator Rotation = GetCharacterRotation();
 
@@ -77,13 +80,15 @@ void UGameplayAbility_AutoArrow::OnGiveAbility(const FGameplayAbilityActorInfo* 
 
 					SpawnTransform.SetRotation(SpawnRotation.Quaternion());
 					
-					if (ABullet* Bullet = World->SpawnActor<ABullet>(BulletClass, SpawnTransform, SpawnParams))
+					
+					if (ABullet* Bullet = World->SpawnActorDeferred<ABullet>(BulletClass, SpawnTransform, Character, Character, ESpawnActorCollisionHandlingMethod::AlwaysSpawn))
 					{
 						if (Bullet->GetClass()->ImplementsInterface(UActorByAbilityInterface::StaticClass()))
 						{
 							IActorByAbilityInterface::Execute_InitUsingAbility(Bullet, this);
 						}
 						InitAbilitySpawnedActor(Bullet);
+						UGameplayStatics::FinishSpawningActor(Bullet, SpawnTransform);
 						Bullet->StartProjectile();
 					}
 				}
@@ -131,7 +136,7 @@ void UGameplayAbility_Turret::SpawnTurrets()
 		while (TurretCount < FMath::RoundToInt(GetParam(FGameplayTag::RequestGameplayTag("Ability.Turret.Num"))))
 		{
 			FNavLocation ResultLocation;
-			if (NavSystem->GetRandomReachablePointInRadius(Character->GetActorLocation(), 1000.f, ResultLocation, Cast<ANavigationData>(NavSystem->GetMainNavData()), NavSystem->CreateDefaultQueryFilterCopy()))
+			if (NavSystem->GetRandomReachablePointInRadius(Character->GetActorLocation(), 200.f, ResultLocation, Cast<ANavigationData>(NavSystem->GetMainNavData()), NavSystem->CreateDefaultQueryFilterCopy()))
 			{
 				SpawnTransform.SetLocation(ResultLocation.Location);
 			}
@@ -162,3 +167,18 @@ void UGameplayAbility_Turret::DecreaseTurretCount(AActor* InActor, EEndPlayReaso
 		}), SpawnDelay, false);
 	}
 }
+
+UGameplayAbility_DamageToOne::UGameplayAbility_DamageToOne()
+{
+	ActivationOwnedTags.AddTag(FGameplayTag::RequestGameplayTag("Ability.DamageToOne"));
+}
+
+void UGameplayAbility_DamageToOne::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	if (CommitAbility(Handle, ActorInfo, ActivationInfo) == false)
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+}
+

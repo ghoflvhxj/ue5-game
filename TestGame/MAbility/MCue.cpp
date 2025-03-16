@@ -215,9 +215,13 @@ bool UGameplayCue_CascadeParticle::OnActive_Implementation(AActor* MyTarget, con
 	}
 
 	USceneComponent* AttachComponent = MyTarget->GetRootComponent();
-	if (ACharacter* Character = Cast<AMCharacter>(MyTarget))
+	if (AMCharacter* Character = Cast<AMCharacter>(MyTarget))
 	{
 		AttachComponent = Character->GetMesh();
+		if (Character->OnEndPlay.IsAlreadyBound(this, &UGameplayCue_CascadeParticle::RemoveTarget) == false)
+		{
+			Character->OnEndPlay.AddDynamic(this, &UGameplayCue_CascadeParticle::RemoveTarget);
+		}
 	}
 
 	if (IsValid(Particle))
@@ -277,6 +281,11 @@ bool UGameplayCue_CascadeParticle::OnRemove_Implementation(AActor* MyTarget, con
 	}
 
 	return true;
+}
+
+void UGameplayCue_CascadeParticle::RemoveTarget(AActor* InActor, EEndPlayReason::Type InEndPlayReason)
+{
+	OnRemove(InActor, FGameplayCueParameters());
 }
 
 bool UGameplayCue_SkillCoolDown::OnExecute_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const

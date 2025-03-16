@@ -17,6 +17,9 @@ class TESTGAME_API UGameplayAbility_Item : public UGameplayAbility_CharacterBase
 	GENERATED_BODY()
 
 public:
+	UGameplayAbility_Item();
+
+public:
 	virtual void Upgrade() {}
 
 //public:
@@ -74,4 +77,16 @@ protected:
 
 	FTimerHandle SpawnTimer;
 	float SpawnDelay = 5.f;
+};
+
+UCLASS()
+class TESTGAME_API UGameplayAbility_DamageToOne : public UGameplayAbility_Item
+{
+	GENERATED_BODY()
+
+public:
+	UGameplayAbility_DamageToOne();
+
+public:
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 };
