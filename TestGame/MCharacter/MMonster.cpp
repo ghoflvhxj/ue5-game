@@ -1,9 +1,10 @@
 #include "MMonster.h"
 
-#include "AbilitySystemComponent.h"
 #include "BehaviorTree/BehaviorTreeComponent.h"
 
 #include "MGameInstance.h"
+#include "TestGame/MAbility/MAbilitySystemComponent.h"
+#include "TestGame/MAbility/MActionAbility.h"
 #include "TestGame/MAttribute/MAttribute.h"
 #include "TestGame/MAbility/MActionStruct.h"
 #include "TestGame/MCharacter/Component/ActionComponent.h"
@@ -22,27 +23,30 @@ void AMMonster::BeginPlay()
 		for (int32 ActionIndex : MonsterTableRow.MonsterData.ActionIndices)
 		{
 			const FActionTableRow& ActionTableRow = GameInstance->GetActionTableRow(ActionIndex);
-
-			FGameplayAbilitySpec AbilitySpec(ActionTableRow.AbilityClass);
-			AbilitySystemComponent->GiveAbility(AbilitySpec);
+			//FGameplayAbilitySpecHandle AbilitySpecHandle = AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(ActionTableRow.AbilityClass));
+			
+			if (const FGameplayAbilitySpec* AbilitySpec = AbilitySystemComponent->FindAbilitySpecFromClass(ActionTableRow.AbilityClass))
+			{
+				if (UGameplayAbility_Skill* SkillAbility = Cast<UGameplayAbility_Skill>(AbilitySpec->GetPrimaryInstance()))
+				{
+					SkillAbility->SetSkillIndex(ActionTableRow.SkillIndex, FGameplayTag::EmptyTag);
+				}
+			}
 		}
 
-		if (IsValid(AbilitySystemComponent))
+		if (UDataTable* AttributeData = Cast<UDataTable>(MonsterTableRow.MonsterData.AttributeData.TryLoad()))
 		{
-			if (UDataTable* AttributeData = Cast<UDataTable>(MonsterTableRow.MonsterData.AttributeData.TryLoad()))
-			{
-				AbilitySystemComponent->InitStats(UMAttributeSet::StaticClass(), AttributeData);
-			}
+			AbilitySystemComponent->InitStats(UMAttributeSet::StaticClass(), AttributeData);
 		}
 	}
 
-	//if (IsValid(AbilitySetData) && HasAuthority() == false)
-	//{
-	//	if (AbilitySetData->HasAbilityTag(FGameplayTag::RequestGameplayTag("Ability.Start")))
-	//	{
-	//		SetActorHiddenInGame(true);
-	//	}
-	//}
+}
+
+void AMMonster::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME_CONDITION(AMMonster, MonsterIndex, COND_InitialOnly);
 }
 
 void AMMonster::NotifyActorBeginOverlap(AActor* OtherActor)
@@ -114,6 +118,12 @@ void AMMonster::Freeze(const FGameplayTag InTag, int32 InStack)
 			//MyController->Movement();
 		}
 	}
+}
+
+int32 AMMonster::GetEffectIndex(const FGameplayTag& InTag) const
+{
+	const FMonsterTableRow& MonsterTableRow = GetMonsterTableRow();
+	return MonsterTableRow.MonsterData.MapTagToEffectIndex.Contains(InTag) ? MonsterTableRow.MonsterData.MapTagToEffectIndex[InTag] : INDEX_NONE;
 }
 
 int32 AMMonster::GetDropIndex_Implementation()

@@ -46,6 +46,9 @@ struct FMonsterData
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	int32 DropIndex = INDEX_NONE;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TMap<FGameplayTag, int32> MapTagToEffectIndex;
 };
 
 USTRUCT(BlueprintType)
@@ -80,11 +83,13 @@ class TESTGAME_API AMMonster : public AMCharacter, public IDropInterface
 protected:
 	virtual void BeginPlay() override;
 public:
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void NotifyActorBeginOverlap(AActor* OtherActor) override;
 	virtual void NotifyHit(class UPrimitiveComponent* MyComp, AActor* Other, class UPrimitiveComponent* OtherComp, bool bSelfMoved, FVector HitLocation, FVector HitNormal, FVector NormalImpulse, const FHitResult& Hit) override;
 
 public:
 	virtual void Freeze(const FGameplayTag InTag, int32 InStack) override;
+	virtual int32 GetEffectIndex(const FGameplayTag& InTag) const override;
 
 public:
 	virtual int32 GetDropIndex_Implementation() override;
@@ -95,7 +100,7 @@ public:
 	void SetMonsterIndex(int32 InIndex) { MonsterIndex = InIndex; }
 	virtual int32 GetCharacterIndex() override { return MonsterIndex; }
 protected:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Replicated, meta = (ExposeOnSpawn = "true"))
 	int32 MonsterIndex = INDEX_NONE;
 
 public:
