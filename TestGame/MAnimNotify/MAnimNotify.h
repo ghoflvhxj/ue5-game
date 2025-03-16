@@ -73,6 +73,9 @@ public:
 	virtual void NotifyBegin(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, float TotalDuration, const FAnimNotifyEventReference& EventReference) override;
 	virtual void NotifyEnd(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference) override;
 
+public:
+	void Restore();
+
 protected:
 	UPROPERTY(EditAnywhere)
 	FGameplayTagContainer RemoveTags;
@@ -80,6 +83,10 @@ protected:
 	FGameplayTagContainer AddTags;
 	UPROPERTY(EditAnywhere)
 	bool bRestore = true;
+
+protected:
+	UPROPERTY(EditAnywhere)
+	bool bUseReplication = true;
 };
 
 UCLASS()

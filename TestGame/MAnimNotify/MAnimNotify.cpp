@@ -146,6 +146,8 @@ void UMAnimNotify_SpawnBullet::OnSpawn(AActor* InActor, USkeletalMeshComponent* 
 			IBulletShooterInterface::Execute_InitBullet(Owner, Bullet);
 		}
 	}
+
+
 }
 
 void UMAnimNotify_SpawnBullet::OnSpawnFinished(AActor* InActor, USkeletalMeshComponent* MeshComp)
@@ -236,22 +238,41 @@ void UMAnimNotifyState_WeaponActive::NotifyEnd(USkeletalMeshComponent* MeshComp,
 
 void UMAnimNotifyState_TagModifier::NotifyBegin(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, float TotalDuration, const FAnimNotifyEventReference& EventReference)
 {
-	if (AActor* Actor = MeshComp->GetOwner())
+	AActor* Actor = MeshComp->GetOwner();
+	if (IsValid(Actor) == false)
 	{
-		UAbilitySystemBlueprintLibrary::AddLooseGameplayTags(Actor, AddTags, false);
-		UAbilitySystemBlueprintLibrary::RemoveLooseGameplayTags(Actor, RemoveTags, false);
+		return;
 	}
+
+	if (bUseReplication && Actor->HasAuthority() == false)
+	{
+		return;
+	}
+
+	UAbilitySystemBlueprintLibrary::AddLooseGameplayTags(Actor, AddTags, bUseReplication);
+	UAbilitySystemBlueprintLibrary::RemoveLooseGameplayTags(Actor, RemoveTags, bUseReplication);
+
+	UE_LOG(LogTemp, Warning, TEXT("ghoflvhxj Add Tags. %s"), *Animation->GetName());
 }
 
 void UMAnimNotifyState_TagModifier::NotifyEnd(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference)
 {
+	AActor* Actor = MeshComp->GetOwner();
+	if (IsValid(Actor) == false)
+	{
+		return;
+	}
+
+	if (bUseReplication && Actor->HasAuthority() == false)
+	{
+		return;
+	}
+
 	if (bRestore)
 	{
-		if (AActor* Actor = MeshComp->GetOwner())
-		{
-			UAbilitySystemBlueprintLibrary::RemoveLooseGameplayTags(Actor, AddTags, false);
-			UAbilitySystemBlueprintLibrary::AddLooseGameplayTags(Actor, RemoveTags, false);
-		}
+		UAbilitySystemBlueprintLibrary::RemoveLooseGameplayTags(Actor, AddTags, bUseReplication);
+		UAbilitySystemBlueprintLibrary::AddLooseGameplayTags(Actor, RemoveTags, bUseReplication);
+		UE_LOG(LogTemp, Warning, TEXT("ghoflvhxj Remove Tags"));
 	}
 }
 
