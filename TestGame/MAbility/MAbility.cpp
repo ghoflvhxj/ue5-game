@@ -23,6 +23,7 @@
 #include "TestGame/MCharacter/MPlayer.h"
 #include "TestGame/MWeapon/Weapon.h"
 #include "TestGame/MItem/ItemBase.h"
+#include "TestGame/Bullet/Bullet.h"
 #include "TestGame/MFunctionLibrary/MContainerFunctionLibrary.h"
 
 DECLARE_LOG_CATEGORY_CLASS(LogAbility, Log, Log);
@@ -229,45 +230,10 @@ void UGameplayAbility_CollideDamage::ActivateAbility(const FGameplayAbilitySpecH
 
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
-	AActor* AbilityOwer = GetAvatarActorFromActorInfo();
-	CueTag = FGameplayTag::RequestGameplayTag("GameplayCue.Effect.Hit.Default");
-	if (AWeapon* Weapon = Cast<AWeapon>(AbilityOwer))
-	{
-		if (const FGameItemTableRow* ItemTableRow = Weapon->GetItemTableRow())
-		{
-			// 테스트용
-			switch (ItemTableRow->GameItemInfo.Grade)
-			{
-			case EItemGrade::Normal:
-				CueTag = FGameplayTag::RequestGameplayTag("GameplayCue.Effect.Hit.Test1");
-				break;
-			case EItemGrade::Rare:
-				CueTag = FGameplayTag::RequestGameplayTag("GameplayCue.Effect.Hit.Test2");
-				break;
-			case EItemGrade::Unique:
-				CueTag = FGameplayTag::RequestGameplayTag("GameplayCue.Effect.Hit.Test3");
-				break;
-			}
-		}
-	}
-
-	if (UMDamageComponent* DamageComponent = AbilityOwer->GetComponentByClass<UMDamageComponent>())
+	if (UMDamageComponent* DamageComponent = Character->GetComponentByClass<UMDamageComponent>())
 	{
 		DamageComponent->GetOnDamageEvent().AddUObject(this, &UGameplayAbility_CollideDamage::OnCollide);
 	}
-
-	//if (UAbilitySystemComponent* AbilityComponent = GetAbilitySystemComponentFromActorInfo())
-	//{
-	//	bool bFound = false;
-	//	float NewDamage = AbilityComponent->GetGameplayAttributeValue(UMWeaponAttributeSet::GetAttackPowerAttribute(), bFound);
-	//	if (bFound)
-	//	{
-	//		Damage = NewDamage;
-	//		AbilityComponent->GetGameplayAttributeValueChangeDelegate(UMWeaponAttributeSet::GetAttackPowerAttribute()).AddWeakLambda(this, [this](const FOnAttributeChangeData& AttributeChangeData) {
-	//			Damage = AttributeChangeData.NewValue;
-	//		});
-	//	}
-	//}
 }
 
 void UGameplayAbility_CollideDamage::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
@@ -280,25 +246,7 @@ void UGameplayAbility_CollideDamage::EndAbility(const FGameplayAbilitySpecHandle
 		{
 			AbilityOwer->OnActorBeginOverlap.RemoveDynamic(this, &UGameplayAbility_CollideDamage::OnCollide);
 		}
-
-		//if (AbilityOwer->OnActorHit.IsAlreadyBound(this, &UGameplayAbility_CollideDamage::OnHit))
-		//{
-		//	AbilityOwer->OnActorHit.RemoveDynamic(this, &UGameplayAbility_CollideDamage::OnHit);
-		//}
 	}
-}
-
-void UGameplayAbility_CollideDamage::OnHit(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
-{
-	//if (UAbilitySystemComponent* OtherAbilityComponent = OtherActor->GetComponentByClass<UAbilitySystemComponent>())
-	//{
-	//	FGameplayEffectContextHandle EffectContext = OtherAbilityComponent->MakeEffectContext();
-	//	FGameplayCueParameters CueParams(EffectContext);
-	//	CueParams.Location = SweepResult.Location;
-	//	OtherAbilityComponent->ExecuteGameplayCue(CueTag, CueParams);
-	//}
-
-	//OnCollide(GetAvatarActorFromActorInfo(), OtherActor);
 }
 
 void UGameplayAbility_CollideDamage::OnCollide(AActor* OverlappedActor, AActor* OtherActor)
@@ -391,7 +339,7 @@ UGameplayAbility_CameraShake::UGameplayAbility_CameraShake()
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
 
 	FAbilityTriggerData TriggerData;
-	TriggerData.TriggerTag = FGameplayTag::RequestGameplayTag("Character.Event.Damaged");
+	TriggerData.TriggerTag = FGameplayTag::RequestGameplayTag("Character.Damaged");
 	AbilityTriggers.Add(TriggerData);
 }
 
@@ -481,12 +429,6 @@ void UGameplayAbility_Move::ActivateAbility(const FGameplayAbilitySpecHandle Han
 		Character->SetMoving(true);
 	}
 
-	//if (ReleaseHandle.IsValid())
-	//{
-	//	GetWorld()->GetTimerManager().ClearTimer(ReleaseHandle);
-	//	ReleaseHandle.Invalidate();
-	//}
-
 	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
 }
 
@@ -494,13 +436,11 @@ void UGameplayAbility_Move::EndAbility(const FGameplayAbilitySpecHandle Handle, 
 {
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 
-	//ReleaseHandle = GetWorld()->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateWeakLambda(this, [this]() {
-		if (AMCharacter* Character = Cast<AMCharacter>(GetAvatarActorFromActorInfo()))
-		{
-			UE_CLOG(HasAuthority(&CurrentActivationInfo), LogTemp, Warning, TEXT("ghoflvhxj SetMoving False"));
-			Character->SetMoving(false);
-		}
-	//}));
+	if (AMCharacter* Character = Cast<AMCharacter>(GetAvatarActorFromActorInfo()))
+	{
+		//UE_CLOG(HasAuthority(&CurrentActivationInfo), LogTemp, Warning, TEXT("ghoflvhxj SetMoving False"));
+		Character->SetMoving(false);
+	}
 }
 
 UGameplayAbility_Move_KeepBasicAttack::UGameplayAbility_Move_KeepBasicAttack()
@@ -697,6 +637,8 @@ UGameplayAbility_CharacterBase::UGameplayAbility_CharacterBase()
 	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
+
+	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Dead"));
 }
 
 void UGameplayAbility_CharacterBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -772,6 +714,20 @@ FVector UGameplayAbility_CharacterBase::GetCharacterLocation(bool bIncludeCapsul
 	return OutLocation;
 }
 
+FVector UGameplayAbility_CharacterBase::GetCapsuleHalfHeight()
+{
+	FVector Out = FVector::ZeroVector;
+	if (Character.IsValid())
+	{
+		if (UCapsuleComponent* CapsuleComponent = Character->GetCapsuleComponent())
+		{
+			Out.Z += CapsuleComponent->GetScaledCapsuleHalfHeight();
+		}
+	}
+
+	return Out;
+}
+
 FRotator UGameplayAbility_CharacterBase::GetCharacterRotation()
 {
 	FRotator OutRotator = FRotator::ZeroRotator;
@@ -795,8 +751,12 @@ void UGameplayAbility_CharacterBase::InitAbilitySpawnedActor(AActor* InActor)
 	{
 		if (InActor->IsA<ABullet>())
 		{
-			float ProjectileScale = AbilitySystemComponent->GetNumericAttribute(UMAttributeSet::GetProjectileScaleAttribute());
-			InActor->SetActorScale3D(FVector(ProjectileScale));
+			bool bProjectileScaling = false;
+			float ProjectileScale = AbilitySystemComponent->GetGameplayAttributeValue(UMAttributeSet::GetProjectileScaleAttribute(), bProjectileScaling);
+			if (bProjectileScaling)
+			{
+				InActor->SetActorScale3D(FVector(ProjectileScale));
+			}
 		}
 	}
 
@@ -826,7 +786,7 @@ void UGameplayAbility_CharacterBase::ApplyEffect(AActor* InEffectCauser, AActor*
 
 void UGameplayAbility_CharacterBase::ApplyEffectToTarget(AActor* InCauser, AActor* InTarget, const FGameplayAbilityTargetDataHandle& InTargetDataHandle)
 {
-	UAbilitySystemComponent* TargetASC = InTarget->GetComponentByClass<UAbilitySystemComponent>();
+	UMAbilitySystemComponent* TargetASC = InTarget->GetComponentByClass<UMAbilitySystemComponent>();
 
 	if (IsValid(TargetASC) == false)
 	{
@@ -847,7 +807,7 @@ void UGameplayAbility_CharacterBase::ApplyEffectToTarget(AActor* InCauser, AActo
 			continue;
 		}
 
-		UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, ParamToValuePair.Key, ParamToValuePair.Value);
+		EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, ParamToValuePair.Key, ParamToValuePair.Value);
 	}
 	for (const auto& DynamicParamToValuePair : DynamicParamToValue)
 	{
@@ -856,13 +816,13 @@ void UGameplayAbility_CharacterBase::ApplyEffectToTarget(AActor* InCauser, AActo
 			continue;
 		}
 
-		UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, DynamicParamToValuePair.Key, DynamicParamToValuePair.Value);
+		EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, DynamicParamToValuePair.Key, DynamicParamToValuePair.Value);
 	}
 
 	EffectSpecHandle.Data.Get()->Period = GetParamUsingName("DamageParam.Period");
 	ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, EffectSpecHandle, InTargetDataHandle);
 
-	// HitGC 로직. 특정 위치에 표시하려면 CueParam의 Location을 채우고 사용하려면 직접 ExecutePlayCue를 호출해야 함
+	// HitGC 로직. CueParam을 커스텀으로 채우려면 직접 ExecutePlayCue를 호출해야 함 ex)Location
 	FGameplayCueParameters CueParams;
 	CueParams.EffectCauser = InCauser;
 	CueParams.EffectContext = EffectSpecHandle.Data->GetContext();
@@ -876,6 +836,7 @@ void UGameplayAbility_CharacterBase::ApplyEffectToTarget(AActor* InCauser, AActo
 	}
 	CueParams.AggregatedSourceTags.AddTag(SourceTag);
 
+	// GE가 어떤 Cue를 실행할지 저장하고 있어서 가져옴
 	FGameplayTag DamageCueTag = FGameplayTag::RequestGameplayTag("GameplayCue.Effect.Hit.Default");
 	if (UGameplayEffect_Damage* GEDamageCDO = Cast<UGameplayEffect_Damage>(DamageEffectClass->GetDefaultObject()))
 	{
@@ -884,6 +845,32 @@ void UGameplayAbility_CharacterBase::ApplyEffectToTarget(AActor* InCauser, AActo
 	}
 
 	TargetASC->ExecuteGameplayCue(DamageCueTag, CueParams);
+}
+
+void UGameplayAbility_CharacterBase::SetEnableCharacterOverlapDamage(bool bInEnable)
+{
+	if (Character.IsValid() == false)
+	{
+		return;
+	}
+
+	UMDamageComponent* DamageComponent = Character->GetComponentByClass<UMDamageComponent>();
+	if (IsValid(DamageComponent) == false)
+	{
+		return;
+	}
+
+	if (bInEnable)
+	{
+		CharacterOverlapDamageDelegateHandle = DamageComponent->GetOnDamageEvent().AddUObject(this, &UGameplayAbility_CharacterBase::ApplyEffect);
+		DamageComponent->Activate(true);
+	}
+	else if(CharacterOverlapDamageDelegateHandle.IsValid())
+	{
+		DamageComponent->GetOnDamageEvent().Remove(CharacterOverlapDamageDelegateHandle);
+		CharacterOverlapDamageDelegateHandle.Reset();
+		DamageComponent->Reset();
+	}
 }
 
 void UGameplayAbility_CharacterBase::UpdateDynamicParams_Implementation(AActor* OtherActor)
@@ -1054,7 +1041,7 @@ UGameplayAbility_SpinalReflex::UGameplayAbility_SpinalReflex()
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
 
 	FAbilityTriggerData TriggerData;
-	TriggerData.TriggerTag = FGameplayTag::RequestGameplayTag("Character.Event.Damaged");
+	TriggerData.TriggerTag = FGameplayTag::RequestGameplayTag("Character.Damaged");
 	AbilityTriggers.Add(TriggerData);
 
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("Action.Dash"));
@@ -1107,7 +1094,7 @@ UGameplayAbility_CounterAttack::UGameplayAbility_CounterAttack()
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
 
 	FAbilityTriggerData TriggerData;
-	TriggerData.TriggerTag = FGameplayTag::RequestGameplayTag("Character.Event.Damaged");
+	TriggerData.TriggerTag = FGameplayTag::RequestGameplayTag("Character.Damaged");
 	AbilityTriggers.Add(TriggerData);
 
 	ActivationBlockedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Dead"));
@@ -1162,23 +1149,6 @@ void UGameplayAbility_CounterAttack::ActivateAbility(const FGameplayAbilitySpecH
 	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
 }
 
-UGameplayAbility_DamageToOne::UGameplayAbility_DamageToOne()
-{
-	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
-	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::LocalPredicted;
-	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
-
-	ActivationOwnedTags.AddTag(FGameplayTag::RequestGameplayTag("Character.Ability.DamageToOne"));
-}
-
-void UGameplayAbility_DamageToOne::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
-{
-	if (CommitAbility(Handle, ActorInfo, ActivationInfo) == false)
-	{
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-		return;
-	}
-}
 
 UGameplayAbility_Start::UGameplayAbility_Start()
 {

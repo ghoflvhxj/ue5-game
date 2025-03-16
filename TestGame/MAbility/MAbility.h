@@ -121,22 +121,35 @@ public:
 	AMCharacter* GetCharacter();
 protected:
 	FVector GetCharacterLocation(bool bIncludeCapsuleHeight);
+	FVector GetCapsuleHalfHeight();
 	FRotator GetCharacterRotation();
 protected:
 	TWeakObjectPtr<AMCharacter> Character = nullptr;
+
+/* GE 관련 기능들 */
+public:
+	// OverlapEvent 바인딩을 위한 Wrapper 함수
+	virtual void ApplyEffect(AActor* InEffectCauser, AActor* InTarget);
 
 public:
 	// 어빌리티가 스폰한 액터는 이 함수를 호출해줘야 함
 	UFUNCTION(BlueprintCallable)
 	virtual void InitAbilitySpawnedActor(AActor* InActor);
-	virtual void ApplyEffect(AActor* InEffectCauser, AActor* InTarget);
+
 	// GE 적용 로직은 이 함수를 오버라이딩
 	virtual void ApplyEffectToTarget(AActor* InEffectCauser, AActor* InTarget, const FGameplayAbilityTargetDataHandle& InTargetDataHandle);
+
+	// 캐릭터 오버랩으로 대미지를 적용하기 위한 함수
+	UFUNCTION(BlueprintCallable)
+	void SetEnableCharacterOverlapDamage(bool bInEnable);
 
 protected:
 	// 어빌리티 내에서 직접 대미지를 줄 경우 사용
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<UGameplayEffect_Damage> DamageEffectClass = nullptr;
+
+	// 캐릭터 오버랩 대미지 핸들
+	FDelegateHandle CharacterOverlapDamageDelegateHandle;
 
 public:
 	virtual int32 GetEffectIndex() const { return INDEX_NONE; }
@@ -255,16 +268,7 @@ public:
 
 protected:
 	UFUNCTION()
-	void OnHit(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
-	UFUNCTION()
 	void OnCollide(AActor* OverlappedActor, AActor* OtherActor);
-
-public:
-	UFUNCTION(BlueprintCallable)
-	void SetDamage(float InDamage) { Damage = InDamage; }
-protected:
-	float Damage = 0.f;
-	FGameplayTag CueTag = FGameplayTag::EmptyTag;
 };
 
 UCLASS()
@@ -371,18 +375,6 @@ public:
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<AActor> CounterAttackClass = nullptr;
-};
-
-UCLASS()
-class TESTGAME_API UGameplayAbility_DamageToOne : public UGameplayAbility
-{
-	GENERATED_BODY()
-
-public:
-	UGameplayAbility_DamageToOne();
-
-public:
-	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 };
 
 UCLASS()
