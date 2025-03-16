@@ -1,18 +1,6 @@
 #include "MAbilitySystemComponent.h"
 #include "AbilitySystemGlobals.h"
-
-FGameplayEffectContextHandle UMAbilitySystemComponent::MakeEffectContext() const
-{
-	FMGameplayEffectContextHandle Context = FMGameplayEffectContextHandle(UAbilitySystemGlobals::Get().AllocGameplayEffectContext());
-
-	// By default use the owner and avatar as the instigator and causer
-	if (ensureMsgf(AbilityActorInfo.IsValid(), TEXT("Unable to make effect context because AbilityActorInfo is not valid.")))
-	{
-		Context.AddInstigator(AbilityActorInfo->OwnerActor.Get(), AbilityActorInfo->AvatarActor.Get());
-	}
-
-	return Context;
-}
+#include "GameplayCueManager.h"
 
 FGameplayEffectContextHandle UMAbilitySystemComponent::MakeEffectContext(int32 InEffectIndex) const
 {
@@ -26,4 +14,9 @@ FGameplayEffectContextHandle UMAbilitySystemComponent::MakeEffectContext(int32 I
 	Context.SetEffectIndex(InEffectIndex);
 
 	return Context;
+}
+
+void UMAbilitySystemComponent::ExecuteGameplayCueLocal(const FGameplayTag GameplayCueTag, const FGameplayCueParameters& GameplayCueParameters)
+{
+	UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleGameplayCue(GetOwner(), GameplayCueTag, EGameplayCueEvent::Type::Executed, GameplayCueParameters, EGameplayCueExecutionOptions::IgnoreSuppression);
 }

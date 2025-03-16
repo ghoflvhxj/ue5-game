@@ -11,6 +11,8 @@ class TESTGAME_API UMAbilitySystemComponent : public UAbilitySystemComponent
 	GENERATED_BODY()
 
 public:
-	virtual FGameplayEffectContextHandle MakeEffectContext() const override;
+	using Super::MakeEffectContext;
 	FGameplayEffectContextHandle MakeEffectContext(int32 InEffectIndex) const;
+
+	void ExecuteGameplayCueLocal(const FGameplayTag GameplayCueTag, const FGameplayCueParameters& GameplayCueParameters);
 };
