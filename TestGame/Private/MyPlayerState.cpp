@@ -1,15 +1,12 @@
 #include "MyPlayerState.h"
 #include "Kismet/GameplayStatics.h"
 #include "TestGame/MHud/MHud.h"
+#include "TestGame/MCharacter/MCharacter.h"
 
 void AMPlayerState::BeginPlay()
 {
 	Super::BeginPlay();
-
-	if (UWorld* World = GetWorld())
-	{
-		World->GetTimerManager().SetTimer(HudTimerHandle, FTimerDelegate::CreateUObject(this, &AMPlayerState::AddToHUD), 1.f, true);
-	}
+	AddToHUD();
 }
 
 void AMPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const
@@ -19,7 +16,6 @@ void AMPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutL
 	DOREPLIFETIME(AMPlayerState, bDead);
 	DOREPLIFETIME(AMPlayerState, CharacterIndex);
 }
-
 
 void AMPlayerState::CopyProperties(APlayerState* PlayerState)
 {
@@ -39,12 +35,28 @@ void AMPlayerState::AddToHUD()
 		return;
 	}
 
+	if (HudTimerHandle.IsValid())
+	{
+		return;
+	}
+
+	if (GetLocalRole() < ENetRole::ROLE_Authority)
+	{
+		return;
+	}
+
+	GetWorldTimerManager().SetTimer(HudTimerHandle, FTimerDelegate::CreateUObject(this, &AMPlayerState::AddToHUDInternal), 1.f, true);
+}
+
+void AMPlayerState::AddToHUDInternal()
+{
 	if (CharacterIndex == INDEX_NONE)
 	{
 		return;
 	}
 
-	if (IsValid(GetPawn()) == false)
+	AMCharacter* Character = GetPawn<AMCharacter>();
+	if (IsValid(Character) == false)
 	{
 		return;
 	}
@@ -61,17 +73,9 @@ void AMPlayerState::AddToHUD()
 		return;
 	}
 
-	APlayerState* MyPlayerState = MyPlayerController->GetPlayerState<APlayerState>();
-	if (IsValid(MyPlayerState) && MyPlayerState != this)
-	{
-		Hud->AddOtherPlayer(this);
-	}
-
-	if (UWorld* World = GetWorld())
-	{
-		World->GetTimerManager().ClearTimer(HudTimerHandle);
-		HudTimerHandle.Invalidate();
-	}
+	Hud->AddPlayer(this, Character);
+	GetWorldTimerManager().ClearTimer(HudTimerHandle);
+	HudTimerHandle.Invalidate();
 }
 
 void AMPlayerState::Die()
