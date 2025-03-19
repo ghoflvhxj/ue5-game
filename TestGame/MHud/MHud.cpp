@@ -133,11 +133,11 @@ void AMHudInGame::InitByGameplayEffect()
 	for (auto Iter = ActiveEffectsContainer.CreateConstIterator(); Iter; ++Iter)
 	{
 		const FActiveGameplayEffect& ActiveGameplayEffect = *Iter;
-		UpdateByGameplayEffect(AbilitySystemComponent, ActiveGameplayEffect.Spec, ActiveGameplayEffect.Handle);
+		UpdateGameplayEffect(AbilitySystemComponent, ActiveGameplayEffect.Spec, ActiveGameplayEffect.Handle);
 	}
 }
 
-void AMHudInGame::UpdateByGameplayEffect(UAbilitySystemComponent* InAbilitySystemComponent, const FGameplayEffectSpec& InGameplayEffectSpec, FActiveGameplayEffectHandle InActiveGameplayEffectHandle)
+void AMHudInGame::UpdateGameplayEffect(UAbilitySystemComponent* InAbilitySystemComponent, const FGameplayEffectSpec& InGameplayEffectSpec, FActiveGameplayEffectHandle InActiveGameplayEffectHandle)
 {
 	FGameplayTagContainer EffectTags;
 	InGameplayEffectSpec.GetAllAssetTags(EffectTags);
@@ -181,14 +181,20 @@ void AMHudInGame::UpdateByGameplayEffect(UAbilitySystemComponent* InAbilitySyste
 	}
 }
 
-void AMHudInGame::RemoveByGameplayEffect(UAbilitySystemComponent* InAbilitySystemComponent, const FActiveGameplayEffect& InRemovedActiveEffect)
+void AMHudInGame::RemoveGameplayEffect(UAbilitySystemComponent* InAbilitySystemComponent, const FActiveGameplayEffect& InRemovedActiveEffect)
 {
 	if (IsValid(InAbilitySystemComponent) == false)
 	{
 		return;
 	}
 
-	RemoveEffectDuration(InAbilitySystemComponent->GetOwner(), InRemovedActiveEffect.Handle);
+	FGameplayTagContainer EffectTags;
+	InRemovedActiveEffect.Spec.GetAllAssetTags(EffectTags);
+	
+	if (EffectTags.HasTag(FGameplayTag::RequestGameplayTag("EffectType.Duration")))
+	{
+		RemoveEffectDuration(InAbilitySystemComponent->GetOwner(), InRemovedActiveEffect.Handle);
+	}
 }
 
 void AMHudInGame::Test(UAbilitySystemComponent* InAbilitySystemComponent, FGameplayTag InTag)
@@ -250,9 +256,9 @@ bool AMHudInGame::AddPlayer_Implementation(APlayerState* InPlayerState, AMCharac
 
 	if (UAbilitySystemComponent* AbilitySystemComponent = InCharacter->GetAbilitySystemComponent())
 	{
-		AbilitySystemComponent->OnActiveGameplayEffectAddedDelegateToSelf.AddUObject(this, &AMHudInGame::UpdateByGameplayEffect);
+		AbilitySystemComponent->OnActiveGameplayEffectAddedDelegateToSelf.AddUObject(this, &AMHudInGame::UpdateGameplayEffect);
 		AbilitySystemComponent->OnAnyGameplayEffectRemovedDelegate().AddWeakLambda(this, [this, AbilitySystemComponent](const FActiveGameplayEffect& InRemovedActiveEffect) {
-			RemoveByGameplayEffect(AbilitySystemComponent, InRemovedActiveEffect);
+			RemoveGameplayEffect(AbilitySystemComponent, InRemovedActiveEffect);
 		});
 	}
 

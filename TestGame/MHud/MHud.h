@@ -119,10 +119,10 @@ public:
 	void InitByGameplayEffect();
 	// GE로 HUD를 업데이트함
 	UFUNCTION()
-	void UpdateByGameplayEffect(UAbilitySystemComponent* InAbilitySystemComponent, const FGameplayEffectSpec& InGameplayEffectSpec, FActiveGameplayEffectHandle InActiveGameplayEffectHandle); /* */
+	void UpdateGameplayEffect(UAbilitySystemComponent* InAbilitySystemComponent, const FGameplayEffectSpec& InGameplayEffectSpec, FActiveGameplayEffectHandle InActiveGameplayEffectHandle); /* */
 	// GE로 HUD 요소를 제거함
 	UFUNCTION()
-	void RemoveByGameplayEffect(UAbilitySystemComponent* InAbilitySystemComponent, const FActiveGameplayEffect& InRemovedActiveEffect);
+	void RemoveGameplayEffect(UAbilitySystemComponent* InAbilitySystemComponent, const FActiveGameplayEffect& InRemovedActiveEffect);
 	void Test(UAbilitySystemComponent* InAbilitySystemComponent, FGameplayTag InTag);
 	UFUNCTION(BlueprintImplementableEvent)
 	void UpdateSkillCool(UAbilitySystemComponent* InAbilitySystemComponent, const FGameplayEffectSpec& InEffectSpec, FActiveGameplayEffectHandle InActiveEffectHandle, const FGameplayTagContainer& SkillTags);
