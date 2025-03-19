@@ -40,11 +40,6 @@ void AMPlayerState::AddToHUD()
 		return;
 	}
 
-	if (GetLocalRole() < ENetRole::ROLE_Authority)
-	{
-		return;
-	}
-
 	GetWorldTimerManager().SetTimer(HudTimerHandle, FTimerDelegate::CreateUObject(this, &AMPlayerState::AddToHUDInternal), 1.f, true);
 }
 

@@ -20,7 +20,9 @@ public:
 	virtual void CopyProperties(APlayerState* PlayerState);
 
 public:
+	// PlayerState가 유효한지 모든 검사를 수행 후 HUD에 등록하는 함수
 	void AddToHUD();
+	void AddToHUDInternal();
 protected:
 	FTimerHandle HudTimerHandle;
 
