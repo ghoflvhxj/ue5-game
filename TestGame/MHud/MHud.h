@@ -119,16 +119,18 @@ public:
 	void InitByGameplayEffect();
 	// GE로 HUD를 업데이트함
 	UFUNCTION()
-	void UpdateByGameplayEffect(UAbilitySystemComponent* InAbilitySystemComponent, const FActiveGameplayEffect& InGameplayEffect);
+	void UpdateByGameplayEffect(UAbilitySystemComponent* InAbilitySystemComponent, const FGameplayEffectSpec& InGameplayEffectSpec, FActiveGameplayEffectHandle InActiveGameplayEffectHandle); /* */
 	// GE로 HUD 요소를 제거함
 	UFUNCTION()
-	void RemoveByGameplayEffect(UAbilitySystemComponent* InAbilitySystemComponent, const FGameplayEffectSpec& InEffectSpec, FActiveGameplayEffectHandle InActiveEffectHandle);
+	void RemoveByGameplayEffect(UAbilitySystemComponent* InAbilitySystemComponent, const FActiveGameplayEffect& InRemovedActiveEffect);
 	void Test(UAbilitySystemComponent* InAbilitySystemComponent, FGameplayTag InTag);
 	UFUNCTION(BlueprintImplementableEvent)
 	void UpdateSkillCool(UAbilitySystemComponent* InAbilitySystemComponent, const FGameplayEffectSpec& InEffectSpec, FActiveGameplayEffectHandle InActiveEffectHandle, const FGameplayTagContainer& SkillTags);
 	// 스킬 또는 이펙트의 Duration 표시
 	UFUNCTION(BlueprintImplementableEvent)
-	void UpdateEffectDuration(AActor* InTarget, int32 InSkillIndex, bool bRemove, const TMap<FGameplayAttribute, double>& InModifiedMagnitude, const FActiveGameplayEffectHandle& Handle);
+	void UpdateEffectDuration(AActor* InTarget, int32 InEffectIndex, const TMap<FGameplayAttribute, double>& InModifiedMagnitude, const FActiveGameplayEffectHandle& Handle);
+	UFUNCTION(BlueprintImplementableEvent)
+	void RemoveEffectDuration(AActor* InTarget, const FActiveGameplayEffectHandle& Handle);
 public:
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
 	UUserWidget* AddStatusEffect(AActor* InTarget, FGameplayTag InTag, bool bRemove, const TMap<FGameplayAttribute, float>& InModifiedMagnitude, const FActiveGameplayEffectHandle& Handle);
@@ -196,10 +198,10 @@ protected:
 /* 팀원 */
 public:
 	UFUNCTION(BlueprintNativeEvent)
-	bool AddOtherPlayer(APlayerState* InPlayerState);
-	void RemoveOtherPlayer(APlayerState* InPlayerState) { OtherPlayers.Remove(InPlayerState); }
+	bool AddPlayer(APlayerState* InPlayerState, AMCharacter* InCharacter);
+	void RemoveOtherPlayer(APlayerState* InPlayerState) { Players.Remove(InPlayerState); }
 	UFUNCTION(BlueprintPure)
-	const TArray<APlayerState*>& GetOtherPlayers() const { return OtherPlayers; }
+	const TArray<APlayerState*>& GetOtherPlayers() const { return Players; }
 protected:
-	TArray<APlayerState*> OtherPlayers;
+	TArray<APlayerState*> Players;
 };

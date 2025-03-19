@@ -6,7 +6,6 @@
 #include "TestGame/MAbility/MAbilitySystemComponent.h"
 #include "TestGame/MAbility/MAbility.h"
 #include "TestGame/MAbility/MActionAbility.h"
-#include "TestGame/MHud/MHud.h"
 #include "TestGame/MComponents/InventoryComponent.h"
 #include "SkillSubsystem.h"
 
@@ -166,42 +165,12 @@ void AMPlayer::Server_SkillEnhance_Implementation(int32 InIndex)
 
 void AMPlayer::UpdateGameplayEffect(UAbilitySystemComponent* InAbilitySystemCoponent, const FGameplayEffectSpec& InGameplayEffectSpec, FActiveGameplayEffectHandle InActiveGameplayEffectHandle)
 {
-	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
-	if (IsValid(PlayerController) == false)
-	{
-		return;
-	}
 
-	AMHudInGame* Hud = PlayerController->GetHUD<AMHudInGame>();
-	if (IsValid(Hud) == false)
-	{
-		return;
-	}
-
-	if (IsValid(AbilitySystemComponent))
-	{
-		if (const FActiveGameplayEffect* ActiveGameplayEffect = AbilitySystemComponent->GetActiveGameplayEffect(InActiveGameplayEffectHandle))
-		{
-			Hud->UpdateByGameplayEffect(AbilitySystemComponent, *ActiveGameplayEffect);
-		}
-	}
 }
 
 void AMPlayer::RemoveGameplayEffect(const FActiveGameplayEffect& InRemovedGameplayEffect)
 {
-	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
-	if (IsValid(PlayerController) == false)
-	{
-		return;
-	}
 
-	AMHudInGame* Hud = PlayerController->GetHUD<AMHudInGame>();
-	if (IsValid(Hud) == false)
-	{
-		return;
-	}
-
-	Hud->UpdateByGameplayEffect(GetAbilitySystemComponent(), InRemovedGameplayEffect);
 }
 
 int32 AMPlayer::GetEffectIndex(const FGameplayTag& InTag) const

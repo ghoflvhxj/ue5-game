@@ -5,6 +5,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetTree.h"
+#include "AbilitySystemBlueprintLibrary.h"
+
 #include "TestGame/MAbility/MAbilitySystemComponent.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MComponents/InventoryComponent.h"
@@ -130,64 +132,63 @@ void AMHudInGame::InitByGameplayEffect()
 	const FActiveGameplayEffectsContainer& ActiveEffectsContainer = AbilitySystemComponent->GetActiveGameplayEffects();
 	for (auto Iter = ActiveEffectsContainer.CreateConstIterator(); Iter; ++Iter)
 	{
-		UpdateByGameplayEffect(AbilitySystemComponent, *Iter);
+		const FActiveGameplayEffect& ActiveGameplayEffect = *Iter;
+		UpdateByGameplayEffect(AbilitySystemComponent, ActiveGameplayEffect.Spec, ActiveGameplayEffect.Handle);
 	}
 }
 
-void AMHudInGame::UpdateByGameplayEffect(UAbilitySystemComponent* InAbilitySystemComponent, const FActiveGameplayEffect& InGameplayEffect)
+void AMHudInGame::UpdateByGameplayEffect(UAbilitySystemComponent* InAbilitySystemComponent, const FGameplayEffectSpec& InGameplayEffectSpec, FActiveGameplayEffectHandle InActiveGameplayEffectHandle)
 {
-	// GE로 스킬쿨 UI를 다룬 이유가... 관전으로 시점 변경 시에도 듀레이션을 보여주고 싶었음
-	// GC로 하면 가져올 방법이 딱히 없는데, 이펙트로 하면 그냥 활성화 된 이펙트들을 가져오면 됨
-
-	const FActiveGameplayEffectHandle& ActiveEffectHandle = InGameplayEffect.Handle;
-	const FGameplayEffectSpec& EffectSpec = InGameplayEffect.Spec;
-	const FGameplayEffectContextHandle& EffectContextHandle = EffectSpec.GetEffectContext();
-
 	FGameplayTagContainer EffectTags;
-	EffectSpec.GetAllAssetTags(EffectTags);
-	
-	const FGameplayTag& Tag = EffectTags.Last();
+	InGameplayEffectSpec.GetAllAssetTags(EffectTags);
 
 	// 스킬 쿨
-	if (EffectTags.HasAny(FGameplayTag::RequestGameplayTag("EffectType.Cool").GetSingleTagContainer()))
+	if (EffectTags.HasTag(FGameplayTag::RequestGameplayTag("EffectType.Cool")))
 	{
 		const FGameplayTagContainer& AbilityTags = EffectTags.Filter(FGameplayTag::RequestGameplayTag("Ability").GetSingleTagContainer());
 		for (auto AbilityTag : AbilityTags)
 		{
-			UpdateSkillCool(InAbilitySystemComponent, EffectSpec, ActiveEffectHandle, AbilityTag.GetSingleTagContainer());
+			UpdateSkillCool(InAbilitySystemComponent, InGameplayEffectSpec, InActiveGameplayEffectHandle, AbilityTag.GetSingleTagContainer());
 		}
 	}
 	
 	// 듀레이션
-	if (InGameplayEffect.GetDuration() != UGameplayEffect::INFINITE_DURATION && InGameplayEffect.GetDuration() != UGameplayEffect::INSTANT_APPLICATION)
+	float Duration = UAbilitySystemBlueprintLibrary::GetActiveGameplayEffectTotalDuration(InActiveGameplayEffectHandle);
+	if (Duration != UGameplayEffect::INFINITE_DURATION && Duration != UGameplayEffect::INSTANT_APPLICATION && EffectTags.HasTag(FGameplayTag::RequestGameplayTag("EffectType.Duration")))
 	{
-		if (EffectTags.HasAny(FGameplayTag::RequestGameplayTag("EffectType.Duration").GetSingleTagContainer()))
+		const FGameplayEffectContextHandle& EffectContextHandle = InGameplayEffectSpec.GetEffectContext();
+
+		int32 EffectIndex = INDEX_NONE;
+		if (EffectContextHandle.Get()->GetScriptStruct() == FMGameplayEffectContext::StaticStruct())
+		{
+			const FMGameplayEffectContext* EffectContext = static_cast<const FMGameplayEffectContext*>(EffectContextHandle.Get());
+			EffectIndex = EffectContext->EffectIndex;
+		}
+
+		if (EffectIndex != INDEX_NONE)
 		{
 			TMap<FGameplayAttribute, double> MapAttributeToModified;
-
-			for (const FGameplayEffectModifiedAttribute& ModifiedAttribute : EffectSpec.ModifiedAttributes)
+			for (const FGameplayEffectModifiedAttribute& ModifiedAttribute : InGameplayEffectSpec.ModifiedAttributes)
 			{
 				MapAttributeToModified.FindOrAdd(ModifiedAttribute.Attribute) += ModifiedAttribute.TotalMagnitude;
 			}
 
-			int32 EffectIndex = INDEX_NONE;
-			if (EffectContextHandle.Get()->GetScriptStruct() == FMGameplayEffectContext::StaticStruct())
+			if (const FActiveGameplayEffect* ActiveEffect = InAbilitySystemComponent->GetActiveGameplayEffect(InActiveGameplayEffectHandle))
 			{
-				const FMGameplayEffectContext* EffectContext = static_cast<const FMGameplayEffectContext*>(EffectContextHandle.Get());
-				EffectIndex = EffectContext->EffectIndex;
-			}
-
-			if (EffectIndex > 0)
-			{
-				UpdateEffectDuration(InAbilitySystemComponent->GetOwner(), EffectIndex, InGameplayEffect.IsPendingRemove, MapAttributeToModified, ActiveEffectHandle);
+				UpdateEffectDuration(InAbilitySystemComponent->GetOwner(), EffectIndex, MapAttributeToModified, InActiveGameplayEffectHandle);
 			}
 		}
 	}
 }
 
-void AMHudInGame::RemoveByGameplayEffect(UAbilitySystemComponent* InAbilitySystemComponent, const FGameplayEffectSpec& InEffectSpec, FActiveGameplayEffectHandle InActiveEffectHandle)
+void AMHudInGame::RemoveByGameplayEffect(UAbilitySystemComponent* InAbilitySystemComponent, const FActiveGameplayEffect& InRemovedActiveEffect)
 {
+	if (IsValid(InAbilitySystemComponent) == false)
+	{
+		return;
+	}
 
+	RemoveEffectDuration(InAbilitySystemComponent->GetOwner(), InRemovedActiveEffect.Handle);
 }
 
 void AMHudInGame::Test(UAbilitySystemComponent* InAbilitySystemComponent, FGameplayTag InTag)
@@ -243,15 +244,19 @@ void AMHudInGame::ShowSpectateInfo_Implementation(bool InSpectating)
 	}
 }
 
-bool AMHudInGame::AddOtherPlayer_Implementation(APlayerState* InPlayerState)
+bool AMHudInGame::AddPlayer_Implementation(APlayerState* InPlayerState, AMCharacter* InCharacter)
 {
-	if (IsValid(InPlayerState))
+	Players.Add(InPlayerState);
+
+	if (UAbilitySystemComponent* AbilitySystemComponent = InCharacter->GetAbilitySystemComponent())
 	{
-		OtherPlayers.Add(InPlayerState);
-		return true;
+		AbilitySystemComponent->OnActiveGameplayEffectAddedDelegateToSelf.AddUObject(this, &AMHudInGame::UpdateByGameplayEffect);
+		AbilitySystemComponent->OnAnyGameplayEffectRemovedDelegate().AddWeakLambda(this, [this, AbilitySystemComponent](const FActiveGameplayEffect& InRemovedActiveEffect) {
+			RemoveByGameplayEffect(AbilitySystemComponent, InRemovedActiveEffect);
+		});
 	}
 
-	return false;
+	return true;
 }
 
 AMHudInGame::AMHudInGame()
@@ -273,7 +278,7 @@ void AMHudInGame::BeginPlay()
 			UpdateRoundInfo(RoundComponent->GetRoundWave());
 			RoundComponent->GetWaitNextRoundEvent().AddUObject(this, &AMHudInGame::ShowGetRewardMessage);
 			RoundComponent->GetRoundPausedEvent().AddUObject(this, &AMHudInGame::UpdateRoundPause);
-			RoundComponent->OnRoundAndWaveChangedEvent.AddUObject(this, &AMHudInGame::UpdateRoundInfo);
+			RoundComponent->GetRoundAndWaveChangedEvent().AddUObject(this, &AMHudInGame::UpdateRoundInfo);
 		}
 
 		GameStateInGame->OnBossMonsterSet.AddUObject(this, &AMHudInGame::BoundBoss);
@@ -285,30 +290,32 @@ void AMHudInGame::BeginPlay()
 	{
 		APawn* PlayerCharacter = Cast<APawn>(PlayerOwner->GetViewTarget());
 		ShowHudWidget(nullptr, PlayerCharacter);
-		//UpdatePawnBoundWidget(nullptr, PlayerCharacter); //ShowHudWidget에서 호출하고 있음
 
-		PlayerController->OnPossessedPawnChanged.AddDynamic(this, &AMHudInGame::ShowHudWidget);
-		//PlayerController->OnPossessedPawnChanged.AddDynamic(this, &AMHudInGame::UpdatePawnBoundWidget); //ShowHudWidget에서 호출하고 있음
+		//PlayerController->OnPossessedPawnChanged.AddDynamic(this, &AMHudInGame::ShowHudWidget);
 
 		// 관전 시 대상으로 HUD위젯 업데이트
-		//PlayerController->GetSpectateModeChangedEvent().AddUObject(this, &AMHudInGame::ShowSpectateInfo);
 		PlayerController->GetViewTargetChangedEvent().AddWeakLambda(this, [this, PlayerController](AActor* Old, AActor* New) {
 			ShowHudWidget(nullptr, Cast<APawn>(New));
-
-			APlayerState* PlayerState = PlayerController->GetPlayerState<APlayerState>();
+			AMPlayerState* PlayerState = PlayerController->GetPlayerState<AMPlayerState>();
 			AGameStateBase* GameState = UGameplayStatics::GetGameState(this);
 			
-			if (IsValid(PlayerState) && IsValid(GameState) && PlayerState->IsSpectator())
+			if (IsValid(GameState))
 			{
-				for (APlayerState* Temp : GameState->PlayerArray)
+				for (APlayerState* TempPlayerState : GameState->PlayerArray)
 				{
-					if (Temp->GetPawn() == New)
+					if (TempPlayerState->GetPawn() == New)
 					{
 						continue;
 					}
 
-					AddOtherPlayer(Temp);
+					if (AMPlayerState* OtherPlayerState = Cast<AMPlayerState>(TempPlayerState))
+					{
+						OtherPlayerState->AddToHUD();
+					}
 				}
+			}
+			if (IsValid(PlayerState) && PlayerState->IsSpectator())
+			{
 				ShowSpectateInfo(true);
 			}
 		});
@@ -423,4 +430,5 @@ void AMHudInGame::UpdatePawnBoundWidget(APawn* OldPawn, APawn* NewPawn)
 
 	// 내가 보는 대상은 업데이트 되겠지만 다른 팀원들은?
 	InitByGameplayEffect();
+
 }
