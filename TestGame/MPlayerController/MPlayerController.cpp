@@ -294,10 +294,7 @@ void AMPlayerControllerInGame::Server_CharacterSelect_Implementation(int32 InInd
 {
 	if (AMPlayerState* MPlayerState = GetPlayerState<AMPlayerState>())
 	{
-		if (MPlayerState->GetCharacterIndex() == INDEX_NONE)
-		{
-			MPlayerState->SetCharacterIndex(InIndex);
-		}
+		MPlayerState->SetCharacterIndex(InIndex);
 	}
 
 	bReady = InIndex != INDEX_NONE;
