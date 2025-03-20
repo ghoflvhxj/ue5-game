@@ -34,7 +34,7 @@ void ASpawner::Tick(float DeltaTime)
 		return;
 	}
 
-	for (int i = 2; i > 0; --i)
+	for (int i = NumSpawnPerTick; i > 0; --i)
 	{
 		if (SpawnPool.IsEmpty() == false)
 		{
@@ -98,11 +98,11 @@ void ARoundSpanwer::BeginPlay()
 
 	if (URoundComponent* RoundComponent = GetRoundComponent())
 	{
-		RoundComponent->OnRoundAndWaveChangedEvent.AddUObject(this, &ARoundSpanwer::SpawnUsingRoundInfo);
+		RoundComponent->GetRoundAndWaveChangedEvent().AddUObject(this, &ARoundSpanwer::AddSpawnInfoUsingRound);
 	}
 }
 
-void ARoundSpanwer::SpawnUsingRoundInfo(const FRound& InRound)
+void ARoundSpanwer::AddSpawnInfoUsingRound(const FRound& InRound)
 {
 	CachedRound = InRound;
 }
@@ -129,14 +129,14 @@ void AMonsterSpawner::BeginPlay()
 	}
 }
 
-void AMonsterSpawner::SpawnUsingRoundInfo(const FRound& InRound)
+void AMonsterSpawner::AddSpawnInfoUsingRound(const FRound& InRound)
 {
 	if (HasAuthority() == false)
 	{
 		return;
 	}
 
-	Super::SpawnUsingRoundInfo(InRound);
+	Super::AddSpawnInfoUsingRound(InRound);
 
 	UMGameInstance* GameInstance = Cast<UMGameInstance>(GetGameInstance());
 

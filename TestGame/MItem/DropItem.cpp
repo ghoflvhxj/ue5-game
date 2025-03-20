@@ -100,9 +100,9 @@ void ADropItem::BeginPlay()
 		});
 
 		InteractorComponent->InteractFinishEvent.AddWeakLambda(this, [this](bool bSuccess) {
-			FGameItemTableRow* ItemBaseInfo = GetItemTableRow();
+			FGameItemTableRow* ItemTableRow = GetItemTableRow();
 			AMCharacter* Interactor = InteractorComponent->GetInteractor<AMCharacter>();
-			if (IsValid(Interactor) == false || ItemBaseInfo == nullptr)
+			if (IsValid(Interactor) == false || ItemTableRow == nullptr)
 			{
 				return;
 			}
@@ -116,9 +116,9 @@ void ADropItem::BeginPlay()
 			{
 				if (APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0))
 				{
-					if (ItemBaseInfo->GameItemInfo.AcquireSound.IsValid() && PlayerController->GetViewTarget() == Interactor)
+					if (ItemTableRow->GameItemInfo.AcquireSound.IsValid() && PlayerController->GetViewTarget() == Interactor)
 					{
-						UGameplayStatics::PlaySound2D(this, Cast<USoundBase>(ItemBaseInfo->GameItemInfo.AcquireSound.TryLoad()));
+						UGameplayStatics::PlaySound2D(this, Cast<USoundBase>(ItemTableRow->GameItemInfo.AcquireSound.TryLoad()));
 					}
 				}
 			}
@@ -126,7 +126,7 @@ void ADropItem::BeginPlay()
 			if (UMAbilitySystemComponent* AbilitySystemComponent = Interactor->GetComponentByClass<UMAbilitySystemComponent>())
 			{
 				// 아이템 버프 적용
-				for (const FBuffInfo& BuffInfo : ItemBaseInfo->GameItemData.Effects)
+				for (const FBuffInfo& BuffInfo : ItemTableRow->GameItemData.Effects)
 				{
 					const FEffectTableRow& EffectTableRow = UMGameInstance::GetEffectTableRow(this, BuffInfo.EffectIndex);
 
@@ -148,7 +148,7 @@ void ADropItem::BeginPlay()
 				}
 
 				// 아이템 능력 적용
-				if (UMAbilityDataAsset* AbilitySet = ItemBaseInfo->GameItemData.AbilitySet)
+				if (UMAbilityDataAsset* AbilitySet = ItemTableRow->GameItemData.AbilitySet)
 				{
 					Interactor->AddAbilities(AbilitySet);
 
@@ -167,12 +167,12 @@ void ADropItem::BeginPlay()
 						}
 
 						int32 ItemAbilityLevel = ItemAbility->GetAbilityLevel();
-						ItemAbility->SetParams(ItemBaseInfo->GameItemData.GetParam(ItemAbilityLevel));
+						ItemAbility->SetParams(ItemTableRow->GameItemData.GetParam(ItemAbilityLevel));
 					}
 				}
 			}
 
-			switch (ItemBaseInfo->GameItemInfo.ItemType)
+			switch (ItemTableRow->GameItemInfo.ItemType)
 			{
 				case EItemType::Money:
 				{
@@ -188,11 +188,11 @@ void ADropItem::BeginPlay()
 				case EItemType::Exp:
 				{
 					FGameplayTag EffectValueTag = FGameplayTag::RequestGameplayTag("Effect.Value");
-					if (ItemBaseInfo->GameItemData.InitialParams.Contains(EffectValueTag))
+					if (ItemTableRow->GameItemData.InitialParams.Contains(EffectValueTag))
 					{
 						if (ULevelComponent* LevelComponent = Interactor->GetComponentByClass<ULevelComponent>())
 						{
-							LevelComponent->AddExperiance(ItemBaseInfo->GameItemData.InitialParams[EffectValueTag]);
+							LevelComponent->AddExperiance(ItemTableRow->GameItemData.InitialParams[EffectValueTag]);
 						}
 					}
 				}
@@ -206,7 +206,7 @@ void ADropItem::BeginPlay()
 				break;
 				case EItemType::Common:
 				{
-					if (ItemBaseInfo->GameItemInfo.ItemType == EItemType::Common)
+					if (ItemTableRow->GameItemInfo.ItemType == EItemType::Common)
 					{
 						Interactor->UseItem(ItemIndex);
 					}
@@ -214,7 +214,7 @@ void ADropItem::BeginPlay()
 				break;
 				case EItemType::Item:
 				{
-					if (ItemBaseInfo->GameItemInfo.ItemType == EItemType::Item)
+					if (ItemTableRow->GameItemInfo.ItemType == EItemType::Item)
 					{
 						Interactor->AddItem(ItemIndex, 1);
 					}

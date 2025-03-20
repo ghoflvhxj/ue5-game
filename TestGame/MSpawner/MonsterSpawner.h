@@ -86,17 +86,14 @@ protected:
 	TArray<TSubclassOf<AActor>> SpawneeClassArray;
 	TSet<AActor*> SpawnedActors;
 	TArray<FSpawnInfo> SpawnPool;
+
 protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	int32 NumSpawnPerTick = 2;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bActivated = true;
-
 	float LastSpawnTime = 0.f;
 
-public:
-	ESpawnerType GetSpawnerType() const { return SpawnerType; }
-protected:
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	ESpawnerType SpawnerType = ESpawnerType::None;
 };
 
 UCLASS()
@@ -109,7 +106,7 @@ public:
 
 public:
 	UFUNCTION()
-	virtual void SpawnUsingRoundInfo(const FRound& InRound);
+	virtual void AddSpawnInfoUsingRound(const FRound& InRound);
 
 protected:
 	URoundComponent* GetRoundComponent();
@@ -131,7 +128,7 @@ public:
 #endif
 
 public:
-	virtual void SpawnUsingRoundInfo(const FRound& InRound) override;
+	virtual void AddSpawnInfoUsingRound(const FRound& InRound) override;
 	virtual void OnSpawnedActorConstruction(AActor* SpawnedActor) override;
 	virtual void OnSpawned(AActor* SpawnedActor) override;
 	virtual FTransform GetSpawnTransform() override;
