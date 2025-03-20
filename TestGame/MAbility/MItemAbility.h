@@ -18,15 +18,6 @@ class TESTGAME_API UGameplayAbility_Item : public UGameplayAbility_CharacterBase
 
 public:
 	UGameplayAbility_Item();
-
-public:
-	virtual void Upgrade() {}
-
-//public:
-//	void SetItemIndex(int32 InItemIndex) { ItemIndex = InItemIndex; }
-//protected:
-//	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-//	int32 ItemIndex = INDEX_NONE;
 };
 
 UCLASS()

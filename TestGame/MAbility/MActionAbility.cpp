@@ -117,42 +117,7 @@ void UGameplayAbility_Skill::OnActive_Implementation()
 	ExecuteSoundCue(FGameplayTag::RequestGameplayTag("GameplayCue.Sound.SkillExecute"));
 
 	// 버프
-	for (const FBuffInfo& BuffInfo : GetSkillTableRow().BuffInfos)
-	{
-		if (BuffInfo.EffectParam.Target != EIGameplayEffectTarget::Self)
-		{
-			continue;
-		}
-
-		if (BuffInfo.bAutoApply == false)
-		{
-			continue;
-		}
-
-		const FEffectTableRow& EffectTableRow = UMGameInstance::GetEffectTableRow(this, BuffInfo.EffectIndex);
-		if (IsValid(EffectTableRow.EffectClass) == false)
-		{
-			continue;
-		}
-
-		FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpecWithIndex(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, EffectTableRow.EffectClass, BuffInfo.EffectIndex);
-		if (EffectSpecHandle.IsValid() == false)
-		{
-			continue;
-		}
-
-		for (const TPair<FGameplayTag, float>& Param : BuffInfo.EffectParam.MapTagToValue)
-		{
-			EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, Param.Key, Param.Value);
-			const FActiveGameplayEffectHandle& BuffEffectHandle = ApplyGameplayEffectSpecToOwner(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, EffectSpecHandle);
-			ActiveEffectHandles.Add(BuffEffectHandle);
-
-			if (BuffInfo.bRemoveBuffWhenSkillFinished)
-			{
-				PendingRemoveEffectHandles.Add(BuffEffectHandle);
-			}
-		}
-	}
+	ApplyBuffByNoneEvent();
 
 	float Duration = GetParamUsingName("SkillParam.Duration");
 	if (Duration > 0.f)
@@ -163,7 +128,7 @@ void UGameplayAbility_Skill::OnActive_Implementation()
 		{
 			FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpecWithIndex(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, DurationEffectTableRow.EffectClass, DurationEffectIndex);
 			EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, FGameplayTag::RequestGameplayTag("Effect.Duration"), Duration);
-			EffectSpecHandle.Data->AddDynamicAssetTag(DurationTag);
+			//EffectSpecHandle.Data->AddDynamicAssetTag(DurationTag); DurationEffectClass에 태그가 설정 안되있으면 사용되야 함
 			DurationEffectHandle = ApplyGameplayEffectSpecToOwner(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, EffectSpecHandle);
 		}
 
@@ -177,11 +142,7 @@ void UGameplayAbility_Skill::OnActive_Implementation()
 			// Duration이 끝난 후에 실제 쿨이 돌도록 함
 			if (HasAuthority(&CurrentActivationInfo))
 			{
-				AbilitySystemComponent->RemoveGameplayCue(DurationTag);
-
 				UE_LOG(LogTemp, Warning, TEXT("OnActive Remove Infinity Cool"));
-				//AbilitySystemComponent->RemoveActiveEffects(FGameplayEffectQuery::MakeQuery_MatchAnyEffectTags(AbilityTags.Last().GetSingleTagContainer()));
-
 				if (IsValid(SubCoolDownEffectClass))
 				{
 					FGameplayEffectSpecHandle CoolDownEffectSpecHandle = MakeOutgoingGameplayEffectSpec(SubCoolDownEffectClass);
@@ -253,17 +214,6 @@ void UGameplayAbility_Skill::SetSkillIndex(int32 InIndex, FGameplayTag InSkillTa
 	OnRep_SkillIndex();
 }
 
-float UGameplayAbility_Skill::GetSkillParam(FGameplayTag GameplayTag)
-{
-	const FSkillTableRow& SkillTableRow = GetSkillTableRow();
-	if (SkillTableRow.Params.Contains(GameplayTag))
-	{ 
-		return SkillTableRow.Params[GameplayTag];
-	}
-
-	return 0.f;
-}
-
 void UGameplayAbility_Skill::SkillEnhance(int32 SkillEnhanceIndex)
 {
 	UMGameInstance* GameInstance = GetWorld()->GetGameInstance<UMGameInstance>();
@@ -295,31 +245,96 @@ void UGameplayAbility_Skill::OnRep_SkillIndex()
 	UMGameInstance::LoadSkillAsset(this, SkillIndex, true);
 }
 
-void UGameplayAbility_Skill::ApplyEffectToTarget(AActor* InEffectCauser, AActor* InTarget, const FGameplayAbilityTargetDataHandle& InTargetDataHandle)
+void UGameplayAbility_Skill::ApplyBuffByNoneEvent()
 {
-	Super::ApplyEffectToTarget(InEffectCauser, InTarget, InTargetDataHandle);
-
-	// 추가 GE
-	for (const auto& EffectToParams : MapEffectToParams)
+	for (const FBuffInfo& BuffInfo : GetSkillTableRow().BuffInfos)
 	{
-		const FEffectTableRow& EffectTableRow = UMGameInstance::GetEffectTableRow(this, EffectToParams.Key);
+		if (BuffInfo.BuffExecuteEvent != EBuffExecuteEvent::None)
+		{
+			continue;
+		}
+
+		int32 EffectIndex = BuffInfo.EffectIndex;
+
+		const FEffectTableRow& EffectTableRow = UMGameInstance::GetEffectTableRow(this, EffectIndex);
 		if (IsValid(EffectTableRow.EffectClass) == false)
 		{
 			continue;
 		}
 
-		if (EffectToParams.Value.Target != EIGameplayEffectTarget::Target) // Monster 이름을 Target으로 변경해야 할듯. 오브젝트 타입을 설정은 별도로 만들어야 할 거 같다.
+		FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(EffectTableRow.EffectClass);
+		if (MapEffectToParams.Contains(EffectIndex))
+		{
+			for (const auto& ParamToValuePair : MapEffectToParams[EffectIndex].MapTagToValue)
+			{
+				EffectSpecHandle.Data.Get()->SetSetByCallerMagnitude(ParamToValuePair.Key, ParamToValuePair.Value);
+			}
+		}
+
+		FGameplayAbilityTargetDataHandle TargetDataHandle = UAbilitySystemBlueprintLibrary::AbilityTargetDataFromActor(Character.Get());
+		UpdateDynamicParams(Character.Get());
+		TArray<FActiveGameplayEffectHandle> ActivatedEffectHandles = ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, EffectSpecHandle, TargetDataHandle);
+
+		ActiveEffectHandles.Append(ActivatedEffectHandles);
+
+		if (BuffInfo.bRemoveBuffWhenSkillFinished)
+		{
+			PendingRemoveEffectHandles.Append(ActivatedEffectHandles);
+		}
+	}
+}
+
+void UGameplayAbility_Skill::ApplyBuffByDamageEvent(AActor* InEffectCauser, AActor* InTarget)
+{
+	Super::ApplyBuffByDamageEvent(InEffectCauser, InTarget);
+
+	for (const FBuffInfo& BuffInfo : GetSkillTableRow().BuffInfos)
+	{
+		if (BuffInfo.BuffExecuteEvent != EBuffExecuteEvent::Damage)
+		{
+			continue;
+		}
+
+		int32 EffectIndex = BuffInfo.EffectIndex;
+
+		const FEffectTableRow& EffectTableRow = UMGameInstance::GetEffectTableRow(this, EffectIndex);
+		if (IsValid(EffectTableRow.EffectClass) == false)
+		{
+			continue;
+		}
+
+		AActor* Target = nullptr;
+		switch (MapEffectToParams[EffectIndex].Target)
+		{
+			case EIGameplayEffectTarget::Target:
+			{
+				Target = InTarget;
+			}
+			break;
+			case EIGameplayEffectTarget::Self:
+			{
+				Target = Character.Get();
+			}
+			break;
+		}
+
+		if (IsValid(Target) == false)
 		{
 			continue;
 		}
 
 		FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpec(EffectTableRow.EffectClass);
-		for (const auto& ParamToValuePair : EffectToParams.Value.MapTagToValue)
+		if (MapEffectToParams.Contains(EffectIndex))
 		{
-			EffectSpecHandle.Data.Get()->SetSetByCallerMagnitude(ParamToValuePair.Key, ParamToValuePair.Value);
+			for (const auto& ParamToValuePair : MapEffectToParams[EffectIndex].MapTagToValue)
+			{
+				EffectSpecHandle.Data.Get()->SetSetByCallerMagnitude(ParamToValuePair.Key, ParamToValuePair.Value);
+			}
 		}
 
-		ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, EffectSpecHandle, InTargetDataHandle);
+		UpdateDynamicParams(Target);
+		FGameplayAbilityTargetDataHandle TargetDataHandle = UAbilitySystemBlueprintLibrary::AbilityTargetDataFromActor(Target);
+		ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, EffectSpecHandle, TargetDataHandle);
 	}
 }
 
@@ -599,7 +614,7 @@ void UGameplayAbility_BattoSkill::OnActive_Implementation()
 							continue;
 						}
 
-						ApplyEffect(GetAvatarActorFromActorInfo(), OverlapActor);
+						ApplyBuffByDamageEvent(GetAvatarActorFromActorInfo(), OverlapActor);
 					}
 				}
 
@@ -706,10 +721,6 @@ void UGameplayAbility_SwordWave::SpawnSwordWave()
 
 		if (ABullet* Bullet = World->SpawnActor<ABullet>(BulletClass, SpawnTransform, SpawnParams))
 		{
-			if (Bullet->GetClass()->ImplementsInterface(UActorByAbilityInterface::StaticClass()))
-			{
-				IActorByAbilityInterface::Execute_InitUsingAbility(Bullet, this);
-			}
 			InitAbilitySpawnedActor(Bullet);
 			Bullet->StartProjectile();
 		}

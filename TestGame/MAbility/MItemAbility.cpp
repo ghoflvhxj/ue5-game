@@ -83,10 +83,6 @@ void UGameplayAbility_AutoArrow::OnGiveAbility(const FGameplayAbilityActorInfo* 
 					
 					if (ABullet* Bullet = World->SpawnActorDeferred<ABullet>(BulletClass, SpawnTransform, Character, Character, ESpawnActorCollisionHandlingMethod::AlwaysSpawn))
 					{
-						if (Bullet->GetClass()->ImplementsInterface(UActorByAbilityInterface::StaticClass()))
-						{
-							IActorByAbilityInterface::Execute_InitUsingAbility(Bullet, this);
-						}
 						InitAbilitySpawnedActor(Bullet);
 						UGameplayStatics::FinishSpawningActor(Bullet, SpawnTransform);
 						Bullet->StartProjectile();
@@ -143,11 +139,7 @@ void UGameplayAbility_Turret::SpawnTurrets()
 
 			if (AActor* Turret = World->SpawnActor<AActor>(TurretClass.TryLoadClass<AActor>(), SpawnTransform, SpawnParams))
 			{
-				if (Turret->GetClass()->ImplementsInterface(UActorByAbilityInterface::StaticClass()))
-				{
-					IActorByAbilityInterface::Execute_InitUsingAbility(Turret, this);
-				}
-
+				InitAbilitySpawnedActor(Turret);
 				Turret->SetLifeSpan(20.f);
 				Turret->OnEndPlay.AddDynamic(this, &UGameplayAbility_Turret::DecreaseTurretCount);
 				++TurretCount;

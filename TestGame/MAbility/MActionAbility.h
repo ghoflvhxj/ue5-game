@@ -43,15 +43,13 @@ protected:
 public:
 	void SetSkillIndex(int32 InIndex, FGameplayTag InSkillTag);
 	UFUNCTION(BlueprintPure)
-	float GetSkillParam(FGameplayTag GameplayTag);
-	UFUNCTION(BlueprintPure)
 	const FSkillTableRow& GetSkillTableRow();
 	void SkillEnhance(int32 SkillEnhanceIndex);
 	UFUNCTION()
 	void OnRep_SkillIndex();
 protected:
 	//UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly)
-	UPROPERTY(ReplicatedUsing = OnRep_SkillIndex, EditAnywhere, BlueprintReadOnly)
+	UPROPERTY(ReplicatedUsing = OnRep_SkillIndex, VisibleAnywhere, BlueprintReadOnly)
 	int32 SkillIndex = INDEX_NONE;
 
 public:
@@ -65,11 +63,11 @@ protected:
 	// 어빌리티를 즉시 끝냄. 해제 시 수동으로 EndAbility를 반드시 해줘야 함
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	bool bEndInstantly = true;
-	FTimerHandle MoveStopTimerHandle;
 
 /* GE 관련 */
 public:
-	virtual void ApplyEffectToTarget(AActor* InEffectCauser, AActor* InTarget, const FGameplayAbilityTargetDataHandle& InTargetDataHandle) override;
+	virtual void ApplyBuffByNoneEvent() override;
+	virtual void ApplyBuffByDamageEvent(AActor* InEffectCauser, AActor* InTarget) override;
 protected:
 	// GE에 대한 파라미터 ex) 슬로우 수치, 시간 등
 	TMap<int32, FGameplayEffectParam> MapEffectToParams;
@@ -85,27 +83,17 @@ public:
 	UFUNCTION(BlueprintPure)
 	FActiveGameplayEffectHandle GetDurationEffectHandle() { return DurationEffectHandle; }
 protected:
-	// 어빌리티가 유지되는 동안 적용되는 GE 클래스 입니다. DPRECATED 대신 DurationEffectIndex를 사용하세요
-	UPROPERTY(EditDefaultsOnly)
-	TSubclassOf<UGameplayEffect> DurationEffectClass = nullptr;
-
 	UPROPERTY(EditDefaultsOnly)
 	int32 DurationEffectIndex = INDEX_NONE;
 
 	UPROPERTY(BlueprintReadOnly)
 	FActiveGameplayEffectHandle DurationEffectHandle;
 
-	// DurationEffecClass가 기본 클래스로 설정된 경우에 사용합니다. GE에 추가할 DynamicAssetTag를 설정할 수 있습니다. 
-	// 커스텀 클래스를 생성했다면 해당 클래스에 AssetTag를 설정하는 것을 권장합니다.
-	UPROPERTY(EditDefaultsOnly)
-	FGameplayTag DurationTag = FGameplayTag::EmptyTag;
-
 	// Duration 후 적용할 쿨타임. 스킬 완료 후 적용되는 쿨타임
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<UGameplayEffect> SubCoolDownEffectClass = nullptr;
 
 	FTimerHandle DurationTimerHandle;
-
 
 /* 스킬 인디케이터 */
 public:

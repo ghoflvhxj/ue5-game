@@ -13,6 +13,7 @@
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "Abilities/Tasks/AbilityTask_Repeat.h"
 #include "NavigationSystem.h"
+#include "Engine/AssetManager.h"
 
 #include "CharacterLevelSubSystem.h"
 #include "TestGame/MAbility/MEffect.h"
@@ -268,7 +269,7 @@ void UGameplayAbility_CollideDamage::OnCollide(AActor* OverlappedActor, AActor* 
 		Owner = Owner->GetOwner();
 	}
 
-	ApplyEffect(MyCharacter, OtherActor);
+	ApplyBuffByDamageEvent(MyCharacter, OtherActor);
 }
 
 UGameplayAbility_KnockBack::UGameplayAbility_KnockBack()
@@ -760,13 +761,23 @@ void UGameplayAbility_CharacterBase::InitAbilitySpawnedActor(AActor* InActor)
 		}
 	}
 
+	if (InActor->GetClass()->ImplementsInterface(UActorByAbilityInterface::StaticClass()))
+	{
+		IActorByAbilityInterface::Execute_InitUsingAbility(InActor, this);
+	}
+
 	if (UMDamageComponent* DamageComponent = InActor->GetComponentByClass<UMDamageComponent>())
 	{
-		DamageComponent->GetOnDamageEvent().AddUObject(this, &UGameplayAbility_CharacterBase::ApplyEffect);
+		DamageComponent->GetOnDamageEvent().AddUObject(this, &UGameplayAbility_CharacterBase::ApplyBuffByDamageEvent);
 	}
 }
 
-void UGameplayAbility_CharacterBase::ApplyEffect(AActor* InEffectCauser, AActor* InTarget)
+void UGameplayAbility_CharacterBase::ApplyBuffByNoneEvent()
+{
+
+}
+
+void UGameplayAbility_CharacterBase::ApplyBuffByDamageEvent(AActor* InEffectCauser, AActor* InTarget)
 {
 	if (IsValid(InEffectCauser) == false)
 	{
@@ -778,13 +789,18 @@ void UGameplayAbility_CharacterBase::ApplyEffect(AActor* InEffectCauser, AActor*
 		return;
 	}
 
+	if (IsValid(DamageEffectClass) == false)
+	{
+		return;
+	}
+
 	FGameplayAbilityTargetDataHandle TargetDataHandle = UAbilitySystemBlueprintLibrary::AbilityTargetDataFromActor(InTarget);
 	UpdateDynamicParams(InTarget);
 
-	ApplyEffectToTarget(InEffectCauser, InTarget, TargetDataHandle);
+	ApplyEffectToTarget(DamageEffectClass, InEffectCauser, InTarget, TargetDataHandle);
 }
 
-void UGameplayAbility_CharacterBase::ApplyEffectToTarget(AActor* InCauser, AActor* InTarget, const FGameplayAbilityTargetDataHandle& InTargetDataHandle)
+void UGameplayAbility_CharacterBase::ApplyEffectToTarget(TSubclassOf<UGameplayEffect> EffectClass, AActor* InCauser, AActor* InTarget, const FGameplayAbilityTargetDataHandle& InTargetDataHandle)
 {
 	UMAbilitySystemComponent* TargetASC = InTarget->GetComponentByClass<UMAbilitySystemComponent>();
 
@@ -793,58 +809,61 @@ void UGameplayAbility_CharacterBase::ApplyEffectToTarget(AActor* InCauser, AActo
 		return;
 	}
 
-	if (IsValid(DamageEffectClass) == false)
+	FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpecWithIndex(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, EffectClass, GetEffectIndex());
+	
+	if (EffectClass->IsChildOf(UGameplayEffect_Damage::StaticClass()))
 	{
-		return;
-	}
-
-	// DamageGE 적용 로직
-	FGameplayEffectSpecHandle EffectSpecHandle = MakeOutgoingGameplayEffectSpecWithIndex(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, TSubclassOf<UGameplayEffect>(DamageEffectClass), GetEffectIndex());
-	for (const auto& ParamToValuePair : MapParamToValue)
-	{
-		if (ParamToValuePair.Key.MatchesTag(FGameplayTag::RequestGameplayTag("DamageParam")) == false)
+		// Damage 파라미터 추출
+		for (const auto& ParamToValuePair : MapParamToValue)
 		{
-			continue;
+			if (ParamToValuePair.Key.MatchesTag(FGameplayTag::RequestGameplayTag("DamageParam")) == false)
+			{
+				continue;
+			}
+
+			EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, ParamToValuePair.Key, ParamToValuePair.Value);
+		}
+		for (const auto& DynamicParamToValuePair : DynamicParamToValue)
+		{
+			if (DynamicParamToValuePair.Key.MatchesTag(FGameplayTag::RequestGameplayTag("DamageParam")) == false)
+			{
+				continue;
+			}
+
+			EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, DynamicParamToValuePair.Key, DynamicParamToValuePair.Value);
 		}
 
-		EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, ParamToValuePair.Key, ParamToValuePair.Value);
-	}
-	for (const auto& DynamicParamToValuePair : DynamicParamToValue)
-	{
-		if (DynamicParamToValuePair.Key.MatchesTag(FGameplayTag::RequestGameplayTag("DamageParam")) == false)
+		EffectSpecHandle.Data.Get()->Period = GetParamUsingName("DamageParam.Period");
+		ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, EffectSpecHandle, InTargetDataHandle);
+
+		// HitGC 로직. CueParam을 커스텀으로 채우려면 직접 ExecutePlayCue를 호출해야 함 ex)Location
+		FGameplayCueParameters CueParams;
+		CueParams.EffectCauser = InCauser;
+		CueParams.EffectContext = EffectSpecHandle.Data->GetContext();
+		CueParams.Instigator = GetAvatarActorFromActorInfo();
+		CueParams.Location = InCauser->GetActorLocation() + (InTarget->GetActorLocation() - InCauser->GetActorLocation()) / 2.f;
+
+		FGameplayTag SourceTag = AbilityTags.Filter(FGameplayTag::RequestGameplayTag("Ability").GetSingleTagContainer()).Last();
+		if (SourceTag == FGameplayTag::EmptyTag)
 		{
-			continue;
+			SourceTag = AbilityTags.Last();
+		}
+		CueParams.AggregatedSourceTags.AddTag(SourceTag);
+
+		// GE가 어떤 Cue를 실행할지 저장하고 있어서 가져옴
+		FGameplayTag DamageCueTag = FGameplayTag::RequestGameplayTag("GameplayCue.Effect.Hit.Default");
+		if (UGameplayEffect_Damage* GEDamageCDO = Cast<UGameplayEffect_Damage>(DamageEffectClass->GetDefaultObject()))
+		{
+			DamageCueTag = GEDamageCDO->GetDamageCue();
+			GEDamageCDO->UpdateCueParams(InCauser, InTarget, CueParams);
 		}
 
-		EffectSpecHandle = UAbilitySystemBlueprintLibrary::AssignTagSetByCallerMagnitude(EffectSpecHandle, DynamicParamToValuePair.Key, DynamicParamToValuePair.Value);
+		TargetASC->ExecuteGameplayCue(DamageCueTag, CueParams);
 	}
-
-	EffectSpecHandle.Data.Get()->Period = GetParamUsingName("DamageParam.Period");
-	ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, EffectSpecHandle, InTargetDataHandle);
-
-	// HitGC 로직. CueParam을 커스텀으로 채우려면 직접 ExecutePlayCue를 호출해야 함 ex)Location
-	FGameplayCueParameters CueParams;
-	CueParams.EffectCauser = InCauser;
-	CueParams.EffectContext = EffectSpecHandle.Data->GetContext();
-	CueParams.Instigator = GetAvatarActorFromActorInfo();
-	CueParams.Location = InCauser->GetActorLocation() + (InTarget->GetActorLocation() - InCauser->GetActorLocation()) / 2.f;
-
-	FGameplayTag SourceTag = AbilityTags.Filter(FGameplayTag::RequestGameplayTag("Ability").GetSingleTagContainer()).Last();
-	if (SourceTag == FGameplayTag::EmptyTag)
+	else
 	{
-		SourceTag = AbilityTags.Last();
+		UE_LOG(LogAbility, Error, TEXT("Gameplayeffect[%s] has no handle logic."), *EffectClass->GetName());
 	}
-	CueParams.AggregatedSourceTags.AddTag(SourceTag);
-
-	// GE가 어떤 Cue를 실행할지 저장하고 있어서 가져옴
-	FGameplayTag DamageCueTag = FGameplayTag::RequestGameplayTag("GameplayCue.Effect.Hit.Default");
-	if (UGameplayEffect_Damage* GEDamageCDO = Cast<UGameplayEffect_Damage>(DamageEffectClass->GetDefaultObject()))
-	{
-		DamageCueTag = GEDamageCDO->GetDamageCue();
-		GEDamageCDO->UpdateCueParams(InCauser, InTarget, CueParams);
-	}
-
-	TargetASC->ExecuteGameplayCue(DamageCueTag, CueParams);
 }
 
 void UGameplayAbility_CharacterBase::SetEnableCharacterOverlapDamage(bool bInEnable)
@@ -862,7 +881,7 @@ void UGameplayAbility_CharacterBase::SetEnableCharacterOverlapDamage(bool bInEna
 
 	if (bInEnable)
 	{
-		CharacterOverlapDamageDelegateHandle = DamageComponent->GetOnDamageEvent().AddUObject(this, &UGameplayAbility_CharacterBase::ApplyEffect);
+		CharacterOverlapDamageDelegateHandle = DamageComponent->GetOnDamageEvent().AddUObject(this, &UGameplayAbility_CharacterBase::ApplyBuffByDamageEvent);
 		DamageComponent->Activate(true);
 	}
 	else if(CharacterOverlapDamageDelegateHandle.IsValid())
@@ -1028,9 +1047,12 @@ void UGameplayAbility_WeaponBase::UpdateWeapon(AActor* Old, AActor* New)
 	}
 
 	Weapon = Cast<AWeapon>(New);
-	if (UMDamageComponent* DamageComponent = Weapon->GetComponentByClass<UMDamageComponent>())
+	if (Weapon.IsValid())
 	{
-		WeaponDamageDelegateHandle = DamageComponent->GetOnDamageEvent().AddUObject(this, &UGameplayAbility_WeaponBase::ApplyEffect);
+		if (UMDamageComponent* DamageComponent = Weapon->GetComponentByClass<UMDamageComponent>())
+		{
+			WeaponDamageDelegateHandle = DamageComponent->GetOnDamageEvent().AddUObject(this, &UGameplayAbility_WeaponBase::ApplyBuffByDamageEvent);
+		}
 	}
 }
 
@@ -1233,6 +1255,12 @@ void UGameplayAbility_LevelUp::OnGiveAbility(const FGameplayAbilityActorInfo* Ac
 			LevelComponent->GetOnLevelUpEvent().AddUObject(this, &UGameplayAbility_LevelUp::UpdateMesh);
 		}
 	}
+
+	for (const auto& LevelToMeshPair : LevelToMesh)
+	{
+		FStreamableManager& StreamableManager = UAssetManager::GetStreamableManager();
+		StreamableManager.RequestAsyncLoad(LevelToMeshPair.Value, []() {});
+	}
 }
 
 void UGameplayAbility_LevelUp::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
@@ -1266,5 +1294,25 @@ void UGameplayAbility_LevelUp::UpdateMesh(int32 InLevel)
 		return;
 	}
 
-	Character->GetMesh()->SetSkeletalMesh(Cast<USkeletalMesh>(MeshPath.TryLoad()));
+	USkeletalMeshComponent* OldMesh = Character->GetMesh();
+	UAnimMontage* OldMontage = Character->GetCurrentMontage();
+	FName Section = NAME_None;
+	float Pos = 0.f;
+	float PlayRate = 1.f;
+	if (IsValid(OldMesh) && IsValid(OldMontage))
+	{
+		Section = OldMesh->GetAnimInstance()->Montage_GetCurrentSection(OldMontage);
+		float SectionStart = 0.f;
+		float SectionEnd = 0.f;
+		OldMontage->GetSectionStartAndEndTime(OldMontage->GetSectionIndex(Section), SectionStart, SectionEnd);
+		Pos = OldMesh->GetAnimInstance()->Montage_GetPosition(OldMontage) - SectionStart;
+		PlayRate = OldMesh->GetAnimInstance()->Montage_GetPlayRate(OldMontage);
+	}
+
+	Character->GetMesh()->SetSkeletalMesh(Cast<USkeletalMesh>(MeshPath.TryLoad()), false);
+
+	if (IsValid(OldMontage))
+	{
+		GetAbilitySystemComponentFromActorInfo()->PlayMontage(this, CurrentActivationInfo, OldMontage, PlayRate, Section, Pos);
+	}
 }

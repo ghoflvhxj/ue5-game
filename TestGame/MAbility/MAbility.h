@@ -126,18 +126,21 @@ protected:
 protected:
 	TWeakObjectPtr<AMCharacter> Character = nullptr;
 
-/* GE 관련 기능들 */
+/* Buff 이벤트 다룸. 만약 Buff 적용 조건이 추가된다면 ApplyBuffByXXXEvent함수를 추가해주고, 적당한 델리게이트에 바인딩 할 것. */
 public:
-	// OverlapEvent 바인딩을 위한 Wrapper 함수
-	virtual void ApplyEffect(AActor* InEffectCauser, AActor* InTarget);
+	// Event None으로 버프를 적용
+	virtual void ApplyBuffByNoneEvent();
+	// Event Damage으로 버프를 적용
+	virtual void ApplyBuffByDamageEvent(AActor* InEffectCauser, AActor* InTarget);
+protected:
+	// GE 적용 로직은 이 함수를 오버라이딩
+	virtual void ApplyEffectToTarget(TSubclassOf<UGameplayEffect> EffectClass, AActor* InEffectCauser, AActor* InTarget, const FGameplayAbilityTargetDataHandle& InTargetDataHandle);
+
 
 public:
 	// 어빌리티가 스폰한 액터는 이 함수를 호출해줘야 함
 	UFUNCTION(BlueprintCallable)
 	virtual void InitAbilitySpawnedActor(AActor* InActor);
-
-	// GE 적용 로직은 이 함수를 오버라이딩
-	virtual void ApplyEffectToTarget(AActor* InEffectCauser, AActor* InTarget, const FGameplayAbilityTargetDataHandle& InTargetDataHandle);
 
 	// 캐릭터 오버랩으로 대미지를 적용하기 위한 함수
 	UFUNCTION(BlueprintCallable)
