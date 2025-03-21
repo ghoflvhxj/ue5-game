@@ -402,7 +402,7 @@ void URoundComponent::TryNextRound(float Delay)
 
 	if (IsLastRound() && IsLastWave())
 	{
-		bAllRoundFinished = true;
+		Multicast_AllRoundFinished();
 		return;
 	}
 
@@ -463,7 +463,7 @@ void URoundComponent::StartWave()
 
 void URoundComponent::FinishRound()
 {
-	Multicast_FinishRound();
+	Multicast_RoundFinish();
 }
 
 bool URoundComponent::IsLastWave() const
@@ -514,9 +514,14 @@ void URoundComponent::Multicast_WaitNextRound_Implementation()
 	OnWaitNextRoundEvent.Broadcast();
 }
 
-void URoundComponent::Multicast_FinishRound_Implementation()
+void URoundComponent::Multicast_RoundFinish_Implementation()
 {
 	OnRoundFinishedEvent.Broadcast();
+}
+
+void URoundComponent::Multicast_AllRoundFinished_Implementation()
+{
+	bAllRoundFinished = true;
 }
 
 void ARoundReward::BeginPlay()
@@ -582,7 +587,7 @@ void ARoundReceiveActor::BeginPlay()
 				}
 			});
 
-			RoundComponent->GetRoundChangeEvent().AddUObject(this, &ARoundReceiveActor::ReceiveRound);
+			RoundComponent->GetRoundChangedEvent().AddUObject(this, &ARoundReceiveActor::ReceiveRound);
 		}
 	}
 }

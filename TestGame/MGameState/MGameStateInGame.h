@@ -188,7 +188,6 @@ protected:
 	bool bPause = false;
 	FOnRoundPausedEvent OnRoundPausedEvent;
 
-	// 웨이브
 public:
 	UFUNCTION(BlueprintPure)
 	bool IsLastWave() const;
@@ -210,29 +209,36 @@ public:
 	void StartWave();
 	UFUNCTION(BlueprintCallable)
 	void FinishRound();
+public:
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_RoundWave(const FRound& InRound);
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_WaitNextRound();
 	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_FinishRound();
+	void Multicast_RoundFinish();
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_AllRoundFinished();
 public:
 	FRoundEvent& GetRoundFinishedEvenet() { return OnRoundFinishedEvent; }
 	FRoundEvent& GetWaitNextRoundEvent() { return OnWaitNextRoundEvent; }
-	FOnRoundChangedEvent& GetRoundChangeEvent() { return OnRoundChangedEvent; }
-public:
+	FOnRoundChangedEvent& GetRoundChangedEvent() { return OnRoundChangedEvent; }
+	FOnRoundChangedEvent& GetRoundAndWaveChangedEvent() { return OnRoundAndWaveChangedEvent; }
+protected:
 	FRoundEvent OnRoundFinishedEvent;
 	FRoundEvent OnWaitNextRoundEvent;
 	FOnRoundChangedEvent OnRoundChangedEvent;
 	FOnRoundChangedEvent OnRoundAndWaveChangedEvent;
-protected:
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class UDataTable* RoundTable;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Replicated)
 	FRound RoundWaveData;
+
 	FTimerHandle NextRoundTimerHandle;
+
 	FTimerHandle NextWaveTimerHandle;
+
 	bool bAllRoundFinished = false;
 };
 
