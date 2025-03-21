@@ -281,7 +281,6 @@ void AMHudInGame::BeginPlay()
 		// 라운드 바인딩
 		if (URoundComponent* RoundComponent = GameStateInGame->GetComponentByClass<URoundComponent>())
 		{
-			UpdateRoundInfo(RoundComponent->GetRoundWave());
 			RoundComponent->GetWaitNextRoundEvent().AddUObject(this, &AMHudInGame::ShowGetRewardMessage);
 			RoundComponent->GetRoundPausedEvent().AddUObject(this, &AMHudInGame::UpdateRoundPause);
 			RoundComponent->GetRoundAndWaveChangedEvent().AddUObject(this, &AMHudInGame::UpdateRoundInfo);
@@ -379,6 +378,13 @@ void AMHudInGame::ShowHudWidget(APawn* OldPawn, APawn* NewPawn)
 		}
 
 		UpdatePawnBoundWidget(OldPawn, NewPawn);
+		if (AMGameStateInGame* GameStateInGame = Cast<AMGameStateInGame>(UGameplayStatics::GetGameState(this)))
+		{
+			if (URoundComponent* RoundComponent = GameStateInGame->GetComponentByClass<URoundComponent>())
+			{
+				UpdateRoundInfo(RoundComponent->GetRoundWave());
+			}
+		}
 	}
 
 	if (IsValid(OldPawn) == false && IsValid(NewPawn) == false)
