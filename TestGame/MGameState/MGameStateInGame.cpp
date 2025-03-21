@@ -89,25 +89,13 @@ void AMGameStateInGame::HandleMatchHasStarted()
 		}
 	}
 	
-	for (APlayerState* PlayerState : PlayerArray)
+	if (AMCharacter* MyCharacter = Cast<AMCharacter>(UGameplayStatics::GetPlayerCharacter(this, 0)))
 	{
-		if (IsValid(PlayerState) == false)
-		{
-			continue;
-		}
-
-		AMCharacter* Character = PlayerState->GetPawn<AMCharacter>();
-		if (IsValid(Character) == false)
-		{
-			continue;
-		}
-
-		if (UAbilitySystemComponent* AbilitySystemComponent = Character->GetAbilitySystemComponent())
+		if (UAbilitySystemComponent* AbilitySystemComponent = MyCharacter->GetAbilitySystemComponent())
 		{
 			AbilitySystemComponent->OnActiveGameplayEffectAddedDelegateToSelf.AddUObject(this, &AMGameStateInGame::ApplyItemEvent);
 			AbilitySystemComponent->OnAnyGameplayEffectRemovedDelegate().AddUObject(this, &AMGameStateInGame::RemoveItemEvent);
 		}
-
 	}
 }
 
