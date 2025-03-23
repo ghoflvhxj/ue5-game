@@ -146,8 +146,6 @@ void UMAnimNotify_SpawnBullet::OnSpawn(AActor* InActor, USkeletalMeshComponent* 
 			IBulletShooterInterface::Execute_InitBullet(Owner, Bullet);
 		}
 	}
-
-
 }
 
 void UMAnimNotify_SpawnBullet::OnSpawnFinished(AActor* InActor, USkeletalMeshComponent* MeshComp)
@@ -222,8 +220,10 @@ void UMAnimNotifyState_WeaponActive::NotifyBegin(USkeletalMeshComponent* MeshCom
 
 	if (AMCharacter* Character = Cast<AMCharacter>(MeshComp->GetOwner()))
 	{
-		Character->SetWeaponActivation(true);
+		Character->SetWeaponActivation(true, TotalDuration);
 	}
+
+	UE_LOG(LogTemp, Warning, TEXT("WeaponActive Duriation:%f"), TotalDuration);
 }
 
 void UMAnimNotifyState_WeaponActive::NotifyEnd(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference)
@@ -232,12 +232,14 @@ void UMAnimNotifyState_WeaponActive::NotifyEnd(USkeletalMeshComponent* MeshComp,
 
 	if (AMCharacter* Character = Cast<AMCharacter>(MeshComp->GetOwner()))
 	{
-		Character->SetWeaponActivation(false);
+		Character->SetWeaponActivation(false, 0.f);
 	}
 }
 
 void UMAnimNotifyState_TagModifier::NotifyBegin(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, float TotalDuration, const FAnimNotifyEventReference& EventReference)
 {
+	Super::NotifyBegin(MeshComp, Animation, TotalDuration, EventReference);
+
 	AActor* Actor = MeshComp->GetOwner();
 	if (IsValid(Actor) == false)
 	{
@@ -257,6 +259,8 @@ void UMAnimNotifyState_TagModifier::NotifyBegin(USkeletalMeshComponent* MeshComp
 
 void UMAnimNotifyState_TagModifier::NotifyEnd(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference)
 {
+	Super::NotifyEnd(MeshComp, Animation, EventReference);
+
 	AActor* Actor = MeshComp->GetOwner();
 	if (IsValid(Actor) == false)
 	{
@@ -278,6 +282,8 @@ void UMAnimNotifyState_TagModifier::NotifyEnd(USkeletalMeshComponent* MeshComp, 
 
 void UMAnimNotifyState_AddMovemntInput::NotifyTick(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, float FrameDeltaTime, const FAnimNotifyEventReference& EventReference)
 {
+	Super::NotifyTick(MeshComp, Animation, FrameDeltaTime, EventReference);
+
 	if (ACharacter* Character = Cast<ACharacter>(MeshComp->GetOwner()))
 	{
 		Character->AddMovementInput(Character->GetActorForwardVector(), Scale, bForce);

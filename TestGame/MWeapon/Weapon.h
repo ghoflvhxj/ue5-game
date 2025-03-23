@@ -126,6 +126,7 @@ protected:
 
 public:
 	virtual void OnConstruction(const FTransform& Transform) override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void Tick(float DeltaSeconds) override;
 protected:
 	virtual void BeginPlay() override;
@@ -133,8 +134,10 @@ protected:
 
 public:
 	// 여기서 트레일, 대미지 활성화 등등 작업
-	virtual void Activate();
+	virtual void Activate(float InTime = 0.f);
 	virtual void Deactivate();
+protected:
+	FTimerHandle ActiveTimerHandle;
 
 	/* 트레일 */
 public:

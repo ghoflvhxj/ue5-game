@@ -123,6 +123,8 @@ public:
 	virtual void OnMoveSpeedChanged(const FOnAttributeChangeData& AttributeChangeData);
 	virtual void OnHealthChanged(const FOnAttributeChangeData& AttributeChangeData);
 	virtual void OnDamaged(AActor* DamageInstigator);
+public:
+	float GetAttribute(const FName& InAttributeName);
 protected:
 	UPROPERTY(BlueprintReadOnly)
 	UMAttributeSet* AttributeSet = nullptr;
@@ -170,7 +172,7 @@ public:
 public:
 	UFUNCTION(BlueprintPure)
 	virtual UPrimitiveComponent* GetWeaponCollision();
-	void SetWeaponActivation(bool bActivate);
+	void SetWeaponActivation(bool bActivate, float InTime);
 	UFUNCTION(BlueprintNativeEvent)
 	void SetWeaponCollisionEnable(bool bInEnable);
 	UFUNCTION(BlueprintPure)

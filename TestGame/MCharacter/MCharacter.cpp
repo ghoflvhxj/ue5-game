@@ -477,6 +477,26 @@ void AMCharacter::OnDamaged(AActor* DamageInstigator)
 	}
 }
 
+float AMCharacter::GetAttribute(const FName& InAttributeName)
+{
+	if (IsValid(AbilitySystemComponent))
+	{
+		FGameplayAttribute FoundAttribute;
+
+		if (InAttributeName == UMAttributeSet::GetAttackSpeedAttribute().AttributeName)
+		{
+			FoundAttribute = UMAttributeSet::GetAttackSpeedAttribute();
+		}
+
+		if (FoundAttribute.IsValid())
+		{
+			return AbilitySystemComponent->GetNumericAttribute(FoundAttribute);
+		}
+	}
+
+	return 0.f;
+}
+
 bool AMCharacter::IsDead()
 {
 	if (AbilitySystemComponent)
@@ -517,7 +537,7 @@ UPrimitiveComponent* AMCharacter::GetWeaponCollision()
 	return nullptr;
 }
 
-void AMCharacter::SetWeaponActivation(bool bInActivation)
+void AMCharacter::SetWeaponActivation(bool bInActivation, float InTime)
 {
 	AWeapon* Weapon = GetEquipItem<AWeapon>();
 	if (IsValid(Weapon) == false)
@@ -527,7 +547,12 @@ void AMCharacter::SetWeaponActivation(bool bInActivation)
 
 	if (bInActivation)
 	{
-		Weapon->Activate();
+		if (InTime > 0.f)
+		{
+			InTime /= GetAttribute(TEXT("AttackSpeed"));
+		}
+
+		Weapon->Activate(InTime);
 	}
 	else
 	{

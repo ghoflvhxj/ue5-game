@@ -97,7 +97,7 @@ void AWeapon::BeginPlay()
 	SetActorEnableCollision(false);
 }
 
-void AWeapon::Activate()
+void AWeapon::Activate(float InTime)
 {
 	SetActorEnableCollision(true);
 	SetActorTickEnabled(true);
@@ -115,6 +115,13 @@ void AWeapon::Activate()
 	}
 
 	ClearComponentOverlaps();
+
+	if (InTime > 0.f)
+	{
+		GetWorldTimerManager().SetTimer(ActiveTimerHandle, FTimerDelegate::CreateWeakLambda(this, [this]() {
+			Deactivate();
+		}), InTime, false);
+	}
 }
 
 void AWeapon::Deactivate()
