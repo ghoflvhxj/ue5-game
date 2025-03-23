@@ -199,6 +199,8 @@ public:
 	const FRound& GetRoundWave() const { return RoundWaveData; }
 	int32 GetRound() const { return RoundWaveData.Round; }
 	int32 GetWave() const { return RoundWaveData.Wave; }
+	UFUNCTION(BlueprintPure)
+	float GetWaveReaminigTime() const;
 public:
 	void SetRoundWave(const FRound& InRound);
 	UFUNCTION(BlueprintCallable)

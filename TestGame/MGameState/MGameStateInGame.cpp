@@ -377,6 +377,16 @@ FRoundInfo URoundComponent::GetRoundTableData(int32 InRound) const
 	return FRoundInfo();
 }
 
+float URoundComponent::GetWaveReaminigTime() const
+{
+	if (UWorld* World = GetWorld())
+	{
+		return World->GetTimerManager().GetTimerRemaining(NextWaveTimerHandle);
+	}
+
+	return 0.f;
+}
+
 void URoundComponent::SetRoundWave(const FRound& InRound)
 {
 	if (IsNetSimulating())
@@ -498,6 +508,8 @@ void URoundComponent::Multicast_RoundWave_Implementation(const FRound& InRound)
 	if (IsNetSimulating())
 	{
 		RoundWaveData = InRound;
+
+		GetWorld()->GetTimerManager().SetTimer(NextWaveTimerHandle, FTimerDelegate::CreateWeakLambda(this, []() {}), RoundWaveData.NextWaveTime - UGameplayStatics::GetGameState(this)->GetServerWorldTimeSeconds(), false);
 	}
 
 	if (RoundWaveData.Wave == 1)
