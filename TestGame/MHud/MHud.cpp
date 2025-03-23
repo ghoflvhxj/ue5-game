@@ -378,6 +378,10 @@ void AMHudInGame::ShowHudWidget(APawn* OldPawn, APawn* NewPawn)
 		}
 
 		UpdatePawnBoundWidget(OldPawn, NewPawn);
+	}
+
+	if (IsValid(HUDWidget))
+	{
 		if (AMGameStateInGame* GameStateInGame = Cast<AMGameStateInGame>(UGameplayStatics::GetGameState(this)))
 		{
 			if (URoundComponent* RoundComponent = GameStateInGame->GetComponentByClass<URoundComponent>())
