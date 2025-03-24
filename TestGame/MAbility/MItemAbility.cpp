@@ -27,8 +27,8 @@ DECLARE_LOG_CATEGORY_CLASS(LogItemAbility, Log, Log);
 
 UGameplayAbility_Item::UGameplayAbility_Item()
 {
-	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateNo;
-	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::ServerOnly;
+	ReplicationPolicy = EGameplayAbilityReplicationPolicy::Type::ReplicateYes;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Type::ServerInitiated;
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::Type::InstancedPerActor;
 
 	AbilityTags.AddTag(FGameplayTag::RequestGameplayTag("AbilityType.Item"));
