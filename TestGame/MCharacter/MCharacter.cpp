@@ -701,32 +701,37 @@ void AMCharacter::Aim()
 
 void AMCharacter::BasicAttack()
 {
+	if (IsValid(AbilitySystemComponent) == false)
+	{
+		return;
+	}
+
 	if (AbilitySystemComponent->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag("Character.Attack.Block")))
 	{
 		return;
 	}
 
 	AWeapon* Weapon = GetEquipItem<AWeapon>();
-	if (IsValid(Weapon) == false || Weapon->IsCoolDown())
+	if (IsValid(Weapon) == false)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("LightAttack return"));
 		return;
 	}
 
 	if (Weapon->IsAttackable())
 	{
-		if (AbilitySystemComponent)
+		if (ComboReserveHandle.IsValid())
 		{
-			AbilitySystemComponent->AbilityLocalInputPressed(1);
-			AbilitySystemComponent->AbilityLocalInputPressed(2);
+			Weapon->GetCoolDownFinishedEvent().Remove(ComboReserveHandle);
+			ComboReserveHandle.Reset();
 		}
-	}
-	else
-	{
-		//FinishBasicAttack();
-	}
 
-	UE_LOG(LogTemp, Warning, TEXT("LightAttack"));
+		AbilitySystemComponent->AbilityLocalInputPressed(static_cast<int32>(EAbilityInputType::Attack));
+		AbilitySystemComponent->AbilityLocalInputPressed(static_cast<int32>(EAbilityInputType::Combo));
+	}
+	else if(ComboReserveHandle.IsValid() == false && Weapon->IsComboable())
+	{
+		ComboReserveHandle = Weapon->GetCoolDownFinishedEvent().AddUObject(this, &AMCharacter::BasicAttack);
+	}
 }
 
 void AMCharacter::FinishBasicAttack()

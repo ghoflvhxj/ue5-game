@@ -30,21 +30,13 @@ DECLARE_EVENT_OneParam(AMCharacter, FOnDeadEvent, AActor*);
 DECLARE_EVENT_TwoParams(AMCharacter, FOnWeaponChangedEvent, AActor*, AActor*);
 DECLARE_EVENT_OneParam(AMCharacter, FOnItemUsedEvent, int32);
 
-//UINTERFACE(BlueprintType)
-//class UWeaponInterface : public UInterface 
-//{
-//	GENERATED_BODY()
-//};
-//
-//UCLASS()
-//class IWeaponInterface
-//{
-//	GENERATED_BODY()
-//
-//public:
-//	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-//	void GenrateWeaponOverlapEvent(bool bInGenerate);
-//};
+UENUM(BlueprintType)
+enum class EAbilityInputType : uint8
+{
+	NONE,
+	Attack,
+	Combo,
+};
 
 UCLASS()
 class TESTGAME_API AMCharacter : public ACharacter, public IAbilitySystemInterface
@@ -97,9 +89,7 @@ public:
 	virtual void PostInitializeComponents() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual USceneComponent* GetDefaultAttachComponent() const override { return GetMesh(); }
-
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
-
 
 public:
 	UFUNCTION(BlueprintPure)
@@ -198,6 +188,7 @@ protected:
 	AActor* Item = nullptr;
 	AActor* WeaponCached = nullptr;
 	TArray<FGameplayAbilitySpecHandle> WeaponAbilitySpecHandles;
+	FDelegateHandle ComboReserveHandle;
 
 /* 아이템 */
 public:
