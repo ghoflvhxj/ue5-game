@@ -177,3 +177,15 @@ UGameplayEffect_SetMaxHealth::UGameplayEffect_SetMaxHealth()
 	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
 	Modifiers.Add(ModifierInfo);
 }
+
+UGameplayEffect_SetMoveSpeed::UGameplayEffect_SetMoveSpeed()
+{
+	FGameplayModifierInfo ModifierInfo;
+	FSetByCallerFloat SetByCaller;
+
+	ModifierInfo.Attribute = Attribute = UMAttributeSet::GetMoveSpeedAttribute();
+	ModifierInfo.ModifierOp = EGameplayModOp::Override;
+	SetByCaller.DataTag = GetEffectValueTag();
+	ModifierInfo.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCaller);
+	Modifiers.Add(ModifierInfo);
+}

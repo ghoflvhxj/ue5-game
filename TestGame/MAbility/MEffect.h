@@ -198,3 +198,12 @@ class TESTGAME_API UGameplayEffect_SetMaxHealth : public UGameplayEffect_SetAttr
 public:
 	UGameplayEffect_SetMaxHealth();
 };
+
+UCLASS()
+class TESTGAME_API UGameplayEffect_SetMoveSpeed : public UGameplayEffect_SetAttribute
+{
+	GENERATED_BODY()
+
+public:
+	UGameplayEffect_SetMoveSpeed();
+};
