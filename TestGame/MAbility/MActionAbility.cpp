@@ -194,17 +194,6 @@ void UGameplayAbility_Skill::SetSkillIndex(int32 InIndex, FGameplayTag InSkillTa
 	// 파라미터 설정
 	AddParams(SkillTableRow.InitialAttributes);
 
-	// 버프 설정
-	for (const FBuffInfo& BuffInfo : SkillTableRow.BuffInfos)
-	{
-		if (BuffInfo.EffectIndex == INDEX_NONE)
-		{
-			continue;
-		}
-
-		MapEffectToParams.FindOrAdd(BuffInfo.EffectIndex) = BuffInfo.EffectParam;
-	}
-	
 	// 강화
 	if (AMPlayer* PlayerCharacter = Cast<AMPlayer>(Character))
 	{
@@ -243,6 +232,19 @@ void UGameplayAbility_Skill::SkillEnhance(int32 SkillEnhanceIndex)
 void UGameplayAbility_Skill::OnRep_SkillIndex()
 {
 	UMGameInstance::LoadSkillAsset(this, SkillIndex, true);
+
+	const FSkillTableRow& SkillTableRow = UMGameInstance::GetSkillTableRow(this, SkillIndex);
+
+	// 버프 설정
+	for (const FBuffInfo& BuffInfo : SkillTableRow.BuffInfos)
+	{
+		if (BuffInfo.EffectIndex == INDEX_NONE)
+		{
+			continue;
+		}
+
+		MapEffectToParams.FindOrAdd(BuffInfo.EffectIndex) = BuffInfo.EffectParam;
+	}
 }
 
 void UGameplayAbility_Skill::ApplyBuffByNoneEvent()
