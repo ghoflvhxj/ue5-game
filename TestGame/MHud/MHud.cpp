@@ -252,14 +252,17 @@ void AMHudInGame::ShowSpectateInfo_Implementation(bool InSpectating)
 
 bool AMHudInGame::AddPlayer_Implementation(APlayerState* InPlayerState, AMCharacter* InCharacter)
 {
-	Players.Add(InPlayerState);
-
-	if (UAbilitySystemComponent* AbilitySystemComponent = InCharacter->GetAbilitySystemComponent())
+	if (Players.Contains(InPlayerState) == false)
 	{
-		AbilitySystemComponent->OnActiveGameplayEffectAddedDelegateToSelf.AddUObject(this, &AMHudInGame::UpdateGameplayEffect);
-		AbilitySystemComponent->OnAnyGameplayEffectRemovedDelegate().AddWeakLambda(this, [this, AbilitySystemComponent](const FActiveGameplayEffect& InRemovedActiveEffect) {
-			RemoveGameplayEffect(AbilitySystemComponent, InRemovedActiveEffect);
-		});
+		if (UAbilitySystemComponent* AbilitySystemComponent = InCharacter->GetAbilitySystemComponent())
+		{
+			AbilitySystemComponent->OnActiveGameplayEffectAddedDelegateToSelf.AddUObject(this, &AMHudInGame::UpdateGameplayEffect);
+			AbilitySystemComponent->OnAnyGameplayEffectRemovedDelegate().AddWeakLambda(this, [this, AbilitySystemComponent](const FActiveGameplayEffect& InRemovedActiveEffect) {
+				RemoveGameplayEffect(AbilitySystemComponent, InRemovedActiveEffect);
+			});
+		}
+
+		Players.Add(InPlayerState);
 	}
 
 	return true;
@@ -376,12 +379,11 @@ void AMHudInGame::ShowHudWidget(APawn* OldPawn, APawn* NewPawn)
 			CharacterSelectWidget->RemoveFromParent();
 			CharacterSelectWidget = nullptr;
 		}
-
-		UpdatePawnBoundWidget(OldPawn, NewPawn);
 	}
 
 	if (IsValid(HUDWidget))
 	{
+		UpdatePawnBoundWidget(OldPawn, NewPawn);
 		if (AMGameStateInGame* GameStateInGame = Cast<AMGameStateInGame>(UGameplayStatics::GetGameState(this)))
 		{
 			if (URoundComponent* RoundComponent = GameStateInGame->GetComponentByClass<URoundComponent>())
