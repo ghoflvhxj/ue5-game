@@ -5,6 +5,7 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "AbilitySystemBlueprintLibrary.h"
 #include "NiagaraComponent.h"
+
 #include "MGameInstance.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MCharacter/Component/ActionComponent.h"
@@ -351,8 +352,6 @@ void AWeapon::NextCombo()
 	Combo = IsComboableWeapon() && IsComboable() ? Combo + 1 : 0;
 
 	OnComboChangedEvent.Broadcast(Combo);
-
-	UE_LOG(LogTemp, Warning, TEXT("Combo:%d"), Combo);
 }
 
 void AWeapon::ResetCombo()
@@ -361,9 +360,10 @@ void AWeapon::ResetCombo()
 	OnComboChangedEvent.Broadcast(Combo);
 }
 
-void AWeapon::OnAttackCoolDownFinished()
+void AWeapon::FinishCoolDown()
 {
 	bCoolDown = false;
+	OnCoolDownFinishedEvenet.Broadcast();
 }
 
 bool AWeapon::IsAttackable() const

@@ -111,6 +111,8 @@ struct FWeaponTableRow : public FTableRowBase
 	FWeaponData WeaponData;
 };
 
+DECLARE_EVENT(AWeapon, FOnCoolDownFinishedEvent);
+
 UCLASS()
 class TESTGAME_API AWeapon : public AActor
 {
@@ -187,7 +189,7 @@ protected:
 public:
 	virtual void NextCombo();
 	virtual void ResetCombo();
-	virtual void OnAttackCoolDownFinished();
+	virtual void FinishCoolDown();
 public:
 	bool IsComboableWeapon() const;
 	bool IsComboable() const;
@@ -203,8 +205,10 @@ public:
 	bool IsAttackable() const;
 	bool IsCoolDown() const;
 	bool IsAttacking() const;
+	FOnCoolDownFinishedEvent& GetCoolDownFinishedEvent() { return OnCoolDownFinishedEvenet; }
 protected:
 	bool bCoolDown = false;
+	FOnCoolDownFinishedEvent OnCoolDownFinishedEvenet;
 
 public:
 	DECLARE_EVENT_OneParam(AWeapon, FOnChargeChangedEvent, bool);
