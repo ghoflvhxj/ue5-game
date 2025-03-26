@@ -370,7 +370,7 @@ void AMCharacter::OnHealthChanged(const FOnAttributeChangeData& AttributeChangeD
 		DamageInstigator = Cast<APawn>(AttributeChangeData.GEModData->EffectSpec.GetEffectContext().GetInstigator());
 	}
 
-	if (AttributeChangeData.NewValue < AttributeChangeData.OldValue && AttributeChangeData.OldValue > 0.f)
+	if (AttributeChangeData.NewValue < AttributeChangeData.OldValue && AttributeChangeData.OldValue > 0.f && AbilitySystemComponent->GetNumericAttribute(UMAttributeSet::GetMaxHealthAttribute()) != AttributeChangeData.NewValue)
 	{
 		OnDamaged(DamageInstigator);
 	}

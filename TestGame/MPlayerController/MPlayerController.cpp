@@ -233,45 +233,11 @@ float AMPlayerControllerInGame::YawToMouseFromWorldLocation(const FVector& InLoc
 		GetMousePosition(MouseLocation.X, MouseLocation.Y);
 
 		FVector2D ToMouse = MouseLocation - ScreenLocation;
-		float Angle = FMath::RadiansToDegrees(FMath::Atan2(ToMouse.X, -ToMouse.Y)); // 화면 좌표계를 월드 좌표계로 만들기 위해 X와 Y의 위치 변경
+		float Angle = FMath::RadiansToDegrees(FMath::Atan2(ToMouse.X, -ToMouse.Y)); // ATAN을 사용하기 위해 Y값을 반전하여 화면 좌표계를 일반적인 좌표계로 
 		return Angle;
 	}
 
 	return 0.f;
-//	FVector MouseWorldLocation;
-//	FVector MouseWorldDirection;
-//	FCollisionQueryParams QueryParams;
-//	FCollisionResponseParams ResponsParams(ECollisionResponse::ECR_Block);
-//
-//	if (DeprojectMousePositionToWorld(MouseWorldLocation, MouseWorldDirection) == false)
-//	{
-//		return 0.f;
-//	}
-//
-//	TArray<FHitResult> HitResults;
-//	if (GetWorld()->LineTraceMultiByChannel(HitResults, MouseWorldLocation, MouseWorldLocation + MouseWorldDirection * 10000.f, ECC_Visibility, QueryParams, ResponsParams) == false)
-//	{
-//		return 0.f;
-//	}
-//
-//	for (const FHitResult& HitResult : HitResults)
-//	{
-//		if (FVector::Distance(MouseWorldLocation, HitResult.Location) < 500.f)
-//		{
-//			continue;
-//		}
-//
-//#if WITH_EDITOR
-//		if (bDrawYaw)
-//		{
-//			DrawDebugSphere(GetWorld(), MouseWorldLocation, 64.f, 32, FColor::Cyan, false);
-//			DrawDebugSphere(GetWorld(), HitResult.Location, 64.f, 32, FColor::Cyan, false);
-//		}
-//#endif
-//		return UKismetMathLibrary::FindLookAtRotation(InLocation, HitResult.Location).Yaw;
-//	}
-//
-//	return 0.f;
 }
 
 FVector AMPlayerControllerInGame::GetDirectionToMouse()
