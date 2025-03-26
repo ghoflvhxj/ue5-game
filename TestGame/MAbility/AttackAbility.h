@@ -26,8 +26,12 @@ public:
 	UFUNCTION()
 	virtual void OnMontageFinished();
 
+public:
+	float GetAttackSpeed() const;
+
 protected:
 	FDelegateHandle ComboDelegateHandle;
+	FTimerHandle WeaponFinishCoolDownHandle;
 	UAbilityTask_PlayMontageAndWait* PlayMontageTask = nullptr;
 
 public:

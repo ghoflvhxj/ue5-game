@@ -1,4 +1,5 @@
 #include "MAnimInstance.h"
+#include "TestGame/TestGame.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MCharacter/MMonster.h"
 #include "TestGame/MWeapon/Weapon.h"
@@ -46,8 +47,10 @@ void UMAnimInstance::AnimNotify_Combo()
 	{
 		if (AWeapon* Weapon = Character->GetEquipItem<AWeapon>())
 		{
-			Weapon->OnAttackCoolDownFinished();
+			//Weapon->OnAttackCoolDownFinished();
 		}
+		
+		UE_NLOG(LogTemp, Warning, TEXT("%s AnimNotify Combo"));
 	}
 }
 

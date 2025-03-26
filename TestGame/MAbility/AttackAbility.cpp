@@ -8,6 +8,7 @@
 #include "Engine/OverlapResult.h"
 #include "CollisionDebugDrawingPublic.h"
 
+#include "TestGame/TestGame.h"
 #include "TestGame/MCharacter/Component/ActionComponent.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MWeapon/Weapon.h"
@@ -75,22 +76,11 @@ void UGameplayAbility_AttackBase::EndAbility(const FGameplayAbilitySpecHandle Ha
 
 bool UGameplayAbility_AttackBase::PlayAttackMontage()
 {
-	float AttackSpeed = 1.f;
-	if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
-	{
-		AttackSpeed = AbilitySystemComponent->GetNumericAttribute(UMAttributeSet::GetAttackSpeedAttribute());
-	}
-
-	if (UAnimMontage* Montage = Character->GetCurrentMontage())
-	{
-		
-	}
-
 	if (UMActionComponent* ActionComponent = Character->GetComponentByClass<UMActionComponent>())
 	{
 		if (UAnimMontage* Montage = ActionComponent->GetActionMontage(AbilityTags.GetByIndex(0)))
 		{
-			PlayMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, "Attack", Montage, AttackSpeed, NAME_None, false, 1.f, 0.f, true);
+			PlayMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, "Attack", Montage, GetAttackSpeed(), NAME_None, false, 1.f, 0.f, true);
 			PlayMontageTask->OnCompleted.AddDynamic(this, &UGameplayAbility_AttackBase::OnMontageFinished);
 			PlayMontageTask->OnCancelled.AddDynamic(this, &UGameplayAbility_AttackBase::OnMontageFinished);
 			PlayMontageTask->OnBlendOut.AddDynamic(this, &UGameplayAbility_AttackBase::OnMontageFinished);
@@ -113,24 +103,66 @@ void UGameplayAbility_AttackBase::MontageJumpToComboSection(int32 InComboIndex)
 		return;
 	}
 
+	UAnimInstance* AnimInstance = CurrentActorInfo->GetAnimInstance();
+	if (IsValid(AnimInstance) == false)
+	{
+		return;
+	}
+
+	UAnimMontage* Montage = nullptr;
 	if (UMActionComponent* ActionComponent = Character->GetComponentByClass<UMActionComponent>())
 	{
-		UAnimInstance* AnimInstance = CurrentActorInfo->GetAnimInstance();
-		if (UAnimMontage* Montage = ActionComponent->GetActionMontage(AbilityTags.GetByIndex(0)))
-		{
-			FString ComboName = InComboIndex == INDEX_NONE ? TEXT("End") : FString::Printf(TEXT("Combo%d"), InComboIndex);
-			
-			if (Montage->IsValidSectionName(*ComboName) == false)
-			{
-				UE_LOG(LogAttack, Warning, TEXT("%s is invalid montage section name. Jump to last section"), *ComboName);
-				ComboName = Montage->GetSectionName(Montage->GetNumSections() - 1).ToString();
-			}
+		Montage = ActionComponent->GetActionMontage(AbilityTags.GetByIndex(0));
+	}
+	
+	if (IsValid(Montage) == false)
+	{
+		return;
+	}
+	
+	FString ComboName = InComboIndex == INDEX_NONE ? TEXT("End") : FString::Printf(TEXT("Combo%d"), InComboIndex);
+	if (Montage->IsValidSectionName(*ComboName) == false)
+	{
+		ComboName = Montage->GetSectionName(Montage->GetNumSections() - 1).ToString();
+	}
 
-			if (AnimInstance->Montage_IsPlaying(Montage) && AnimInstance->Montage_GetCurrentSection(Montage) != ComboName)
-			{
-				AnimInstance->Montage_JumpToSection(*ComboName, Montage);
-			}
+	UE_NLOG(LogAttack, Warning, TEXT("Combo MontageJumpToComboSection : % s"), *ComboName);
+
+	float SectionStart = 0.f;
+	float SectionEnd = 0.f;
+	Montage->GetSectionStartAndEndTime(Montage->GetSectionIndex(*ComboName), SectionStart, SectionEnd);
+	FAnimNotifyContext NotifyContext;
+	Montage->GetAnimNotifiesFromDeltaPositions(SectionStart, SectionEnd, NotifyContext);
+
+	for (const FAnimNotifyEventReference& NotifyRef : NotifyContext.ActiveNotifies)
+	{
+		const FAnimNotifyEvent* Notify = NotifyRef.GetNotify();
+		if (Notify == nullptr)
+		{
+			continue;
 		}
+
+		if (Notify->NotifyName != TEXT("Combo"))
+		{
+			continue;
+		}
+
+		float NotifyTriggerTime = ((Notify->GetTriggerTime() - SectionStart) / GetAttackSpeed()) - (HasAuthority(&CurrentActivationInfo) ? 0.1f : 0.f);
+		Character->GetWorldTimerManager().SetTimer(WeaponFinishCoolDownHandle, FTimerDelegate::CreateWeakLambda(Character.Get(), [this]() {
+			if (Weapon.IsValid())
+			{
+				Weapon->FinishCoolDown();
+			}
+		}), NotifyTriggerTime, false);
+
+		UE_NLOG(LogAttack, Warning, TEXT("Combo Timer:%f"), NotifyTriggerTime);
+
+		break;
+	}
+
+	if (AnimInstance->Montage_IsPlaying(Montage) && AnimInstance->Montage_GetCurrentSection(Montage) != ComboName)
+	{
+		AnimInstance->Montage_JumpToSection(*ComboName, Montage);
 	}
 }
 
@@ -140,10 +172,21 @@ void UGameplayAbility_AttackBase::OnMontageFinished()
 
 	if (Weapon.IsValid())
 	{
-		Weapon->OnAttackCoolDownFinished();
+		Weapon->FinishCoolDown();
 	}
 
 	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+}
+
+float UGameplayAbility_AttackBase::GetAttackSpeed() const
+{
+	float AttackSpeed = 1.f;
+	if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
+	{
+		AttackSpeed = AbilitySystemComponent->GetNumericAttribute(UMAttributeSet::GetAttackSpeedAttribute());
+	}
+
+	return AttackSpeed;
 }
 
 UGameplayAbility_BasicAttack::UGameplayAbility_BasicAttack()
