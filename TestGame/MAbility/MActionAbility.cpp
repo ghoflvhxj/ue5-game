@@ -434,10 +434,8 @@ void UGameplayAbility_Dash::OnActive_Implementation()
 	auto DashProcess = [this]() {
 		if (UCharacterMovementComponent* MovementComponent = Character->GetCharacterMovement())
 		{
-			MovementComponent->MaxWalkSpeed = 3000.f;
 			MovementComponent->MaxAcceleration = MovementComponent->MaxWalkSpeed * 10.f;
 			MovementComponent->GroundFriction = 0.f;
-			UE_LOG(LogTemp, Warning, TEXT("DoDash"));
 		}
 
 		StartLocation = Character->GetActorLocation();
@@ -458,26 +456,9 @@ void UGameplayAbility_Dash::OnActive_Implementation()
 	{
 		UAnimSequenceBase* AnimBase = Anim.LoadSynchronous();
 
-		if (UAnimMontage* Montage = Cast<UAnimMontage>(AnimBase))
+		if (UAnimSequence* Sequence = Cast<UAnimSequence>(AnimBase))
 		{
-			if (Montage->HasRootMotion() == false)
-			{
-				DashProcess();
-			}
-
-			if (UAbilityTask_PlayMontageAndWait* PlayMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, "Dash", Montage, 1.f, NAME_None, true, 1.f, 0.f))
-			{
-				PlayMontageTask->OnBlendOut.AddDynamic(this, &UGameplayAbility_Dash::OnAnimFinished);
-				//PlayMontageTask->OnInterrupted.AddDynamic(this, &UGameplayAbility_Dash::OnAnimFinished);
-				//PlayMontageTask->OnCancelled.AddDynamic(this, &UGameplayAbility_Dash::OnAnimFinished);
-				PlayMontageTask->OnCompleted.AddDynamic(this, &UGameplayAbility_Dash::OnAnimFinished);
-				PlayMontageTask->ReadyForActivation();
-				return;
-			}
-		}
-		else if (UAnimSequence* Sequence = Cast<UAnimSequence>(AnimBase))
-		{
-			if (UAbilityTask_PlayAnimAndWait* PlaySequenceTask = UAbilityTask_PlayAnimAndWait::CreatePlayAnimAndWaitProxy(this, "Dash", Sequence, TEXT("DefaultSlot"), 0.1f, 0.1f, 1.f, 0.f, true, 1.f))
+			if (UAbilityTask_PlayAnimAndWait* PlaySequenceTask = UAbilityTask_PlayAnimAndWait::CreatePlayAnimAndWaitProxy(this, "Dash", Sequence, TEXT("DefaultSlot"), 0.1f, 1.f, 1.f, 0.f, true, 1.f))
 			{
 				PlaySequenceTask->OnBlendOut.AddDynamic(this, &UGameplayAbility_Dash::OnAnimFinished);
 				PlaySequenceTask->OnInterrupted.AddDynamic(this, &UGameplayAbility_Dash::OnAnimFinished);
@@ -519,13 +500,9 @@ void UGameplayAbility_Dash::ClearDash(int32 ActionIndex)
 	{
 		if (UCharacterMovementComponent* MovementComponent = Character->GetCharacterMovement())
 		{
-			// Attribute로 가져오기
-			MovementComponent->MaxWalkSpeed = 600.f;
 			MovementComponent->GroundFriction = 8.f;
 			MovementComponent->MaxAcceleration = 2048;
 			MovementComponent->StopMovementImmediately();
-
-			UE_LOG(LogTemp, Warning, TEXT("ClearDash"));
 		}
 	}
 
