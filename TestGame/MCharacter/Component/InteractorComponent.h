@@ -46,7 +46,7 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 public:
-	bool IsInteractable() { return IsValid(InteratingActor) == false; }
+	bool IsInteractable() { return bInteractable; }
 public:
 	void Indicate(AActor* InActor);
 	bool Interact(AActor* InActor);
@@ -84,4 +84,8 @@ protected:
 	// 상호 작용 시작과 동시에 성공처리를 합니다.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	bool bFinishInstantly = false;
+
+	// 상호 작용이 가능한지 여부
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bInteractable = true;
 };

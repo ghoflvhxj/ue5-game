@@ -81,7 +81,6 @@ const FWeaponData& UMGameInstance::GetWeaponTableRow(UObject* Context, int32 InI
 	return *Out;
 }
 
-
 void UMGameInstance::LoadSkillAsset(UObject* WorldContext, int32 InSkillIndex, bool bIncludeChildren)
 {
 	const FSkillTableRow& SkillTableRow = GetSkillTableRow(WorldContext, InSkillIndex);
@@ -112,7 +111,6 @@ const FSkillTableRow& UMGameInstance::GetSkillTableRow(UObject* Context, int32 I
 	return *Out;
 }
 
-
 TArray<FSkillTableRow> UMGameInstance::GetSkillTableRowsByPredicate(TFunction<bool(const FSkillTableRow&)> Pred)
 {
 	TArray<FSkillTableRow*> SkillTableRows;
@@ -133,7 +131,6 @@ TArray<FSkillTableRow> UMGameInstance::GetSkillTableRowsByPredicate(TFunction<bo
 	return OutRows;
 }
 
-
 TArray<int32> UMGameInstance::GetSkillEnhanceTableRowsByPredicate(TFunction<bool(const FSkillEnhanceTableRow&)> Pred)
 {
 	TArray<FSkillEnhanceTableRow*> SkillTableRows;
@@ -153,7 +150,6 @@ TArray<int32> UMGameInstance::GetSkillEnhanceTableRowsByPredicate(TFunction<bool
 
 	return OutRows;
 }
-
 
 const FEffectTableRow& UMGameInstance::GetEffectTableRow(const UObject* WorldContextObject, int32 InIndex)
 {
@@ -186,6 +182,16 @@ const FActionTableRow& UMGameInstance::GetActionTableRow(int32 InIndex)
 	return FActionTableRow::Empty;
 }
 
+TArray<FGameItemTableRow*> UMGameInstance::FilterItemByPredicate(TFunction<bool(const FGameItemTableRow* const InGameItemTableRow)> Func)
+{
+	TArray<FGameItemTableRow*> GameItemTableRows;
+	ItemTable->GetAllRows<FGameItemTableRow>(TEXT("ItemTable"), GameItemTableRows);
+
+	GameItemTableRows.FilterByPredicate(Func);
+
+	return GameItemTableRows;
+}
+
 void UMGameInstance::IterateItemTable(TFunction<void(const FGameItemTableRow& GameItemTableRow)> Function)
 {
 	if (IsValid(ItemTable) == false)
@@ -216,7 +222,6 @@ FGameItemTableRow* UMGameInstance::GetItemTableRow(FName InRowName)
 
 	return nullptr;
 }
-
 
 const FDropTableRow& UMGameInstance::GetDropTableRow(UObject* Context, int32 InIndex)
 {

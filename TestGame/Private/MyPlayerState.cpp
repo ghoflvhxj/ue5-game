@@ -1,5 +1,7 @@
 #include "MyPlayerState.h"
 #include "Kismet/GameplayStatics.h"
+#include "Net/UnrealNetwork.h"
+
 #include "TestGame/MHud/MHud.h"
 #include "TestGame/MCharacter/MCharacter.h"
 
