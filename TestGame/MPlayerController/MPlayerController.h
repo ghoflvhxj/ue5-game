@@ -50,6 +50,7 @@ public:
 	virtual void PlayerTick(float DeltaTime) override;
 	virtual void SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams = FViewTargetTransitionParams()) override;
 	virtual void OnRep_PlayerState() override;
+	virtual void OnPossess(APawn* aPawn) override;
 protected:
 	virtual void BeginPlay() override;
 
@@ -60,6 +61,7 @@ protected:
 	virtual void EndSpectatingState() override;
 
 public:
+	void Die();
 	UFUNCTION(BlueprintCallable)
 	void StartSpectate();
 
@@ -77,12 +79,12 @@ public:
 	UFUNCTION(BlueprintPure)
 	float YawToMouseFromWorldLocation(const FVector& InLocation);
 	UFUNCTION(BlueprintPure)
-	float GetYawToMouse() { return YawToMouseFromPawn; }
+	float GetYawToMouse() { return YawToMouse; }
 	UFUNCTION(BlueprintPure)
 	FVector GetDirectionToMouse();
 	FVector DirectionToMouseFromPawn = FVector::ZeroVector;
-	float YawToMouseFromPawn = 0.f;
-	float LastSendYawToMouseFromPawn = 0.f;
+	float YawToMouse = 0.f;
+	float LastSendYaw = 0.f;
 protected:
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -114,9 +116,6 @@ protected:
 public:
 	UFUNCTION(Client, Reliable)
 	void Client_SkillEnhance(const FSkillEnhanceData& InEnhanceData);
-
-public:
-	void UpdatePickInfo();
 };
 
 UINTERFACE(BlueprintType)

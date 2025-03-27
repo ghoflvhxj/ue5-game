@@ -75,3 +75,13 @@ float UMMiscFunctionLibrary::UnwindDegree(float InDegree)
 {
 	return FMath::UnwindDegrees(InDegree);
 }
+
+bool UMMiscFunctionLibrary::IsItemType(const FGameItemTableRow& Lhs, EItemType ItemType)
+{
+	return Lhs.GameItemInfo.ItemType == ItemType;
+}
+
+int32 UMMiscFunctionLibrary::GetItemMaxLevel(const FGameItemTableRow& Lhs)
+{
+	return Lhs.GameItemData.GetMaxLevel();
+}

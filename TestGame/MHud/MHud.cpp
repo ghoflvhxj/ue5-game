@@ -299,8 +299,6 @@ void AMHudInGame::BeginPlay()
 		APawn* PlayerCharacter = Cast<APawn>(PlayerOwner->GetViewTarget());
 		ShowHudWidget(nullptr, PlayerCharacter);
 
-		//PlayerController->OnPossessedPawnChanged.AddDynamic(this, &AMHudInGame::ShowHudWidget);
-
 		// 관전 시 대상으로 HUD위젯 업데이트
 		PlayerController->GetViewTargetChangedEvent().AddWeakLambda(this, [this, PlayerController](AActor* Old, AActor* New) {
 			ShowHudWidget(nullptr, Cast<APawn>(New));
@@ -328,6 +326,7 @@ void AMHudInGame::BeginPlay()
 			}
 		});
 		
+		// 피킹
 		if (UPickComponent* PickComponent = PlayerController->GetComponentByClass<UPickComponent>())
 		{
 			PickComponent->GetPickChangedEvent().AddUObject(this, &AMHudInGame::TogglePickInfo);

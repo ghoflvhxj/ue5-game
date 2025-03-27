@@ -3,8 +3,10 @@
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "Engine/AssetManager.h"
-#include "MMiscFunctionLibrary.generated.h"
 
+#include "TestGame/MItem/ItemBase.h"
+
+#include "MMiscFunctionLibrary.generated.h"
 UCLASS()
 class TESTGAME_API UMMiscFunctionLibrary : public UBlueprintFunctionLibrary
 {
@@ -29,6 +31,14 @@ public:
 	UFUNCTION(BlueprintPure)
 	static float UnwindDegree(float InDegree);
 
+/* 아이템 관련 */
+	UFUNCTION(BlueprintPure)
+	static bool IsItemType(const FGameItemTableRow& Lhs, EItemType ItemType);
+	
+	UFUNCTION(BlueprintPure)
+	static int32 GetItemMaxLevel(const FGameItemTableRow& Lhs);
+
+/* 애셋 관련 */
 	static void LoadAssetFrom(const UStruct* InStruct, const void* InSource)
 	{
 		if (InStruct == nullptr)
@@ -44,19 +54,24 @@ public:
 		FStreamableManager& StreamableManager = UAssetManager::GetStreamableManager();
 		for (TFieldIterator<FProperty> Iter(InStruct); Iter; ++Iter)
 		{
-			if (const FStructProperty* StructProperty = CastField<FStructProperty>(*Iter))
+			const FStructProperty* StructProperty = CastField<FStructProperty>(*Iter);
+			if (StructProperty == nullptr)
 			{
-				if (StructProperty->Struct == TBaseStructure<FSoftObjectPath>::Get())
-				{
-					if (const FSoftObjectPath* ObjectPath = StructProperty->ContainerPtrToValuePtr<FSoftObjectPath>(InSource))
-					{
-						if (ObjectPath->IsValid())
-						{
-							StreamableManager.RequestAsyncLoad(*ObjectPath, []() {});
-						}
-					}
-				}
+				continue;
 			}
+
+			if (StructProperty->Struct != TBaseStructure<FSoftObjectPath>::Get())
+			{
+				continue;
+			}
+
+			const FSoftObjectPath* ObjectPath = StructProperty->ContainerPtrToValuePtr<FSoftObjectPath>(InSource);
+			if (ObjectPath->IsValid() == false)
+			{
+				continue;
+			}
+
+			StreamableManager.RequestAsyncLoad(*ObjectPath, []() {});
 		}
 	}
 };

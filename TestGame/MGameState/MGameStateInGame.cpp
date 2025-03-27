@@ -404,7 +404,7 @@ void URoundComponent::SetRoundWave(const FRound& InRound)
 void URoundComponent::TryNextRound(float Delay)
 {
 	UWorld* World = GetWorld();
-	UE_LOG(LogTemp, Warning, TEXT("HandleMatchHasStarted World validation: %d"), (int)IsValid(World));
+	UE_LOG(LogTemp, Warning, TEXT("HandleMatchHasStarted World validation:  %d"), (int)IsValid(World));
 	if (IsValid(World) == false)
 	{
 		return;
@@ -508,8 +508,8 @@ void URoundComponent::Multicast_RoundWave_Implementation(const FRound& InRound)
 	if (IsNetSimulating())
 	{
 		RoundWaveData = InRound;
-
-		GetWorld()->GetTimerManager().SetTimer(NextWaveTimerHandle, FTimerDelegate::CreateWeakLambda(this, []() {}), RoundWaveData.NextWaveTime - UGameplayStatics::GetGameState(this)->GetServerWorldTimeSeconds(), false);
+		float Time = RoundWaveData.NextWaveTime - UGameplayStatics::GetGameState(this)->GetServerWorldTimeSeconds();
+		GetWorld()->GetTimerManager().SetTimer(NextWaveTimerHandle, FTimerDelegate::CreateWeakLambda(this, []() {}), Time, false);
 	}
 
 	if (RoundWaveData.Wave == 1)

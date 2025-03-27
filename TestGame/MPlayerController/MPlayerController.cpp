@@ -81,6 +81,24 @@ void AMPlayerControllerInGame::EndSpectatingState()
 	OnSpectateModeChangedEvent.Broadcast(false);
 }
 
+void AMPlayerControllerInGame::Die()
+{
+	AMCharacter* PlayerCharacter = GetPawn<AMCharacter>();
+	if (IsValid(PlayerCharacter) == false)
+	{
+		return;
+	}
+
+	AMPlayerState* MyPlayerState = GetPlayerState<AMPlayerState>();
+	if (IsValid(MyPlayerState) == false)
+	{
+		return;
+	}
+
+	StartSpectatingOnly();
+	MyPlayerState->Die();
+}
+
 void AMPlayerControllerInGame::StartSpectate()
 {
 	ServerViewNextPlayer();
@@ -101,15 +119,14 @@ void AMPlayerControllerInGame::PlayerTick(float DeltaTime)
 	{
 		if (IsInViewportClient(LocalPlayer->ViewportClient))
 		{
-			YawToMouseFromPawn = YawToMouseFromWorldLocation(PlayerPawn->GetActorLocation());
-			DirectionToMouseFromPawn = UKismetMathLibrary::RotateAngleAxis(FVector::ForwardVector, YawToMouseFromPawn, FVector::UpVector);
-			SetControlRotation(FRotator(0.f, YawToMouseFromPawn, 0.f));
+			YawToMouse = YawToMouseFromWorldLocation(PlayerPawn->GetActorLocation());
+			DirectionToMouseFromPawn = UKismetMathLibrary::RotateAngleAxis(FVector::ForwardVector, YawToMouse, FVector::UpVector);
+			SetControlRotation(FRotator(0.f, YawToMouse, 0.f));
 
-			if (FMath::IsNearlyEqual(LastSendYawToMouseFromPawn, YawToMouseFromPawn, 0.1f) == false)
+			if (FMath::IsNearlyEqual(LastSendYaw, YawToMouse, 0.1f) == false)
 			{
-				Server_SetYawToMouse(YawToMouseFromPawn);
-				LastSendYawToMouseFromPawn = YawToMouseFromPawn;
-				UE_LOG(LogTemp, VeryVerbose, TEXT("Client send yaw to server."));
+				Server_SetYawToMouse(YawToMouse);
+				LastSendYaw = YawToMouse;
 			}
 		}
 	}
@@ -134,35 +151,6 @@ void AMPlayerControllerInGame::PlayerTick(float DeltaTime)
 		{
 			if (UPrimitiveComponent* Primitive = HitResult.GetComponent())
 			{
-				int32 NumMaterials = Primitive->GetNumMaterials();
-				for (int32 MaterialIndex = 0; MaterialIndex < NumMaterials; ++MaterialIndex)
-				{
-					//UMaterialInterface* Material = Primitive->GetMaterial(MaterialIndex);
-
-					//bool bSkip = false;
-					//TArray<FMaterialParameterInfo> OutParameterInfo;
-					//TArray<FGuid> OutParameterIds;
-					//Material->GetAllScalarParameterInfo(OutParameterInfo, OutParameterIds);
-					//for (const FMaterialParameterInfo& ParamInfo : OutParameterInfo)
-					//{
-					//	if (ParamInfo.Name != TEXT("Test"))
-					//	{
-					//		bSkip = true;
-					//		break;
-					//	}
-					//}
-
-					//if (bSkip)
-					//{
-					//	continue;
-					//}
-
-					//if (UMaterialInstanceDynamic* DynamicMaterial = Primitive->CreateAndSetMaterialInstanceDynamic(MaterialIndex))
-					//{
-					//	DynamicMaterial->SetScalarParameterValue(TEXT("Test"), 0.1f);
-					//}
-				}
-
 				NewMaksedPrimitives.Add(Primitive);
 			}
 
@@ -218,10 +206,20 @@ void AMPlayerControllerInGame::OnRep_PlayerState()
 	}
 }
 
+void AMPlayerControllerInGame::OnPossess(APawn* aPawn)
+{
+	Super::OnPossess(aPawn);
+
+	if (AMCharacter* PlayerCharacter = Cast<AMCharacter>(aPawn))
+	{
+		PlayerCharacter->GetOnDeadEvent().AddUObject(this, &AMPlayerControllerInGame::Die);
+	}
+}
+
 void AMPlayerControllerInGame::Server_SetYawToMouse_Implementation(float InYaw)
 {
-	YawToMouseFromPawn = InYaw;
-	SetControlRotation(FRotator(0.f, YawToMouseFromPawn, 0.f));
+	YawToMouse = InYaw;
+	SetControlRotation(FRotator(0.f, YawToMouse, 0.f));
 }
 
 float AMPlayerControllerInGame::YawToMouseFromWorldLocation(const FVector& InLocation)
@@ -242,7 +240,7 @@ float AMPlayerControllerInGame::YawToMouseFromWorldLocation(const FVector& InLoc
 
 FVector AMPlayerControllerInGame::GetDirectionToMouse()
 {
-	return IsLocalController() ? DirectionToMouseFromPawn : UKismetMathLibrary::RotateAngleAxis(FVector::ForwardVector, YawToMouseFromPawn, FVector::UpVector);
+	return IsLocalController() ? DirectionToMouseFromPawn : UKismetMathLibrary::RotateAngleAxis(FVector::ForwardVector, YawToMouse, FVector::UpVector);
 }
 
 void AMPlayerControllerInGame::SetCharacterIndex(int32 InIndex)

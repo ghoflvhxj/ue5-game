@@ -90,8 +90,6 @@ public:
 	FOnMatchEndEvent OnMatchEndEvent;
 
 protected:
-	// 복제가 덜 되어서 클라에서 EndMatch처리가 안됬음을 나타냄
-	//bool bMatchEndSuccess = false;
 	// 복제가 덜 되어서 클라에서 EndMatch처리가 안된 경우 지속적으로 EndMatch를 시도하기 위한 타이머
 	FTimerHandle EndMatchRetryTimer;
 

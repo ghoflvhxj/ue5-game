@@ -96,6 +96,7 @@ protected:
 
 	// 아이템 테이블
 public:
+	TArray<FGameItemTableRow*> FilterItemByPredicate(TFunction<bool(const FGameItemTableRow* const InGameItemTableRow)> Func);
 	void IterateItemTable(TFunction<void(const FGameItemTableRow& GameItemTableRow)> Function);
 	FGameItemTableRow* GetItemTableRow(FName InRowName);
 	FGameItemTableRow* GetItemTableRow(int32 InItemIndex);

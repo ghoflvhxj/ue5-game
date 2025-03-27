@@ -26,7 +26,7 @@ class UMInteractorComponent;
 class UMInventoryComponent;
 class AWeapon;
 
-DECLARE_EVENT_OneParam(AMCharacter, FOnDeadEvent, AActor*);
+DECLARE_EVENT(AMCharacter, FOnDeadEvent);
 DECLARE_EVENT_TwoParams(AMCharacter, FOnWeaponChangedEvent, AActor*, AActor*);
 DECLARE_EVENT_OneParam(AMCharacter, FOnItemUsedEvent, int32);
 

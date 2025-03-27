@@ -377,7 +377,7 @@ void AMCharacter::OnHealthChanged(const FOnAttributeChangeData& AttributeChangeD
 
 	if (AttributeChangeData.NewValue == 0.f && AttributeChangeData.OldValue > 0.f)
 	{
-		OnDeadEvent.Broadcast(this);
+		OnDeadEvent.Broadcast();
 		if (AMGameModeInGame* GameMode = Cast<AMGameModeInGame>(UGameplayStatics::GetGameMode(this)))
 		{
 			GameMode->OnPawnKilled(DamageInstigator, this);

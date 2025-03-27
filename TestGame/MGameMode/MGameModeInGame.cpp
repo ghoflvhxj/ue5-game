@@ -3,7 +3,10 @@
 #include "MGameModeInGame.h"
 #include "OnlineSubsystem.h"
 #include "Gameframework/PlayerState.h"
+#include "GameFramework/GameSession.h"
+
 #include "MGameInstance.h"
+#include "TestGame/MFunctionLibrary/MMiscFunctionLibrary.h"
 #include "TestGame/MGameState/MGameStateInGame.h"
 #include "TestGame/MCharacter/MCharacter.h"
 #include "TestGame/MChest/Chest.h"
@@ -20,80 +23,69 @@ void AMGameModeInGame::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// 아이템 풀에 등록
 	if (UMGameInstance* GameInstance = GetGameInstance<UMGameInstance>())
 	{
-		GameInstance->IterateItemTable([this](const FGameItemTableRow& GameItemTableRow) {
-			if (GameItemTableRow.GameItemInfo.ItemType != EItemType::Item)
-			{
-				return;
-			}
+		const TArray<FGameItemTableRow*> ItemTableRows = GameInstance->FilterItemByPredicate([this](const FGameItemTableRow* const InGameItemTableRow) {
+			return UMMiscFunctionLibrary::IsItemType(*InGameItemTableRow, EItemType::Item);
+		});
 
-			int32 ItemMaxLevel = GameItemTableRow.GameItemData.GetMaxLevel();
+		ItemPool.Reserve(ItemTableRows.Num());
+		for (const FGameItemTableRow* const ItemTableRow : ItemTableRows)
+		{
+			int32 ItemMaxLevel = UMMiscFunctionLibrary::GetItemMaxLevel(*ItemTableRow);
 			for (int32 i = 0; i < ItemMaxLevel; ++i)
 			{
-				ItemPool.Add(GameItemTableRow.Index);
+				ItemPool.Add(ItemTableRow->Index);
 			}
-		});
+		}
+		ItemPool.Shrink();
 	}
 
+	// 풀 셔플
 	int32 NumItems = ItemPool.Num();
 	for (int i = 0; i < NumItems; ++i)
 	{
 		Swap(ItemPool[i], ItemPool[FMath::Rand() % NumItems]);
 	}
-	
-	UE_LOG(LogTemp, Warning, TEXT("GAAMEMODE BeginPlay"));
 }
 
 void AMGameModeInGame::PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
 {
 	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
 
+	bool bReconnect = false;
 	if (HasMatchStarted())
 	{
-		ErrorMessage += TEXT("Game already started, Can't join.");
+		TObjectPtr<APlayerState>* DisconnectedPlayer = InactivePlayerArray.FindByPredicate([UniqueId](APlayerState* PlayerState) {
+			return PlayerState->GetUniqueId() == UniqueId;
+		});
+
+		bReconnect = DisconnectedPlayer != nullptr;
+
+		if (bReconnect == false)
+		{
+			ErrorMessage += TEXT("The game has already started.");
+		}
+	}
+
+	if (GameSession)
+	{
+		if (NumPlayers > GameSession->MaxPlayers)
+		{
+			ErrorMessage += TEXT("The server is full.");
+		}
+	}
+
+	if (HasMatchEnded())
+	{
+		ErrorMessage += TEXT("The game has already ended.");
 	}
 }
 
 void AMGameModeInGame::SetPlayerDefaults(APawn* PlayerPawn)
 {
 	Super::SetPlayerDefaults(PlayerPawn);
-
-	AMCharacter* PlayerCharacter = Cast<AMCharacter>(PlayerPawn);
-	if (ensure(PlayerCharacter))
-	{
-		PlayerCharacter->GetOnDeadEvent().AddWeakLambda(this, [this, PlayerCharacter](AActor* InActor) {
-			AMGameStateInGame* GameStateInGame = GetGameState<AMGameStateInGame>();
-			if (IsValid(GameStateInGame) == false)
-			{
-				return;
-			}
-
-			AMPlayerState* PlayerState = PlayerCharacter->GetPlayerState<AMPlayerState>();
-			if (IsValid(PlayerState) == false)
-			{
-				return;
-			}
-
-			PlayerState->Die();
-
-			if (APlayerController* PlayerController = PlayerState->GetPlayerController())
-			{
-				if (PlayerCanRestart(PlayerController))
-				{
-					//RestartPlayer(PlayerController); -> Respawn 함수를 만들어서 호출
-				}
-				else
-				{
-					if (IsValid(PlayerController))
-					{
-						PlayerController->StartSpectatingOnly();
-					}
-				}
-			}
-
-		});
-	}
 }
 
 void AMGameModeInGame::RestartPlayer(AController* NewPlayer)
@@ -103,6 +95,8 @@ void AMGameModeInGame::RestartPlayer(AController* NewPlayer)
 
 void AMGameModeInGame::HandleMatchHasStarted()
 {
+	Super::HandleMatchHasStarted();
+
 	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 	{
 		RestartPlayer(It->Get());
@@ -145,15 +139,18 @@ bool AMGameModeInGame::ReadyToEndMatch_Implementation()
 {
 	if (AMGameStateInGame* GameStateInGame = GetGameState<AMGameStateInGame>())
 	{
-		bool bAllRoundFinished = false;
 		if (URoundComponent* RoundComponent = GameStateInGame->GetComponentByClass<URoundComponent>())
 		{
-			bAllRoundFinished = RoundComponent->IsFinished();
+			if (RoundComponent->IsFinished())
+			{
+				return true;
+			}
 		}
 
-		bool bAllPlayerDead = GameStateInGame->IsAllPlayerDead();
-
-		return bAllRoundFinished || bAllPlayerDead;
+		if (GameStateInGame->IsAllPlayerDead())
+		{
+			return true;
+		}
 	}
 
 	return false;
@@ -168,7 +165,7 @@ UClass* AMGameModeInGame::GetDefaultPawnClassForController_Implementation(AContr
 		const FPlayerCharacterTableRow& PlayerCharTableRow = UMGameInstance::GetPlayerCharacterTableRow(GetWorld(), PlayerController->GetCharacterIndex());
 		if (IsValid(PlayerCharTableRow.PlayerCharacterClass) == false)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("Using Invalid PlayerCharacterIndex[%d]."), PlayerController->GetCharacterIndex());
+			UE_LOG(LogTemp, Warning, TEXT("Invalid player character index [%d]."), PlayerController->GetCharacterIndex());
 		}
 
 		return PlayerCharTableRow.PlayerCharacterClass;
