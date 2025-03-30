@@ -313,12 +313,17 @@ UGameplayAbility* AMCharacter::GetAbility(FGameplayTag InTag)
 	return nullptr;
 }
 
-void AMCharacter::MakeEffectCue(const FGameplayTag& InTag)
+void AMCharacter::ExecuteLocalCueByTag(const FGameplayTag& InTag)
 {
-	MakeEffectCue(GetEffectIndex(InTag));
+	ExecuteLocalCueInternal(GetEffectIndex(InTag), GetActorLocation(), FGameplayTag::EmptyTag);
 }
 
-void AMCharacter::MakeEffectCue(int32 InEffectIndex)
+void AMCharacter::ExecuteLocalCue(int32 InEffectIndex)
+{
+	ExecuteLocalCueInternal(InEffectIndex, GetActorLocation(), FGameplayTag::EmptyTag);
+}
+
+void AMCharacter::ExecuteLocalCueInternal(int32 InEffectIndex, const FVector& InLocation, FGameplayTag InTag)
 {
 	if (InEffectIndex == INDEX_NONE)
 	{
@@ -329,9 +334,10 @@ void AMCharacter::MakeEffectCue(int32 InEffectIndex)
 	CueParams.EffectContext = AbilitySystemComponent->MakeEffectContext(InEffectIndex);
 	CueParams.Instigator = this;
 	CueParams.EffectCauser = this;
-	CueParams.Location = GetActorLocation();
+	CueParams.Location = InLocation;
 
-	AbilitySystemComponent->ExecuteGameplayCueLocal(FGameplayTag::RequestGameplayTag("GameplayCue.Effect"), CueParams);
+	FGameplayTag Tag = InTag == FGameplayTag::EmptyTag ? FGameplayTag::RequestGameplayTag("GameplayCue.Effect") : InTag;
+	AbilitySystemComponent->ExecuteGameplayCueLocal(Tag, CueParams);
 }
 
 void AMCharacter::ChargeInputPressed()
@@ -383,7 +389,7 @@ void AMCharacter::OnHealthChanged(const FOnAttributeChangeData& AttributeChangeD
 			GameMode->OnPawnKilled(DamageInstigator, this);
 		}
 
-		MakeEffectCue(FGameplayTag::RequestGameplayTag("Character.Dead"));
+		ExecuteLocalCueByTag(FGameplayTag::RequestGameplayTag("Character.Dead"));
 
 		if (AController* MyController = GetController())
 		{
@@ -472,7 +478,7 @@ void AMCharacter::OnDamaged(AActor* DamageInstigator)
 
 		//if (IsDead() == false)
 		//{
-			MakeEffectCue(DamagedTag);
+			ExecuteLocalCueByTag(DamagedTag);
 		//}
 	}
 }

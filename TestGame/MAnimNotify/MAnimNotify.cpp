@@ -364,3 +364,27 @@ void UMAnimNotifyState_ActivateAbilityByTag::NotifyTick(USkeletalMeshComponent* 
 		//}
 	}
 }
+
+void UAnimNotify_FootStep::Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference)
+{
+	AMCharacter* Character = Cast<AMCharacter>(MeshComp->GetOwner());
+	if (IsValid(Character) == false)
+	{
+		return;
+	}
+
+	FVector Location = MeshComp->DoesSocketExist(SocketName) ? MeshComp->GetSocketLocation(SocketName) : Character->GetActorLocation();
+	FVector TraceStartLocation = Location + LocationOffset;
+	FHitResult HitResult;
+	TArray<TEnumAsByte<EObjectTypeQuery>> TraceObjects;
+	TraceObjects.Add(UEngineTypes::ConvertToObjectType(ECC_WorldStatic));
+	TArray<AActor*> IgnoreActors;
+
+	if (UKismetSystemLibrary::LineTraceSingleForObjects(Character, TraceStartLocation, TraceStartLocation - FVector(0.f, 0.f, 1000.f), TraceObjects, false, IgnoreActors, EDrawDebugTrace::None, HitResult, true))
+	{
+		if (HitResult.PhysMaterial.IsValid())
+		{
+			Character->FootStep(HitResult.PhysMaterial->SurfaceType, HitResult.Location);
+		}
+	}
+}

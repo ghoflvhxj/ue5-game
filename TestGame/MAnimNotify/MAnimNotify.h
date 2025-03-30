@@ -135,3 +135,18 @@ protected:
 	TWeakObjectPtr<AActor> Owner = nullptr;
 	//TWeakObjectPtr<UMDamageComponent> DamageComponent = nullptr;
 };
+
+UCLASS()
+class TESTGAME_API UAnimNotify_FootStep : public UAnimNotify
+{
+	GENERATED_BODY()
+
+public:
+	virtual void Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference) override;
+protected:
+	UPROPERTY(EditAnywhere)
+	FName SocketName = NAME_None;
+	UPROPERTY(EditAnywhere)
+	FVector LocationOffset = FVector::ZeroVector;
+
+};

@@ -187,9 +187,7 @@ TArray<FGameItemTableRow*> UMGameInstance::FilterItemByPredicate(TFunction<bool(
 	TArray<FGameItemTableRow*> GameItemTableRows;
 	ItemTable->GetAllRows<FGameItemTableRow>(TEXT("ItemTable"), GameItemTableRows);
 
-	GameItemTableRows.FilterByPredicate(Func);
-
-	return GameItemTableRows;
+	return GameItemTableRows.FilterByPredicate(Func);
 }
 
 void UMGameInstance::IterateItemTable(TFunction<void(const FGameItemTableRow& GameItemTableRow)> Function)

@@ -120,8 +120,12 @@ protected:
 	UMAttributeSet* AttributeSet = nullptr;
 
 public:
-	void MakeEffectCue(const FGameplayTag& InTag);
-	void MakeEffectCue(int32 InEffectIndex);
+	UFUNCTION(BlueprintCallable)
+	void ExecuteLocalCueByTag(const FGameplayTag& InTag);
+	UFUNCTION(BlueprintCallable)
+	void ExecuteLocalCue(int32 InEffectIndex);
+	UFUNCTION(BlueprintCallable)
+	void ExecuteLocalCueInternal(int32 InEffectIndex, const FVector& InLocation, FGameplayTag InTag);
 	virtual int32 GetEffectIndex(const FGameplayTag& InTag) const { return INDEX_NONE; }
 
 /* 인풋 관련 */
@@ -318,5 +322,5 @@ protected:
 
 public:
 	UFUNCTION(BlueprintImplementableEvent)
-	void FootStep(EPhysicalSurface InPhysicalSurface);
+	void FootStep(EPhysicalSurface InPhysicalSurface, const FVector& InLocation);
 };

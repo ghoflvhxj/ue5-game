@@ -74,12 +74,12 @@ void UMAnimInstance::AnimNotify_FootStep()
 	TArray<TEnumAsByte<EObjectTypeQuery>> TraceObjects;
 	TraceObjects.Add(UEngineTypes::ConvertToObjectType(ECC_WorldStatic));
 	TArray<AActor*> IgnoreActors;
-	
-	if (UKismetSystemLibrary::LineTraceSingleForObjects(Character, Character->GetActorLocation(), Character->GetActorLocation() - FVector(0.f, 0.f, 1000.f), TraceObjects, false, IgnoreActors, EDrawDebugTrace::None, HitResult, true))
-	{
-		if (HitResult.PhysMaterial.IsValid())
-		{
-			Character->FootStep(HitResult.PhysMaterial->SurfaceType);
-		}
-	}
+
+	//if (UKismetSystemLibrary::LineTraceSingleForObjects(Character, Character->GetActorLocation(), Character->GetActorLocation() - FVector(0.f, 0.f, 1000.f), TraceObjects, false, IgnoreActors, EDrawDebugTrace::None, HitResult, true))
+	//{
+	//	if (HitResult.PhysMaterial.IsValid())
+	//	{
+	//		Character->FootStep(HitResult.PhysMaterial->SurfaceType);
+	//	}
+	//}
 }
