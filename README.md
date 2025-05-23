@@ -1,3 +1,9 @@
-GameplayAbilitySystem를 이용해 게임을 만들어보는 프로젝트입니다.
+Unreal Engine5와 GameplayAbilitySystem를 이용해 토이 게임을 만드는 프로젝트입니다.
+
+주요 특징들은 다음과 같습니다.
+- GAS를 활용한 스킬, 버프/디버프
+- GAS와 UI 연동
+- 멀티플레이
+
 작업 영상들이 업로드 되는 채널입니다.
 https://www.youtube.com/@asldkhasdlkn7994/videos 
